@@ -16,6 +16,10 @@ dist-ssr
 !.env.example
 server/.env
 
+# Large raw generation sources are preserved on the local backup branch but
+# are not required by the website or production deployment.
+public/assets/tiles/isometric/alien-expansion/collection-v2/source/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -1,0 +1,45 @@
+{
+  "source": "alien-inventory-sheet.png",
+  "frameWidth": 64,
+  "frameHeight": 64,
+  "columns": 3,
+  "rows": 2,
+  "items": [
+    {
+      "key": "rock_sample",
+      "label": "Rock Sample",
+      "frame": 0,
+      "file": "rock_sample.png"
+    },
+    {
+      "key": "water_sample",
+      "label": "Water Sample",
+      "frame": 1,
+      "file": "water_sample.png"
+    },
+    {
+      "key": "plant_sample",
+      "label": "Plant Sample",
+      "frame": 2,
+      "file": "plant_sample.png"
+    },
+    {
+      "key": "mission_badge",
+      "label": "Mission Badge",
+      "frame": 3,
+      "file": "mission_badge.png"
+    },
+    {
+      "key": "herbivore_specimen",
+      "label": "Animal Specimen",
+      "frame": 4,
+      "file": "herbivore_specimen.png"
+    },
+    {
+      "key": "habitat_component",
+      "label": "Habitat Component",
+      "frame": 5,
+      "file": "habitat_component.png"
+    }
+  ]
+}
