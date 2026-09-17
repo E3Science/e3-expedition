@@ -1,22 +1,12 @@
 {
-    "name": "template-vite",
-    "description": "A Phaser 3 template using Vite.",
+    "name": "e3-game",
+    "description": "Epsilon Eridani Expedition multiplayer game client.",
     "version": "1.4.0",
     "type": "module",
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/phaserjs/template-vite.git"
-    },
-    "author": "Phaser Studio <support@phaser.io> (https://phaser.io/)",
     "license": "MIT",
-    "licenseUrl": "http://www.opensource.org/licenses/mit-license.php",
-    "bugs": {
-        "url": "https://github.com/phaserjs/template-vite/issues"
-    },
-    "homepage": "https://github.com/phaserjs/template-vite#readme",
     "scripts": {
-        "dev": "node log.js dev & vite --config vite/config.dev.mjs",
-        "build": "node log.js build & vite build --config vite/config.prod.mjs",
+        "dev": "vite --config vite/config.dev.mjs",
+        "build": "vite build --config vite/config.prod.mjs",
         "dev-nolog": "vite --config vite/config.dev.mjs",
         "build-nolog": "vite build --config vite/config.prod.mjs"
     },
@@ -25,6 +15,10 @@
         "vite": "^6.3.1"
     },
     "dependencies": {
-        "phaser": "^3.90.0"
+        "@colyseus/schema": "^4.0.18",
+        "@colyseus/sdk": "^0.17.35",
+        "@supabase/supabase-js": "^2.99.1",
+        "phaser": "^3.90.0",
+        "three": "^0.185.1"
     }
 }

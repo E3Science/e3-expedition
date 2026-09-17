@@ -1,153 +1,74 @@
-# Phaser Vite Template
+# Epsilon Eridani Expedition (E3)
 
-This is a Phaser 3 project template that uses Vite for bundling. It supports hot-reloading for quick development workflow and includes scripts to generate production-ready builds.
+Multiplayer Phaser game client with a Three.js world overlay, an isometric map
+renderer, Supabase authentication, and a Colyseus server.
 
-**[This Template is also available as a TypeScript version.](https://github.com/phaserjs/template-vite-ts)**
+## Run the game
 
-### Versions
-
-This template has been updated for:
-
-- [Phaser 3.90.0](https://github.com/phaserjs/phaser)
-- [Vite 6.3.1](https://github.com/vitejs/vite)
-
-![screenshot](screenshot.png)
-
-## Requirements
-
-[Node.js](https://nodejs.org) is required to install dependencies and run scripts via `npm`.
-
-## Available Commands
-
-| Command | Description |
-|---------|-------------|
-| `npm install` | Install project dependencies |
-| `npm run dev` | Launch a development web server |
-| `npm run build` | Create a production build in the `dist` folder |
-| `npm run dev-nolog` | Launch a development web server without sending anonymous data (see "About log.js" below) |
-| `npm run build-nolog` | Create a production build in the `dist` folder without sending anonymous data (see "About log.js" below) |
-
-
-## Writing Code
-
-After cloning the repo, run `npm install` from your project directory. Then, you can start the local development server by running `npm run dev`.
-
-The local development server runs on `http://localhost:8080` by default. Please see the Vite documentation if you wish to change this, or add SSL support.
-
-Once the server is running you can edit any of the files in the `src` folder. Vite will automatically recompile your code and then reload the browser.
-
-## Template Project Structure
-
-We have provided a default project structure to get you started. This is as follows:
-
-| Path                         | Description                                                |
-|------------------------------|------------------------------------------------------------|
-| `index.html`                 | A basic HTML page to contain the game.                     |
-| `public/assets`              | Game sprites, audio, etc. Served directly at runtime.      |
-| `public/style.css`           | Global layout styles.                                      |
-| `src/main.js`                | Application bootstrap.                                     |
-| `src/game`                   | Folder containing the game code.                           |
-| `src/game/main.js`           | Game entry point: configures and starts the game.          |
-| `src/game/scenes`            | Folder with all Phaser game scenes.                        | 
-
-## Handling Assets
-
-Vite supports loading assets via JavaScript module `import` statements.
-
-This template provides support for both embedding assets and also loading them from a static folder. To embed an asset, you can import it at the top of the JavaScript file you are using it in:
-
-```js
-import logoImg from './assets/logo.png'
+```powershell
+npm install
+npm run dev
 ```
 
-To load static files such as audio files, videos, etc place them into the `public/assets` folder. Then you can use this path in the Loader calls within Phaser:
+The Vite client runs at `http://localhost:8080` by default.
 
-```js
-preload ()
-{
-    //  This is an example of an imported bundled image.
-    //  Remember to import it at the top of this file
-    this.load.image('logo', logoImg);
+Run the multiplayer server in a second terminal:
 
-    //  This is an example of loading a static image
-    //  from the public/assets folder:
-    this.load.image('background', 'assets/bg.png');
-}
+```powershell
+cd server
+npm install
+npm run dev
 ```
 
-When you issue the `npm run build` command, all static assets are automatically copied to the `dist/assets` folder.
+Create a production client build with `npm run build`. The generated `dist/`
+folder is build output; make source changes in `src/` and `public/` instead.
 
-## Deploying to Production
+## Where to edit the game
 
-After you run the `npm run build` command, your code will be built into a single bundle and saved to the `dist` folder, along with any other assets your project imported, or stored in the public assets folder.
+| Location | Purpose |
+| --- | --- |
+| `src/main.js` | Phaser gameplay, map/editor logic, input, and UI wiring |
+| `src/three/` | Three.js renderers and GLB loading |
+| `src/three/models/` | Editable procedural astronaut, mob, and resource-node models |
+| `src/ui/` | Standalone UI sequences and panels |
+| `public/assets/` | Runtime art, tiles, GLB models, and editable art sources |
+| `server/src/` | Colyseus rooms, multiplayer state, and server gameplay |
+| `tools/` | Tilesheet import and map-migration utilities |
+| `scripts/` | Asset-generation scripts |
 
-In order to deploy your game, you will need to upload *all* of the contents of the `dist` folder to a public facing web server.
+## Canonical art and model sources
 
-## Customizing the Template
+See [`public/assets/README.md`](public/assets/README.md) for the complete asset
+index. The important sources are:
 
-### Vite
+- Active isometric world sheet: `public/assets/tiles/isometric/alien-expansion/collection-v2/alien-collection-v2-master.png`
+- Untouched imported sheet: `public/assets/tiles/isometric/outside_source_original.png`
+- Individual named tiles: `public/assets/tiles/isometric/individual/`
+- Layered 2D character source: `public/assets/player/layers/new_character_sheet.paint`
+- 2D object/mob source: `public/assets/objects/portal_mob_sheet.paint`
+- Portal GLB: `public/assets/models/portals/expedition-portal.glb`
+- 3D astronaut source: `src/three/models/astronautModel.js`
+- 3D mob source: `src/three/models/mobModels.js`
+- 3D resource-node source: `src/three/models/resourceModels.js`
 
-If you want to customize your build, such as adding plugin (i.e. for loading CSS or fonts), you can modify the `vite/config.*.mjs` file for cross-project changes, or you can modify and/or create new configuration files and target them in specific npm tasks inside of `package.json`. Please see the [Vite documentation](https://vitejs.dev/) for more information.
+The astronaut, mobs, and resource nodes are intentionally procedural Three.js
+models, not hidden binary model files. Their geometry, proportions, materials,
+and colors are directly editable in the model modules above. The portal is the
+current GLB-based model and can be regenerated with
+`node scripts/generate-portal-glb.mjs`.
 
-## About log.js
+## Isometric asset workflow
 
-If you inspect our node scripts you will see there is a file called `log.js`. This file makes a single silent API call to a domain called `gryzor.co`. This domain is owned by Phaser Studio Inc. The domain name is a homage to one of our favorite retro games.
+The active world and Admin Tile Editor use a 4-column by 48-row, 64x64-cell
+sheet whose visible ground diamonds are approximately 64x32 pixels. Rebuild
+and validate it with:
 
-We send the following 3 pieces of data to this API: The name of the template being used (vue, react, etc). If the build was 'dev' or 'prod' and finally the version of Phaser being used.
-
-At no point is any personal data collected or sent. We don't know about your project files, device, browser or anything else. Feel free to inspect the `log.js` file to confirm this.
-
-Why do we do this? Because being open source means we have no visible metrics about which of our templates are being used. We work hard to maintain a large and diverse set of templates for Phaser developers and this is our small anonymous way to determine if that work is actually paying off, or not. In short, it helps us ensure we're building the tools for you.
-
-However, if you don't want to send any data, you can use these commands instead:
-
-Dev:
-
-```bash
-npm run dev-nolog
+```powershell
+python tools/build_alien_tile_collection_v2.py
+python tools/validate_alien_tile_collection_v2.py
 ```
 
-Build:
-
-```bash
-npm run build-nolog
-```
-
-Or, to disable the log entirely, simply delete the file `log.js` and remove the call to it in the `scripts` section of `package.json`:
-
-Before:
-
-```json
-"scripts": {
-    "dev": "node log.js dev & dev-template-script",
-    "build": "node log.js build & build-template-script"
-},
-```
-
-After:
-
-```json
-"scripts": {
-    "dev": "dev-template-script",
-    "build": "build-template-script"
-},
-```
-
-Either of these will stop `log.js` from running. If you do decide to do this, please could you at least join our Discord and tell us which template you're using! Or send us a quick email. Either will be super-helpful, thank you.
-
-## Join the Phaser Community!
-
-We love to see what developers like you create with Phaser! It really motivates us to keep improving. So please join our community and show-off your work 😄
-
-**Visit:** The [Phaser website](https://phaser.io) and follow on [Phaser Twitter](https://twitter.com/phaser_)<br />
-**Play:** Some of the amazing games [#madewithphaser](https://twitter.com/search?q=%23madewithphaser&src=typed_query&f=live)<br />
-**Learn:** [API Docs](https://newdocs.phaser.io), [Support Forum](https://phaser.discourse.group/) and [StackOverflow](https://stackoverflow.com/questions/tagged/phaser-framework)<br />
-**Discord:** Join us on [Discord](https://discord.gg/phaser)<br />
-**Code:** 2000+ [Examples](https://labs.phaser.io)<br />
-**Read:** The [Phaser World](https://phaser.io/community/newsletter) Newsletter<br />
-
-Created by [Phaser Studio](mailto:support@phaser.io). Powered by coffee, anime, pixels and love.
-
-The Phaser logo and characters are &copy; 2011 - 2025 Phaser Studio Inc.
-
-All rights reserved.
+See
+[`public/assets/tiles/isometric/PROCEDURAL_MAP_GUIDE.md`](public/assets/tiles/isometric/PROCEDURAL_MAP_GUIDE.md)
+for layer rules, directional transitions, tile groups, and procedural-map
+generation.
