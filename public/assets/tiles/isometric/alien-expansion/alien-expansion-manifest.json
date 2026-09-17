@@ -1,0 +1,725 @@
+{
+  "id": "alien_isometric_expansion_v1",
+  "source": "alien-expansion-master.png",
+  "sourceSize": {
+    "width": 256,
+    "height": 512
+  },
+  "grid": {
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "columns": 4,
+    "rows": 8
+  },
+  "projection": {
+    "type": "isometric",
+    "diamondWidth": 64,
+    "diamondHeight": 32
+  },
+  "frames": [
+    {
+      "frame": 0,
+      "sheet": "terrain",
+      "sheetFrame": 0,
+      "row": 0,
+      "column": 0,
+      "key": "fungal_turf_cyan",
+      "label": "Cyan fungal turf",
+      "category": "ground",
+      "file": "individual/fungal_turf_cyan.png",
+      "solidSuggested": false,
+      "overheadSuggested": false,
+      "interactionSuggested": null,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 1,
+      "sheet": "terrain",
+      "sheetFrame": 1,
+      "row": 0,
+      "column": 1,
+      "key": "moss_blue_violet",
+      "label": "Blue-violet moss",
+      "category": "ground",
+      "file": "individual/moss_blue_violet.png",
+      "solidSuggested": false,
+      "overheadSuggested": false,
+      "interactionSuggested": null,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 2,
+      "sheet": "terrain",
+      "sheetFrame": 2,
+      "row": 0,
+      "column": 2,
+      "key": "mineral_soil_coral",
+      "label": "Coral mineral soil",
+      "category": "ground",
+      "file": "individual/mineral_soil_coral.png",
+      "solidSuggested": false,
+      "overheadSuggested": false,
+      "interactionSuggested": null,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 3,
+      "sheet": "terrain",
+      "sheetFrame": 3,
+      "row": 0,
+      "column": 3,
+      "key": "volcanic_soil_indigo",
+      "label": "Indigo volcanic soil",
+      "category": "ground",
+      "file": "individual/volcanic_soil_indigo.png",
+      "solidSuggested": false,
+      "overheadSuggested": false,
+      "interactionSuggested": null,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 4,
+      "sheet": "terrain",
+      "sheetFrame": 4,
+      "row": 1,
+      "column": 0,
+      "key": "turf_soil_transition_w",
+      "label": "Turf/mineral transition W",
+      "category": "transition",
+      "file": "individual/turf_soil_transition_w.png",
+      "solidSuggested": false,
+      "overheadSuggested": false,
+      "interactionSuggested": null,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 5,
+      "sheet": "terrain",
+      "sheetFrame": 5,
+      "row": 1,
+      "column": 1,
+      "key": "turf_soil_transition_curve_w",
+      "label": "Turf/mineral curved transition W",
+      "category": "transition",
+      "file": "individual/turf_soil_transition_curve_w.png",
+      "solidSuggested": false,
+      "overheadSuggested": false,
+      "interactionSuggested": null,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 6,
+      "sheet": "terrain",
+      "sheetFrame": 6,
+      "row": 1,
+      "column": 2,
+      "key": "turf_soil_transition_e",
+      "label": "Turf/mineral transition E",
+      "category": "transition",
+      "file": "individual/turf_soil_transition_e.png",
+      "solidSuggested": false,
+      "overheadSuggested": false,
+      "interactionSuggested": null,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 7,
+      "sheet": "terrain",
+      "sheetFrame": 7,
+      "row": 1,
+      "column": 3,
+      "key": "turf_soil_transition_curve_e",
+      "label": "Turf/mineral curved transition E",
+      "category": "transition",
+      "file": "individual/turf_soil_transition_curve_e.png",
+      "solidSuggested": false,
+      "overheadSuggested": false,
+      "interactionSuggested": null,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 8,
+      "sheet": "terrain",
+      "sheetFrame": 8,
+      "row": 2,
+      "column": 0,
+      "key": "luminous_water",
+      "label": "Luminous alien water",
+      "category": "water",
+      "file": "individual/luminous_water.png",
+      "solidSuggested": false,
+      "overheadSuggested": false,
+      "interactionSuggested": "fish",
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 9,
+      "sheet": "terrain",
+      "sheetFrame": 9,
+      "row": 2,
+      "column": 1,
+      "key": "luminous_shore_nw",
+      "label": "Luminous shoreline NW",
+      "category": "water",
+      "file": "individual/luminous_shore_nw.png",
+      "solidSuggested": false,
+      "overheadSuggested": false,
+      "interactionSuggested": "fish",
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 10,
+      "sheet": "terrain",
+      "sheetFrame": 10,
+      "row": 2,
+      "column": 2,
+      "key": "luminous_shore_corner",
+      "label": "Luminous shoreline corner",
+      "category": "water",
+      "file": "individual/luminous_shore_corner.png",
+      "solidSuggested": false,
+      "overheadSuggested": false,
+      "interactionSuggested": "fish",
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 11,
+      "sheet": "terrain",
+      "sheetFrame": 11,
+      "row": 2,
+      "column": 3,
+      "key": "luminous_mineral_island",
+      "label": "Luminous mineral island",
+      "category": "water",
+      "file": "individual/luminous_mineral_island.png",
+      "solidSuggested": false,
+      "overheadSuggested": false,
+      "interactionSuggested": "fish",
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 12,
+      "sheet": "terrain",
+      "sheetFrame": 12,
+      "row": 3,
+      "column": 0,
+      "key": "crystal_cliff_violet",
+      "label": "Violet crystal cliff",
+      "category": "elevation",
+      "file": "individual/crystal_cliff_violet.png",
+      "solidSuggested": true,
+      "overheadSuggested": false,
+      "interactionSuggested": "mine",
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 13,
+      "sheet": "terrain",
+      "sheetFrame": 13,
+      "row": 3,
+      "column": 1,
+      "key": "crystal_cliff_cyan",
+      "label": "Cyan-veined cliff",
+      "category": "elevation",
+      "file": "individual/crystal_cliff_cyan.png",
+      "solidSuggested": true,
+      "overheadSuggested": false,
+      "interactionSuggested": "mine",
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 14,
+      "sheet": "terrain",
+      "sheetFrame": 14,
+      "row": 3,
+      "column": 2,
+      "key": "glowing_plateau",
+      "label": "Glowing plateau",
+      "category": "elevation",
+      "file": "individual/glowing_plateau.png",
+      "solidSuggested": true,
+      "overheadSuggested": false,
+      "interactionSuggested": null,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 15,
+      "sheet": "terrain",
+      "sheetFrame": 15,
+      "row": 3,
+      "column": 3,
+      "key": "alien_hill_slope",
+      "label": "Alien hill slope",
+      "category": "elevation",
+      "file": "individual/alien_hill_slope.png",
+      "solidSuggested": true,
+      "overheadSuggested": false,
+      "interactionSuggested": null,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 16,
+      "sheet": "props",
+      "sheetFrame": 0,
+      "row": 0,
+      "column": 0,
+      "key": "mushroom_tree_cyan",
+      "label": "Cyan mushroom tree",
+      "category": "tree",
+      "file": "individual/mushroom_tree_cyan.png",
+      "solidSuggested": true,
+      "overheadSuggested": true,
+      "interactionSuggested": "communicate",
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 17,
+      "sheet": "props",
+      "sheetFrame": 1,
+      "row": 0,
+      "column": 1,
+      "key": "fan_tree_cobalt",
+      "label": "Cobalt fan-canopy tree",
+      "category": "tree",
+      "file": "individual/fan_tree_cobalt.png",
+      "solidSuggested": true,
+      "overheadSuggested": true,
+      "interactionSuggested": "communicate",
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 18,
+      "sheet": "props",
+      "sheetFrame": 2,
+      "row": 0,
+      "column": 2,
+      "key": "coral_tree_amber",
+      "label": "Amber coral tree",
+      "category": "tree",
+      "file": "individual/coral_tree_amber.png",
+      "solidSuggested": true,
+      "overheadSuggested": true,
+      "interactionSuggested": "harvest",
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 19,
+      "sheet": "props",
+      "sheetFrame": 3,
+      "row": 0,
+      "column": 3,
+      "key": "crystal_bark_tree_violet",
+      "label": "Violet crystal-bark tree",
+      "category": "tree",
+      "file": "individual/crystal_bark_tree_violet.png",
+      "solidSuggested": true,
+      "overheadSuggested": true,
+      "interactionSuggested": "mine",
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 20,
+      "sheet": "props",
+      "sheetFrame": 4,
+      "row": 1,
+      "column": 0,
+      "key": "spiral_fern_turquoise",
+      "label": "Turquoise spiral fern",
+      "category": "vegetation",
+      "file": "individual/spiral_fern_turquoise.png",
+      "solidSuggested": false,
+      "overheadSuggested": false,
+      "interactionSuggested": "harvest",
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 21,
+      "sheet": "props",
+      "sheetFrame": 5,
+      "row": 1,
+      "column": 1,
+      "key": "glow_bulbs_blue",
+      "label": "Blue glow bulbs",
+      "category": "vegetation",
+      "file": "individual/glow_bulbs_blue.png",
+      "solidSuggested": false,
+      "overheadSuggested": false,
+      "interactionSuggested": "harvest",
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 22,
+      "sheet": "props",
+      "sheetFrame": 6,
+      "row": 1,
+      "column": 2,
+      "key": "cup_fungi_coral",
+      "label": "Coral cup fungi",
+      "category": "vegetation",
+      "file": "individual/cup_fungi_coral.png",
+      "solidSuggested": false,
+      "overheadSuggested": false,
+      "interactionSuggested": "harvest",
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 23,
+      "sheet": "props",
+      "sheetFrame": 7,
+      "row": 1,
+      "column": 3,
+      "key": "ribbon_grass_violet",
+      "label": "Violet ribbon grass",
+      "category": "vegetation",
+      "file": "individual/ribbon_grass_violet.png",
+      "solidSuggested": false,
+      "overheadSuggested": false,
+      "interactionSuggested": "harvest",
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 24,
+      "sheet": "props",
+      "sheetFrame": 8,
+      "row": 2,
+      "column": 0,
+      "key": "crystal_cluster_cyan",
+      "label": "Cyan crystal cluster",
+      "category": "resource",
+      "file": "individual/crystal_cluster_cyan.png",
+      "solidSuggested": true,
+      "overheadSuggested": false,
+      "interactionSuggested": "mine",
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 25,
+      "sheet": "props",
+      "sheetFrame": 9,
+      "row": 2,
+      "column": 1,
+      "key": "crystal_cluster_amber",
+      "label": "Amber crystal cluster",
+      "category": "resource",
+      "file": "individual/crystal_cluster_amber.png",
+      "solidSuggested": true,
+      "overheadSuggested": false,
+      "interactionSuggested": "mine",
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 26,
+      "sheet": "props",
+      "sheetFrame": 10,
+      "row": 2,
+      "column": 2,
+      "key": "meteor_rock_metallic",
+      "label": "Metallic meteor rock",
+      "category": "resource",
+      "file": "individual/meteor_rock_metallic.png",
+      "solidSuggested": true,
+      "overheadSuggested": false,
+      "interactionSuggested": "mine",
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 27,
+      "sheet": "props",
+      "sheetFrame": 11,
+      "row": 2,
+      "column": 3,
+      "key": "geode_luminous",
+      "label": "Luminous geode",
+      "category": "resource",
+      "file": "individual/geode_luminous.png",
+      "solidSuggested": true,
+      "overheadSuggested": false,
+      "interactionSuggested": "mine",
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 28,
+      "sheet": "props",
+      "sheetFrame": 12,
+      "row": 3,
+      "column": 0,
+      "key": "mineral_spring",
+      "label": "Bubbling mineral spring",
+      "category": "resource",
+      "file": "individual/mineral_spring.png",
+      "solidSuggested": false,
+      "overheadSuggested": false,
+      "interactionSuggested": "fish",
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 29,
+      "sheet": "props",
+      "sheetFrame": 13,
+      "row": 3,
+      "column": 1,
+      "key": "harvest_pod_plant",
+      "label": "Pod-bearing harvest plant",
+      "category": "resource",
+      "file": "individual/harvest_pod_plant.png",
+      "solidSuggested": false,
+      "overheadSuggested": false,
+      "interactionSuggested": "harvest",
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 30,
+      "sheet": "props",
+      "sheetFrame": 14,
+      "row": 3,
+      "column": 2,
+      "key": "spore_nest_glowing",
+      "label": "Glowing spore nest",
+      "category": "resource",
+      "file": "individual/spore_nest_glowing.png",
+      "solidSuggested": false,
+      "overheadSuggested": false,
+      "interactionSuggested": "dig",
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "frame": 31,
+      "sheet": "props",
+      "sheetFrame": 15,
+      "row": 3,
+      "column": 3,
+      "key": "bush_bioluminescent",
+      "label": "Bioluminescent bush",
+      "category": "vegetation",
+      "file": "individual/bush_bioluminescent.png",
+      "solidSuggested": false,
+      "overheadSuggested": false,
+      "interactionSuggested": "harvest",
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    }
+  ]
+}

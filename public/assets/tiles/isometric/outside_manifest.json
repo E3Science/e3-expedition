@@ -1,0 +1,4033 @@
+{
+  "id": "iso_64x64_outside",
+  "source": "outside_master.png",
+  "sourceSize": {
+    "width": 640,
+    "height": 1024
+  },
+  "grid": {
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "columns": 10,
+    "rows": 16
+  },
+  "projection": {
+    "type": "isometric",
+    "diamondWidth": 64,
+    "diamondHeight": 32
+  },
+  "frames": [
+    {
+      "frame": 0,
+      "row": 0,
+      "column": 0,
+      "label": "grass",
+      "category": "ground",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 1,
+      "row": 0,
+      "column": 1,
+      "label": "grass",
+      "category": "ground",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 2,
+      "row": 0,
+      "column": 2,
+      "label": "dirt",
+      "category": "ground",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 3,
+      "row": 0,
+      "column": 3,
+      "label": "dirt",
+      "category": "ground",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 4,
+      "row": 0,
+      "column": 4,
+      "label": "transition grass/dirt",
+      "category": "ground",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 5,
+      "row": 0,
+      "column": 5,
+      "label": "transition grass/dirt",
+      "category": "ground",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 6,
+      "row": 0,
+      "column": 6,
+      "label": "transition grass/dirt",
+      "category": "ground",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 7,
+      "row": 0,
+      "column": 7,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 8,
+      "row": 0,
+      "column": 8,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 9,
+      "row": 0,
+      "column": 9,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 10,
+      "row": 1,
+      "column": 0,
+      "label": "transition grass/dirt",
+      "category": "ground",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 11,
+      "row": 1,
+      "column": 1,
+      "label": "transition grass/dirt",
+      "category": "ground",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 12,
+      "row": 1,
+      "column": 2,
+      "label": "transition grass/dirt",
+      "category": "ground",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 13,
+      "row": 1,
+      "column": 3,
+      "label": "transition grass/dirt",
+      "category": "ground",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 14,
+      "row": 1,
+      "column": 4,
+      "label": "transition grass/dirt",
+      "category": "ground",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 15,
+      "row": 1,
+      "column": 5,
+      "label": "transition grass/dirt",
+      "category": "ground",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 16,
+      "row": 1,
+      "column": 6,
+      "label": "transition grass/dirt",
+      "category": "ground",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 17,
+      "row": 1,
+      "column": 7,
+      "label": "transition grass/dirt",
+      "category": "ground",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 18,
+      "row": 1,
+      "column": 8,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 19,
+      "row": 1,
+      "column": 9,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 20,
+      "row": 2,
+      "column": 0,
+      "label": "transition grass/dirt",
+      "category": "ground",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 21,
+      "row": 2,
+      "column": 1,
+      "label": "transition grass/dirt",
+      "category": "ground",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 22,
+      "row": 2,
+      "column": 2,
+      "label": "transition grass/dirt",
+      "category": "ground",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 23,
+      "row": 2,
+      "column": 3,
+      "label": "transition grass/dirt",
+      "category": "ground",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 24,
+      "row": 2,
+      "column": 4,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 25,
+      "row": 2,
+      "column": 5,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 26,
+      "row": 2,
+      "column": 6,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 27,
+      "row": 2,
+      "column": 7,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 28,
+      "row": 2,
+      "column": 8,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 29,
+      "row": 2,
+      "column": 9,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 30,
+      "row": 3,
+      "column": 0,
+      "label": "hill slope_N",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 31,
+      "row": 3,
+      "column": 1,
+      "label": "hill slope_NE",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 32,
+      "row": 3,
+      "column": 2,
+      "label": "hill slope_NW",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 33,
+      "row": 3,
+      "column": 3,
+      "label": "hill slope_E",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 34,
+      "row": 3,
+      "column": 4,
+      "label": "hilltop",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 35,
+      "row": 3,
+      "column": 5,
+      "label": "hill slope_W",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 36,
+      "row": 3,
+      "column": 6,
+      "label": "hill slope_SE",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 37,
+      "row": 3,
+      "column": 7,
+      "label": "hill slope_SW",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 38,
+      "row": 3,
+      "column": 8,
+      "label": "hill slope_S",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 39,
+      "row": 3,
+      "column": 9,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 40,
+      "row": 4,
+      "column": 0,
+      "label": "hill slope_S",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 41,
+      "row": 4,
+      "column": 1,
+      "label": "hill slope_W",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 42,
+      "row": 4,
+      "column": 2,
+      "label": "hill slope_N",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 43,
+      "row": 4,
+      "column": 3,
+      "label": "hill slope_E",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 44,
+      "row": 4,
+      "column": 4,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 45,
+      "row": 4,
+      "column": 5,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 46,
+      "row": 4,
+      "column": 6,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 47,
+      "row": 4,
+      "column": 7,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 48,
+      "row": 4,
+      "column": 8,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 49,
+      "row": 4,
+      "column": 9,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 50,
+      "row": 5,
+      "column": 0,
+      "label": "mountain slope_N",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 51,
+      "row": 5,
+      "column": 1,
+      "label": "mountain slope_NE",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 52,
+      "row": 5,
+      "column": 2,
+      "label": "mountain slope_NW",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 53,
+      "row": 5,
+      "column": 3,
+      "label": "mountain slope_E",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 54,
+      "row": 5,
+      "column": 4,
+      "label": "mountaintop",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 55,
+      "row": 5,
+      "column": 5,
+      "label": "mountaintop",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 56,
+      "row": 5,
+      "column": 6,
+      "label": "mountain slope_W",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 57,
+      "row": 5,
+      "column": 7,
+      "label": "hill slope_SE",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 58,
+      "row": 5,
+      "column": 8,
+      "label": "mountain slope_SW",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 59,
+      "row": 5,
+      "column": 9,
+      "label": "mountain slope_S",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 60,
+      "row": 6,
+      "column": 0,
+      "label": "mountaintop w/ waterfall",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 61,
+      "row": 6,
+      "column": 1,
+      "label": "mountaintop w/ waterfall",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 62,
+      "row": 6,
+      "column": 2,
+      "label": "mountaintop w/ waterfall",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 63,
+      "row": 6,
+      "column": 3,
+      "label": "mountaintop w/ waterfall",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 64,
+      "row": 6,
+      "column": 4,
+      "label": "mountaintop w/ waterfall",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 65,
+      "row": 6,
+      "column": 5,
+      "label": "mountaintop w/ waterfall",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 66,
+      "row": 6,
+      "column": 6,
+      "label": "rock",
+      "category": "rock",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 67,
+      "row": 6,
+      "column": 7,
+      "label": "rock",
+      "category": "rock",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 68,
+      "row": 6,
+      "column": 8,
+      "label": "rock",
+      "category": "rock",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 69,
+      "row": 6,
+      "column": 9,
+      "label": "large rock",
+      "category": "rock",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 70,
+      "row": 7,
+      "column": 0,
+      "label": "large rock",
+      "category": "rock",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 71,
+      "row": 7,
+      "column": 1,
+      "label": "mountaintop w/ grass",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 72,
+      "row": 7,
+      "column": 2,
+      "label": "mountaintop w/ grass",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 73,
+      "row": 7,
+      "column": 3,
+      "label": "mountaintop w/ grass",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 74,
+      "row": 7,
+      "column": 4,
+      "label": "mountaintop w/ grass",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 75,
+      "row": 7,
+      "column": 5,
+      "label": "mountaintop w/ grass",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 76,
+      "row": 7,
+      "column": 6,
+      "label": "mountaintop w/ grass",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 77,
+      "row": 7,
+      "column": 7,
+      "label": "mountaintop w/ grass",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 78,
+      "row": 7,
+      "column": 8,
+      "label": "mountaintop w/ grass",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 79,
+      "row": 7,
+      "column": 9,
+      "label": "mountaintop w/ grass",
+      "category": "elevation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 80,
+      "row": 8,
+      "column": 0,
+      "label": "transition land/lake_N",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 81,
+      "row": 8,
+      "column": 1,
+      "label": "transition land/lake_NE",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 82,
+      "row": 8,
+      "column": 2,
+      "label": "transition land/lake_NW",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 83,
+      "row": 8,
+      "column": 3,
+      "label": "transition land/lake_E",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 84,
+      "row": 8,
+      "column": 4,
+      "label": "water",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 85,
+      "row": 8,
+      "column": 5,
+      "label": "water",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 86,
+      "row": 8,
+      "column": 6,
+      "label": "transition land/lake_W",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 87,
+      "row": 8,
+      "column": 7,
+      "label": "transition land/lake_SE",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 88,
+      "row": 8,
+      "column": 8,
+      "label": "transition land/lake_SW",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 89,
+      "row": 8,
+      "column": 9,
+      "label": "transition land/lake_S",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 90,
+      "row": 9,
+      "column": 0,
+      "label": "river NW-NE",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 91,
+      "row": 9,
+      "column": 1,
+      "label": "river NW-SE",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 92,
+      "row": 9,
+      "column": 2,
+      "label": "river SW-NE",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 93,
+      "row": 9,
+      "column": 3,
+      "label": "river NE-SE",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 94,
+      "row": 9,
+      "column": 4,
+      "label": "river NW-SW",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 95,
+      "row": 9,
+      "column": 5,
+      "label": "river SW-SE",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 96,
+      "row": 9,
+      "column": 6,
+      "label": "water w/ land N",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 97,
+      "row": 9,
+      "column": 7,
+      "label": "water w/ land E",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 98,
+      "row": 9,
+      "column": 8,
+      "label": "water w/ land W",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 99,
+      "row": 9,
+      "column": 9,
+      "label": "water w/ land S",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 100,
+      "row": 10,
+      "column": 0,
+      "label": "water w/ rock",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 101,
+      "row": 10,
+      "column": 1,
+      "label": "puddle",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 102,
+      "row": 10,
+      "column": 2,
+      "label": "water w/ island",
+      "category": "water",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 103,
+      "row": 10,
+      "column": 3,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 104,
+      "row": 10,
+      "column": 4,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 105,
+      "row": 10,
+      "column": 5,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 106,
+      "row": 10,
+      "column": 6,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 107,
+      "row": 10,
+      "column": 7,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 108,
+      "row": 10,
+      "column": 8,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 109,
+      "row": 10,
+      "column": 9,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 110,
+      "row": 11,
+      "column": 0,
+      "label": "tallgrass edge_N",
+      "category": "vegetation",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 111,
+      "row": 11,
+      "column": 1,
+      "label": "tallgrass edge_NE",
+      "category": "vegetation",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 112,
+      "row": 11,
+      "column": 2,
+      "label": "tallgrass edge_NW",
+      "category": "vegetation",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 113,
+      "row": 11,
+      "column": 3,
+      "label": "tallgrass edge_E",
+      "category": "vegetation",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 114,
+      "row": 11,
+      "column": 4,
+      "label": "tallgrass",
+      "category": "vegetation",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 115,
+      "row": 11,
+      "column": 5,
+      "label": "tallgrass edge_W",
+      "category": "vegetation",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 116,
+      "row": 11,
+      "column": 6,
+      "label": "tallgrass edge_SE",
+      "category": "vegetation",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 117,
+      "row": 11,
+      "column": 7,
+      "label": "tallgrass edge_SW",
+      "category": "vegetation",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 118,
+      "row": 11,
+      "column": 8,
+      "label": "tallgrass edge_S",
+      "category": "vegetation",
+      "blank": false,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 119,
+      "row": 11,
+      "column": 9,
+      "label": "bramble",
+      "category": "vegetation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 120,
+      "row": 12,
+      "column": 0,
+      "label": "small bush",
+      "category": "vegetation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 121,
+      "row": 12,
+      "column": 1,
+      "label": "large bush",
+      "category": "vegetation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 122,
+      "row": 12,
+      "column": 2,
+      "label": "tree top",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": true
+    },
+    {
+      "frame": 123,
+      "row": 12,
+      "column": 3,
+      "label": "tree top",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": true
+    },
+    {
+      "frame": 124,
+      "row": 12,
+      "column": 4,
+      "label": "log",
+      "category": "decoration",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 125,
+      "row": 12,
+      "column": 5,
+      "label": "log",
+      "category": "decoration",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 126,
+      "row": 12,
+      "column": 6,
+      "label": "small bush",
+      "category": "vegetation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 127,
+      "row": 12,
+      "column": 7,
+      "label": "small bush",
+      "category": "vegetation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 128,
+      "row": 12,
+      "column": 8,
+      "label": "medium bush",
+      "category": "vegetation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 129,
+      "row": 12,
+      "column": 9,
+      "label": "large bush",
+      "category": "vegetation",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 130,
+      "row": 13,
+      "column": 0,
+      "label": "tree top",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": true
+    },
+    {
+      "frame": 131,
+      "row": 13,
+      "column": 1,
+      "label": "tree top",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": true
+    },
+    {
+      "frame": 132,
+      "row": 13,
+      "column": 2,
+      "label": "tree trunk",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 133,
+      "row": 13,
+      "column": 3,
+      "label": "tree trunk",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 134,
+      "row": 13,
+      "column": 4,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 135,
+      "row": 13,
+      "column": 5,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 136,
+      "row": 13,
+      "column": 6,
+      "label": "blank",
+      "category": "blank",
+      "blank": true,
+      "solidSuggested": false,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 137,
+      "row": 13,
+      "column": 7,
+      "label": "tree top",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": true
+    },
+    {
+      "frame": 138,
+      "row": 13,
+      "column": 8,
+      "label": "tree top",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": true
+    },
+    {
+      "frame": 139,
+      "row": 13,
+      "column": 9,
+      "label": "tree top",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": true
+    },
+    {
+      "frame": 140,
+      "row": 14,
+      "column": 0,
+      "label": "tree",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 141,
+      "row": 14,
+      "column": 1,
+      "label": "tree",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 142,
+      "row": 14,
+      "column": 2,
+      "label": "tree top",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": true
+    },
+    {
+      "frame": 143,
+      "row": 14,
+      "column": 3,
+      "label": "tree top",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": true
+    },
+    {
+      "frame": 144,
+      "row": 14,
+      "column": 4,
+      "label": "tree top",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": true
+    },
+    {
+      "frame": 145,
+      "row": 14,
+      "column": 5,
+      "label": "tree top",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": true
+    },
+    {
+      "frame": 146,
+      "row": 14,
+      "column": 6,
+      "label": "tree top",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": true
+    },
+    {
+      "frame": 147,
+      "row": 14,
+      "column": 7,
+      "label": "tree",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 148,
+      "row": 14,
+      "column": 8,
+      "label": "tree",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 149,
+      "row": 14,
+      "column": 9,
+      "label": "tree",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 150,
+      "row": 15,
+      "column": 0,
+      "label": "tree trunk",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 151,
+      "row": 15,
+      "column": 1,
+      "label": "tree trunk",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 152,
+      "row": 15,
+      "column": 2,
+      "label": "tree trunk",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 153,
+      "row": 15,
+      "column": 3,
+      "label": "tree trunk",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 154,
+      "row": 15,
+      "column": 4,
+      "label": "tree",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 155,
+      "row": 15,
+      "column": 5,
+      "label": "tree trunk",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 156,
+      "row": 15,
+      "column": 6,
+      "label": "tree",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 157,
+      "row": 15,
+      "column": 7,
+      "label": "tree",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 158,
+      "row": 15,
+      "column": 8,
+      "label": "tree trunk",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    },
+    {
+      "frame": 159,
+      "row": 15,
+      "column": 9,
+      "label": "tree",
+      "category": "tree",
+      "blank": false,
+      "solidSuggested": true,
+      "overheadSuggested": false
+    }
+  ],
+  "assets": [
+    {
+      "key": "grass_01",
+      "category": "ground",
+      "file": "individual/grass_01.png",
+      "sourceRect": {
+        "x": 0,
+        "y": 0,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 0,
+      "label": "grass"
+    },
+    {
+      "key": "grass_02",
+      "category": "ground",
+      "file": "individual/grass_02.png",
+      "sourceRect": {
+        "x": 64,
+        "y": 0,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 1,
+      "label": "grass"
+    },
+    {
+      "key": "grass_03",
+      "category": "ground",
+      "file": "individual/grass_03.png",
+      "sourceRect": {
+        "x": 128,
+        "y": 0,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 2,
+      "label": "dirt"
+    },
+    {
+      "key": "grass_04",
+      "category": "ground",
+      "file": "individual/grass_04.png",
+      "sourceRect": {
+        "x": 192,
+        "y": 0,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 3,
+      "label": "dirt"
+    },
+    {
+      "key": "grass_05",
+      "category": "ground",
+      "file": "individual/grass_05.png",
+      "sourceRect": {
+        "x": 256,
+        "y": 0,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 4,
+      "label": "transition grass/dirt"
+    },
+    {
+      "key": "grass_06",
+      "category": "ground",
+      "file": "individual/grass_06.png",
+      "sourceRect": {
+        "x": 320,
+        "y": 0,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 5,
+      "label": "transition grass/dirt"
+    },
+    {
+      "key": "grass_07",
+      "category": "ground",
+      "file": "individual/grass_07.png",
+      "sourceRect": {
+        "x": 384,
+        "y": 0,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 6,
+      "label": "transition grass/dirt"
+    },
+    {
+      "key": "grass_08",
+      "category": "ground",
+      "file": "individual/grass_08.png",
+      "sourceRect": {
+        "x": 0,
+        "y": 64,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 10,
+      "label": "transition grass/dirt"
+    },
+    {
+      "key": "grass_09",
+      "category": "ground",
+      "file": "individual/grass_09.png",
+      "sourceRect": {
+        "x": 64,
+        "y": 64,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 11,
+      "label": "transition grass/dirt"
+    },
+    {
+      "key": "grass_10",
+      "category": "ground",
+      "file": "individual/grass_10.png",
+      "sourceRect": {
+        "x": 128,
+        "y": 64,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 12,
+      "label": "transition grass/dirt"
+    },
+    {
+      "key": "grass_11",
+      "category": "ground",
+      "file": "individual/grass_11.png",
+      "sourceRect": {
+        "x": 192,
+        "y": 64,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 13,
+      "label": "transition grass/dirt"
+    },
+    {
+      "key": "grass_12",
+      "category": "ground",
+      "file": "individual/grass_12.png",
+      "sourceRect": {
+        "x": 256,
+        "y": 64,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 14,
+      "label": "transition grass/dirt"
+    },
+    {
+      "key": "grass_13",
+      "category": "ground",
+      "file": "individual/grass_13.png",
+      "sourceRect": {
+        "x": 320,
+        "y": 64,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 15,
+      "label": "transition grass/dirt"
+    },
+    {
+      "key": "grass_14",
+      "category": "ground",
+      "file": "individual/grass_14.png",
+      "sourceRect": {
+        "x": 384,
+        "y": 64,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 16,
+      "label": "transition grass/dirt"
+    },
+    {
+      "key": "grass_15",
+      "category": "ground",
+      "file": "individual/grass_15.png",
+      "sourceRect": {
+        "x": 448,
+        "y": 64,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 17,
+      "label": "transition grass/dirt"
+    },
+    {
+      "key": "grass_16",
+      "category": "ground",
+      "file": "individual/grass_16.png",
+      "sourceRect": {
+        "x": 0,
+        "y": 128,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 20,
+      "label": "transition grass/dirt"
+    },
+    {
+      "key": "grass_17",
+      "category": "ground",
+      "file": "individual/grass_17.png",
+      "sourceRect": {
+        "x": 64,
+        "y": 128,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 21,
+      "label": "transition grass/dirt"
+    },
+    {
+      "key": "grass_18",
+      "category": "ground",
+      "file": "individual/grass_18.png",
+      "sourceRect": {
+        "x": 128,
+        "y": 128,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 22,
+      "label": "transition grass/dirt"
+    },
+    {
+      "key": "grass_19",
+      "category": "ground",
+      "file": "individual/grass_19.png",
+      "sourceRect": {
+        "x": 192,
+        "y": 128,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 23,
+      "label": "transition grass/dirt"
+    },
+    {
+      "key": "grass_slope_01",
+      "category": "elevation",
+      "file": "individual/grass_slope_01.png",
+      "sourceRect": {
+        "x": 0,
+        "y": 192,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 30,
+      "label": "hill slope_N"
+    },
+    {
+      "key": "grass_slope_02",
+      "category": "elevation",
+      "file": "individual/grass_slope_02.png",
+      "sourceRect": {
+        "x": 64,
+        "y": 192,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 31,
+      "label": "hill slope_NE"
+    },
+    {
+      "key": "grass_slope_03",
+      "category": "elevation",
+      "file": "individual/grass_slope_03.png",
+      "sourceRect": {
+        "x": 128,
+        "y": 192,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 32,
+      "label": "hill slope_NW"
+    },
+    {
+      "key": "grass_slope_04",
+      "category": "elevation",
+      "file": "individual/grass_slope_04.png",
+      "sourceRect": {
+        "x": 192,
+        "y": 192,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 33,
+      "label": "hill slope_E"
+    },
+    {
+      "key": "grass_slope_05",
+      "category": "elevation",
+      "file": "individual/grass_slope_05.png",
+      "sourceRect": {
+        "x": 256,
+        "y": 192,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 34,
+      "label": "hilltop"
+    },
+    {
+      "key": "grass_slope_06",
+      "category": "elevation",
+      "file": "individual/grass_slope_06.png",
+      "sourceRect": {
+        "x": 320,
+        "y": 192,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 35,
+      "label": "hill slope_W"
+    },
+    {
+      "key": "grass_slope_07",
+      "category": "elevation",
+      "file": "individual/grass_slope_07.png",
+      "sourceRect": {
+        "x": 384,
+        "y": 192,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 36,
+      "label": "hill slope_SE"
+    },
+    {
+      "key": "grass_slope_08",
+      "category": "elevation",
+      "file": "individual/grass_slope_08.png",
+      "sourceRect": {
+        "x": 448,
+        "y": 192,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 37,
+      "label": "hill slope_SW"
+    },
+    {
+      "key": "grass_slope_09",
+      "category": "elevation",
+      "file": "individual/grass_slope_09.png",
+      "sourceRect": {
+        "x": 512,
+        "y": 192,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 38,
+      "label": "hill slope_S"
+    },
+    {
+      "key": "grass_cliff_01",
+      "category": "elevation",
+      "file": "individual/grass_cliff_01.png",
+      "sourceRect": {
+        "x": 0,
+        "y": 256,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 40,
+      "label": "hill slope_S"
+    },
+    {
+      "key": "grass_cliff_02",
+      "category": "elevation",
+      "file": "individual/grass_cliff_02.png",
+      "sourceRect": {
+        "x": 64,
+        "y": 256,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 41,
+      "label": "hill slope_W"
+    },
+    {
+      "key": "grass_cliff_03",
+      "category": "elevation",
+      "file": "individual/grass_cliff_03.png",
+      "sourceRect": {
+        "x": 128,
+        "y": 256,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 42,
+      "label": "hill slope_N"
+    },
+    {
+      "key": "grass_cliff_04",
+      "category": "elevation",
+      "file": "individual/grass_cliff_04.png",
+      "sourceRect": {
+        "x": 192,
+        "y": 256,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 43,
+      "label": "hill slope_E"
+    },
+    {
+      "key": "rock_formation_01",
+      "category": "elevation",
+      "file": "individual/rock_formation_01.png",
+      "sourceRect": {
+        "x": 0,
+        "y": 320,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 50,
+      "label": "mountain slope_N"
+    },
+    {
+      "key": "rock_formation_02",
+      "category": "elevation",
+      "file": "individual/rock_formation_02.png",
+      "sourceRect": {
+        "x": 64,
+        "y": 320,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 51,
+      "label": "mountain slope_NE"
+    },
+    {
+      "key": "rock_formation_03",
+      "category": "elevation",
+      "file": "individual/rock_formation_03.png",
+      "sourceRect": {
+        "x": 128,
+        "y": 320,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 52,
+      "label": "mountain slope_NW"
+    },
+    {
+      "key": "rock_formation_04",
+      "category": "elevation",
+      "file": "individual/rock_formation_04.png",
+      "sourceRect": {
+        "x": 192,
+        "y": 320,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 53,
+      "label": "mountain slope_E"
+    },
+    {
+      "key": "rock_formation_05",
+      "category": "elevation",
+      "file": "individual/rock_formation_05.png",
+      "sourceRect": {
+        "x": 256,
+        "y": 320,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 54,
+      "label": "mountaintop"
+    },
+    {
+      "key": "rock_formation_06",
+      "category": "elevation",
+      "file": "individual/rock_formation_06.png",
+      "sourceRect": {
+        "x": 320,
+        "y": 320,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 55,
+      "label": "mountaintop"
+    },
+    {
+      "key": "rock_formation_07",
+      "category": "elevation",
+      "file": "individual/rock_formation_07.png",
+      "sourceRect": {
+        "x": 384,
+        "y": 320,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 56,
+      "label": "mountain slope_W"
+    },
+    {
+      "key": "rock_formation_08",
+      "category": "elevation",
+      "file": "individual/rock_formation_08.png",
+      "sourceRect": {
+        "x": 448,
+        "y": 320,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 57,
+      "label": "hill slope_SE"
+    },
+    {
+      "key": "rock_formation_09",
+      "category": "elevation",
+      "file": "individual/rock_formation_09.png",
+      "sourceRect": {
+        "x": 512,
+        "y": 320,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 58,
+      "label": "mountain slope_SW"
+    },
+    {
+      "key": "rock_formation_10",
+      "category": "elevation",
+      "file": "individual/rock_formation_10.png",
+      "sourceRect": {
+        "x": 576,
+        "y": 320,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 59,
+      "label": "mountain slope_S"
+    },
+    {
+      "key": "stone_cliff_01",
+      "category": "water",
+      "file": "individual/stone_cliff_01.png",
+      "sourceRect": {
+        "x": 0,
+        "y": 384,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 60,
+      "label": "mountaintop w/ waterfall"
+    },
+    {
+      "key": "stone_cliff_02",
+      "category": "water",
+      "file": "individual/stone_cliff_02.png",
+      "sourceRect": {
+        "x": 64,
+        "y": 384,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 61,
+      "label": "mountaintop w/ waterfall"
+    },
+    {
+      "key": "stone_cliff_03",
+      "category": "water",
+      "file": "individual/stone_cliff_03.png",
+      "sourceRect": {
+        "x": 128,
+        "y": 384,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 62,
+      "label": "mountaintop w/ waterfall"
+    },
+    {
+      "key": "stone_cliff_04",
+      "category": "water",
+      "file": "individual/stone_cliff_04.png",
+      "sourceRect": {
+        "x": 192,
+        "y": 384,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 63,
+      "label": "mountaintop w/ waterfall"
+    },
+    {
+      "key": "stone_cliff_05",
+      "category": "water",
+      "file": "individual/stone_cliff_05.png",
+      "sourceRect": {
+        "x": 256,
+        "y": 384,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 64,
+      "label": "mountaintop w/ waterfall"
+    },
+    {
+      "key": "stone_cliff_06",
+      "category": "water",
+      "file": "individual/stone_cliff_06.png",
+      "sourceRect": {
+        "x": 320,
+        "y": 384,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 65,
+      "label": "mountaintop w/ waterfall"
+    },
+    {
+      "key": "stone_cliff_07",
+      "category": "rock",
+      "file": "individual/stone_cliff_07.png",
+      "sourceRect": {
+        "x": 384,
+        "y": 384,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 66,
+      "label": "rock"
+    },
+    {
+      "key": "stone_cliff_08",
+      "category": "rock",
+      "file": "individual/stone_cliff_08.png",
+      "sourceRect": {
+        "x": 448,
+        "y": 384,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 67,
+      "label": "rock"
+    },
+    {
+      "key": "stone_cliff_09",
+      "category": "rock",
+      "file": "individual/stone_cliff_09.png",
+      "sourceRect": {
+        "x": 512,
+        "y": 384,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 68,
+      "label": "rock"
+    },
+    {
+      "key": "stone_cliff_10",
+      "category": "rock",
+      "file": "individual/stone_cliff_10.png",
+      "sourceRect": {
+        "x": 576,
+        "y": 384,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 69,
+      "label": "large rock"
+    },
+    {
+      "key": "grass_cliff_05",
+      "category": "rock",
+      "file": "individual/grass_cliff_05.png",
+      "sourceRect": {
+        "x": 0,
+        "y": 448,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 70,
+      "label": "large rock"
+    },
+    {
+      "key": "grass_cliff_06",
+      "category": "elevation",
+      "file": "individual/grass_cliff_06.png",
+      "sourceRect": {
+        "x": 64,
+        "y": 448,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 71,
+      "label": "mountaintop w/ grass"
+    },
+    {
+      "key": "grass_cliff_07",
+      "category": "elevation",
+      "file": "individual/grass_cliff_07.png",
+      "sourceRect": {
+        "x": 128,
+        "y": 448,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 72,
+      "label": "mountaintop w/ grass"
+    },
+    {
+      "key": "grass_cliff_08",
+      "category": "elevation",
+      "file": "individual/grass_cliff_08.png",
+      "sourceRect": {
+        "x": 192,
+        "y": 448,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 73,
+      "label": "mountaintop w/ grass"
+    },
+    {
+      "key": "grass_cliff_09",
+      "category": "elevation",
+      "file": "individual/grass_cliff_09.png",
+      "sourceRect": {
+        "x": 256,
+        "y": 448,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 74,
+      "label": "mountaintop w/ grass"
+    },
+    {
+      "key": "grass_cliff_10",
+      "category": "elevation",
+      "file": "individual/grass_cliff_10.png",
+      "sourceRect": {
+        "x": 320,
+        "y": 448,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 75,
+      "label": "mountaintop w/ grass"
+    },
+    {
+      "key": "grass_cliff_11",
+      "category": "elevation",
+      "file": "individual/grass_cliff_11.png",
+      "sourceRect": {
+        "x": 384,
+        "y": 448,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 76,
+      "label": "mountaintop w/ grass"
+    },
+    {
+      "key": "grass_cliff_12",
+      "category": "elevation",
+      "file": "individual/grass_cliff_12.png",
+      "sourceRect": {
+        "x": 448,
+        "y": 448,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 77,
+      "label": "mountaintop w/ grass"
+    },
+    {
+      "key": "grass_cliff_13",
+      "category": "elevation",
+      "file": "individual/grass_cliff_13.png",
+      "sourceRect": {
+        "x": 512,
+        "y": 448,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 78,
+      "label": "mountaintop w/ grass"
+    },
+    {
+      "key": "grass_cliff_14",
+      "category": "elevation",
+      "file": "individual/grass_cliff_14.png",
+      "sourceRect": {
+        "x": 576,
+        "y": 448,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 79,
+      "label": "mountaintop w/ grass"
+    },
+    {
+      "key": "water_edge_01",
+      "category": "water",
+      "file": "individual/water_edge_01.png",
+      "sourceRect": {
+        "x": 0,
+        "y": 512,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 80,
+      "label": "transition land/lake_N"
+    },
+    {
+      "key": "water_edge_02",
+      "category": "water",
+      "file": "individual/water_edge_02.png",
+      "sourceRect": {
+        "x": 64,
+        "y": 512,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 81,
+      "label": "transition land/lake_NE"
+    },
+    {
+      "key": "water_edge_03",
+      "category": "water",
+      "file": "individual/water_edge_03.png",
+      "sourceRect": {
+        "x": 128,
+        "y": 512,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 82,
+      "label": "transition land/lake_NW"
+    },
+    {
+      "key": "water_edge_04",
+      "category": "water",
+      "file": "individual/water_edge_04.png",
+      "sourceRect": {
+        "x": 192,
+        "y": 512,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 83,
+      "label": "transition land/lake_E"
+    },
+    {
+      "key": "water_edge_05",
+      "category": "water",
+      "file": "individual/water_edge_05.png",
+      "sourceRect": {
+        "x": 256,
+        "y": 512,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 84,
+      "label": "water"
+    },
+    {
+      "key": "water_edge_06",
+      "category": "water",
+      "file": "individual/water_edge_06.png",
+      "sourceRect": {
+        "x": 320,
+        "y": 512,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 85,
+      "label": "water"
+    },
+    {
+      "key": "water_edge_07",
+      "category": "water",
+      "file": "individual/water_edge_07.png",
+      "sourceRect": {
+        "x": 384,
+        "y": 512,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 86,
+      "label": "transition land/lake_W"
+    },
+    {
+      "key": "water_edge_08",
+      "category": "water",
+      "file": "individual/water_edge_08.png",
+      "sourceRect": {
+        "x": 448,
+        "y": 512,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 87,
+      "label": "transition land/lake_SE"
+    },
+    {
+      "key": "water_edge_09",
+      "category": "water",
+      "file": "individual/water_edge_09.png",
+      "sourceRect": {
+        "x": 512,
+        "y": 512,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 88,
+      "label": "transition land/lake_SW"
+    },
+    {
+      "key": "water_edge_10",
+      "category": "water",
+      "file": "individual/water_edge_10.png",
+      "sourceRect": {
+        "x": 576,
+        "y": 512,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 89,
+      "label": "transition land/lake_S"
+    },
+    {
+      "key": "water_edge_11",
+      "category": "water",
+      "file": "individual/water_edge_11.png",
+      "sourceRect": {
+        "x": 0,
+        "y": 576,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 90,
+      "label": "river NW-NE"
+    },
+    {
+      "key": "water_edge_12",
+      "category": "water",
+      "file": "individual/water_edge_12.png",
+      "sourceRect": {
+        "x": 64,
+        "y": 576,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 91,
+      "label": "river NW-SE"
+    },
+    {
+      "key": "water_edge_13",
+      "category": "water",
+      "file": "individual/water_edge_13.png",
+      "sourceRect": {
+        "x": 128,
+        "y": 576,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 92,
+      "label": "river SW-NE"
+    },
+    {
+      "key": "water_edge_14",
+      "category": "water",
+      "file": "individual/water_edge_14.png",
+      "sourceRect": {
+        "x": 192,
+        "y": 576,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 93,
+      "label": "river NE-SE"
+    },
+    {
+      "key": "water_edge_15",
+      "category": "water",
+      "file": "individual/water_edge_15.png",
+      "sourceRect": {
+        "x": 256,
+        "y": 576,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 94,
+      "label": "river NW-SW"
+    },
+    {
+      "key": "water_edge_16",
+      "category": "water",
+      "file": "individual/water_edge_16.png",
+      "sourceRect": {
+        "x": 320,
+        "y": 576,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 95,
+      "label": "river SW-SE"
+    },
+    {
+      "key": "water_edge_17",
+      "category": "water",
+      "file": "individual/water_edge_17.png",
+      "sourceRect": {
+        "x": 384,
+        "y": 576,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 96,
+      "label": "water w/ land N"
+    },
+    {
+      "key": "water_edge_18",
+      "category": "water",
+      "file": "individual/water_edge_18.png",
+      "sourceRect": {
+        "x": 448,
+        "y": 576,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 97,
+      "label": "water w/ land E"
+    },
+    {
+      "key": "water_edge_19",
+      "category": "water",
+      "file": "individual/water_edge_19.png",
+      "sourceRect": {
+        "x": 512,
+        "y": 576,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 98,
+      "label": "water w/ land W"
+    },
+    {
+      "key": "water_edge_20",
+      "category": "water",
+      "file": "individual/water_edge_20.png",
+      "sourceRect": {
+        "x": 576,
+        "y": 576,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 99,
+      "label": "water w/ land S"
+    },
+    {
+      "key": "water_detail_01",
+      "category": "water",
+      "file": "individual/water_detail_01.png",
+      "sourceRect": {
+        "x": 0,
+        "y": 640,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 100,
+      "label": "water w/ rock"
+    },
+    {
+      "key": "water_detail_02",
+      "category": "water",
+      "file": "individual/water_detail_02.png",
+      "sourceRect": {
+        "x": 64,
+        "y": 640,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 101,
+      "label": "puddle"
+    },
+    {
+      "key": "water_detail_03",
+      "category": "water",
+      "file": "individual/water_detail_03.png",
+      "sourceRect": {
+        "x": 128,
+        "y": 640,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 102,
+      "label": "water w/ island"
+    },
+    {
+      "key": "grass_tuft_01",
+      "category": "vegetation",
+      "file": "individual/grass_tuft_01.png",
+      "sourceRect": {
+        "x": 0,
+        "y": 704,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 110,
+      "label": "tallgrass edge_N"
+    },
+    {
+      "key": "grass_tuft_02",
+      "category": "vegetation",
+      "file": "individual/grass_tuft_02.png",
+      "sourceRect": {
+        "x": 64,
+        "y": 704,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 111,
+      "label": "tallgrass edge_NE"
+    },
+    {
+      "key": "grass_tuft_03",
+      "category": "vegetation",
+      "file": "individual/grass_tuft_03.png",
+      "sourceRect": {
+        "x": 128,
+        "y": 704,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 112,
+      "label": "tallgrass edge_NW"
+    },
+    {
+      "key": "grass_tuft_04",
+      "category": "vegetation",
+      "file": "individual/grass_tuft_04.png",
+      "sourceRect": {
+        "x": 192,
+        "y": 704,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 113,
+      "label": "tallgrass edge_E"
+    },
+    {
+      "key": "grass_tuft_05",
+      "category": "vegetation",
+      "file": "individual/grass_tuft_05.png",
+      "sourceRect": {
+        "x": 256,
+        "y": 704,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 114,
+      "label": "tallgrass"
+    },
+    {
+      "key": "grass_tuft_06",
+      "category": "vegetation",
+      "file": "individual/grass_tuft_06.png",
+      "sourceRect": {
+        "x": 320,
+        "y": 704,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 115,
+      "label": "tallgrass edge_W"
+    },
+    {
+      "key": "grass_tuft_07",
+      "category": "vegetation",
+      "file": "individual/grass_tuft_07.png",
+      "sourceRect": {
+        "x": 384,
+        "y": 704,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 116,
+      "label": "tallgrass edge_SE"
+    },
+    {
+      "key": "grass_tuft_08",
+      "category": "vegetation",
+      "file": "individual/grass_tuft_08.png",
+      "sourceRect": {
+        "x": 448,
+        "y": 704,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 117,
+      "label": "tallgrass edge_SW"
+    },
+    {
+      "key": "grass_tuft_09",
+      "category": "vegetation",
+      "file": "individual/grass_tuft_09.png",
+      "sourceRect": {
+        "x": 512,
+        "y": 704,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 118,
+      "label": "tallgrass edge_S"
+    },
+    {
+      "key": "grass_tuft_10",
+      "category": "vegetation",
+      "file": "individual/grass_tuft_10.png",
+      "sourceRect": {
+        "x": 576,
+        "y": 704,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": true,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "frame": 119,
+      "label": "bramble"
+    },
+    {
+      "key": "shrub_small_01",
+      "category": "vegetation",
+      "file": "individual/shrub_small_01.png",
+      "sourceRect": {
+        "x": 0,
+        "y": 768,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": false,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "key": "shrub_small_02",
+      "category": "vegetation",
+      "file": "individual/shrub_small_02.png",
+      "sourceRect": {
+        "x": 64,
+        "y": 768,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": false,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "key": "conifer_small_01",
+      "category": "tree",
+      "file": "individual/conifer_small_01.png",
+      "sourceRect": {
+        "x": 128,
+        "y": 768,
+        "width": 64,
+        "height": 128
+      },
+      "tileAligned": false,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "key": "conifer_small_02",
+      "category": "tree",
+      "file": "individual/conifer_small_02.png",
+      "sourceRect": {
+        "x": 192,
+        "y": 768,
+        "width": 64,
+        "height": 128
+      },
+      "tileAligned": false,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "key": "fallen_log_01",
+      "category": "decoration",
+      "file": "individual/fallen_log_01.png",
+      "sourceRect": {
+        "x": 256,
+        "y": 768,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": false,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "key": "fallen_log_02",
+      "category": "decoration",
+      "file": "individual/fallen_log_02.png",
+      "sourceRect": {
+        "x": 320,
+        "y": 768,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": false,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "key": "shrub_medium_01",
+      "category": "vegetation",
+      "file": "individual/shrub_medium_01.png",
+      "sourceRect": {
+        "x": 384,
+        "y": 768,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": false,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "key": "shrub_medium_02",
+      "category": "vegetation",
+      "file": "individual/shrub_medium_02.png",
+      "sourceRect": {
+        "x": 448,
+        "y": 768,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": false,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "key": "shrub_large_01",
+      "category": "vegetation",
+      "file": "individual/shrub_large_01.png",
+      "sourceRect": {
+        "x": 512,
+        "y": 768,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": false,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "key": "shrub_large_02",
+      "category": "vegetation",
+      "file": "individual/shrub_large_02.png",
+      "sourceRect": {
+        "x": 576,
+        "y": 768,
+        "width": 64,
+        "height": 64
+      },
+      "tileAligned": false,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "key": "pine_tree_01",
+      "category": "tree",
+      "file": "individual/pine_tree_01.png",
+      "sourceRect": {
+        "x": 0,
+        "y": 832,
+        "width": 64,
+        "height": 192
+      },
+      "tileAligned": false,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "key": "dead_tree_01",
+      "category": "tree",
+      "file": "individual/dead_tree_01.png",
+      "sourceRect": {
+        "x": 64,
+        "y": 832,
+        "width": 64,
+        "height": 192
+      },
+      "tileAligned": false,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "key": "pine_tree_02",
+      "category": "tree",
+      "file": "individual/pine_tree_02.png",
+      "sourceRect": {
+        "x": 128,
+        "y": 832,
+        "width": 64,
+        "height": 192
+      },
+      "tileAligned": false,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "key": "dead_tree_02",
+      "category": "tree",
+      "file": "individual/dead_tree_02.png",
+      "sourceRect": {
+        "x": 192,
+        "y": 832,
+        "width": 64,
+        "height": 192
+      },
+      "tileAligned": false,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "key": "dead_tree_large",
+      "category": "tree",
+      "file": "individual/dead_tree_large.png",
+      "sourceRect": {
+        "x": 256,
+        "y": 832,
+        "width": 192,
+        "height": 192
+      },
+      "tileAligned": false,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "key": "canopy_tree_large",
+      "category": "tree",
+      "file": "individual/canopy_tree_large.png",
+      "sourceRect": {
+        "x": 448,
+        "y": 832,
+        "width": 192,
+        "height": 192
+      },
+      "tileAligned": false,
+      "anchor": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "footprint": {
+        "width": 1,
+        "height": 1
+      }
+    }
+  ]
+}
