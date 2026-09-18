@@ -44,6 +44,19 @@ async function loadTeacherClassServers(accessToken) {
   return servers;
 }
 
+async function gameServerApi(path, options = {}) {
+  const { data } = await supabase.auth.getSession();
+  const accessToken = data?.session?.access_token;
+  if (!accessToken) throw new Error("Sign in before using teacher integrations.");
+  const response = await fetch(`${getGameServerUrl()}${path}`, {
+    ...options,
+    headers: { ...(options.headers || {}), Authorization: `Bearer ${accessToken}` }
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload?.error || `Server request failed (${response.status})`);
+  return payload;
+}
+
 /*
 CLIENT STATE VARIABLES
 ----------------------
@@ -414,6 +427,7 @@ let resourceCollectionSequence = null;
 let studentDashboard = null;
 let latestMissionPosition = 0;
 let joinGameInProgress = false;
+let latestClassroomStatus = { configured: false, connected: false };
 
 function setSimulationMode(active) {
   document.body.classList.toggle("simulation-active", !!active);
@@ -440,6 +454,7 @@ function openStudentDashboard() {
     isAdmin: isAdminUser(),
     classServers: getConfiguredClassServers(),
     missionPosition: latestMissionPosition,
+    classroomStatus: latestClassroomStatus,
     getStudent: () => ({
       name: authUser?.user_metadata?.display_name || authUser?.email?.split("@")?.[0] || "Student",
       className: resolvedClassName || resolvedClassCode || "Class connected",
@@ -470,7 +485,18 @@ function openStudentDashboard() {
       await rejoinCurrentMap(currentMapKey || DEFAULT_MAP_KEY, classCode);
       studentDashboard?.refresh();
     },
-    onSetMissionPosition: (index) => sendRoomMessage("set_mission_progress", { position: index })
+    onSetMissionPosition: (index) => sendRoomMessage("set_mission_progress", { position: index }),
+    onConnectClassroom: async () => {
+      const result = await gameServerApi("/api/google/classroom/authorization-url");
+      window.location.assign(result.url);
+    },
+    onSyncClassroom: async () => {
+      const result = await gameServerApi("/api/google/classroom/sync", { method: "POST" });
+      const { data } = await supabase.auth.getSession();
+      if (data?.session?.access_token) await loadTeacherClassServers(data.session.access_token);
+      latestClassroomStatus = await gameServerApi("/api/google/classroom/status");
+      return result;
+    }
   });
   const achievementScope = authUser?.id || "guest";
   const currentChapter = sessionStorage.getItem("e3CurrentChapter") || "Scientific Thinking";
@@ -10787,6 +10813,12 @@ signInButton.addEventListener("click", async () => {
     localStatus.textContent = "Loading class servers…";
     try {
       const servers = await loadTeacherClassServers(data?.session?.access_token);
+      try {
+        latestClassroomStatus = await gameServerApi("/api/google/classroom/status");
+      } catch (classroomError) {
+        console.warn("Google Classroom status is unavailable:", classroomError);
+        latestClassroomStatus = { configured: false, connected: false };
+      }
       const rememberedCode = sessionStorage.getItem("classCode") || "";
       const selectedServer = servers.find((entry) => entry.code === rememberedCode) || servers[0] || null;
       if (selectedServer) {

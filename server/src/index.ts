@@ -3,6 +3,18 @@ import { RoomState } from "./schema/RoomState";
 import { Player } from "./schema/Player";
 import { supabaseAdmin } from "./supabase";
 import cors from "cors";
+import {
+  createClassroomAuthorizationUrl,
+  createClassroomState,
+  decryptClassroomRefreshToken,
+  encryptClassroomRefreshToken,
+  exchangeClassroomAuthorizationCode,
+  getGoogleProfile,
+  listClassroomCourses,
+  listClassroomStudents,
+  refreshClassroomAccessToken,
+  verifyClassroomState
+} from "./googleClassroom";
 
 type LayeredRoomLayout = {
   base: number[][];
@@ -9166,23 +9178,28 @@ const server = defineServer({
     app.get("/health", (_request, response) => {
       response.json({ ok: true, service: "e3-multiplayer" });
     });
-    app.get("/api/classes", async (request, response) => {
+    const authenticateTeacherRequest = async (request: any, response: any) => {
       const authorization = String(request.headers.authorization || "");
       const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
       if (!token) {
         response.status(401).json({ error: "Missing access token" });
-        return;
+        return null;
       }
       const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
       const email = authData?.user?.email || "";
       if (authError || !authData?.user) {
         response.status(401).json({ error: "Invalid access token" });
-        return;
+        return null;
       }
       if (email.toLowerCase() !== "mnelsen@susd.net") {
         response.status(403).json({ error: "Teacher access required" });
-        return;
+        return null;
       }
+      return authData.user;
+    };
+    app.get("/api/classes", async (request, response) => {
+      const teacher = await authenticateTeacherRequest(request, response);
+      if (!teacher) return;
       const { data: classes, error } = await supabaseAdmin
         .from("classes")
         .select("class_id, class_code, class_name")
@@ -9199,6 +9216,129 @@ const server = defineServer({
           name: entry.class_name || entry.class_code
         }))
       });
+    });
+    app.get("/api/google/classroom/status", async (request, response) => {
+      const teacher = await authenticateTeacherRequest(request, response);
+      if (!teacher) return;
+      const configured = !!(process.env.GOOGLE_CLASSROOM_CLIENT_ID && process.env.GOOGLE_CLASSROOM_CLIENT_SECRET && process.env.GOOGLE_CLASSROOM_REDIRECT_URI);
+      if (!configured) {
+        response.json({ configured: false, connected: false });
+        return;
+      }
+      const { data } = await supabaseAdmin
+        .from("google_classroom_connections")
+        .select("google_email, connected_at, updated_at")
+        .eq("teacher_user_id", teacher.id)
+        .maybeSingle();
+      response.json({ configured: true, connected: !!data, email: data?.google_email || null, connectedAt: data?.connected_at || null, updatedAt: data?.updated_at || null });
+    });
+    app.get("/api/google/classroom/authorization-url", async (request, response) => {
+      const teacher = await authenticateTeacherRequest(request, response);
+      if (!teacher) return;
+      try {
+        response.json({ url: createClassroomAuthorizationUrl(createClassroomState(teacher.id)) });
+      } catch (error) {
+        response.status(503).json({ error: error instanceof Error ? error.message : "Google Classroom is not configured" });
+      }
+    });
+    app.get("/auth/google/classroom/callback", async (request, response) => {
+      const frontendUrl = configuredOrigins[0] || "https://e3-expedition.onrender.com";
+      try {
+        if (request.query.error) throw new Error(String(request.query.error));
+        const state = verifyClassroomState(String(request.query.state || ""));
+        const tokens = await exchangeClassroomAuthorizationCode(String(request.query.code || ""));
+        const existing = await supabaseAdmin.from("google_classroom_connections").select("refresh_token_ciphertext").eq("teacher_user_id", state.userId).maybeSingle();
+        const encryptedRefreshToken = tokens.refresh_token
+          ? encryptClassroomRefreshToken(tokens.refresh_token)
+          : existing.data?.refresh_token_ciphertext;
+        if (!encryptedRefreshToken) throw new Error("Google did not return a refresh token. Revoke the app grant and connect again.");
+        const profile = await getGoogleProfile(tokens.access_token);
+        const { error } = await supabaseAdmin.from("google_classroom_connections").upsert({
+          teacher_user_id: state.userId,
+          google_email: profile.email || null,
+          refresh_token_ciphertext: encryptedRefreshToken,
+          updated_at: new Date().toISOString()
+        });
+        if (error) throw error;
+        response.redirect(`${frontendUrl}/?classroom=connected`);
+      } catch (error) {
+        console.error("Google Classroom callback failed:", error);
+        response.redirect(`${frontendUrl}/?classroom=error`);
+      }
+    });
+    app.post("/api/google/classroom/sync", async (request, response) => {
+      const teacher = await authenticateTeacherRequest(request, response);
+      if (!teacher) return;
+      try {
+        const { data: connection, error: connectionError } = await supabaseAdmin
+          .from("google_classroom_connections")
+          .select("refresh_token_ciphertext")
+          .eq("teacher_user_id", teacher.id)
+          .single();
+        if (connectionError || !connection) {
+          response.status(409).json({ error: "Connect Google Classroom before synchronizing." });
+          return;
+        }
+        const refreshToken = decryptClassroomRefreshToken(connection.refresh_token_ciphertext);
+        const access = await refreshClassroomAccessToken(refreshToken);
+        const courses: Array<{ id: string; name: string; section?: string }> = [];
+        let coursePage = "";
+        do {
+          const page = await listClassroomCourses(access.access_token, coursePage);
+          courses.push(...(page.courses || []));
+          coursePage = page.nextPageToken || "";
+        } while (coursePage);
+        const authUsersByEmail = new Map<string, string>();
+        let authPage = 1;
+        while (true) {
+          const { data: authUsers, error: authUsersError } = await supabaseAdmin.auth.admin.listUsers({ page: authPage, perPage: 1000 });
+          if (authUsersError) throw authUsersError;
+          for (const user of authUsers.users || []) {
+            if (user.email) authUsersByEmail.set(user.email.toLowerCase(), user.id);
+          }
+          if ((authUsers.users || []).length < 1000) break;
+          authPage += 1;
+        }
+        let rosterCount = 0;
+        let matchedStudents = 0;
+        for (const course of courses) {
+          const classCode = `GC${String(course.id).replace(/[^a-z0-9]/gi, "").slice(-8).toUpperCase()}`;
+          const { data: classRow, error: classError } = await supabaseAdmin.from("classes").upsert({
+            google_course_id: course.id,
+            class_code: classCode,
+            class_name: course.section ? `${course.name} · ${course.section}` : course.name,
+            classroom_synced_at: new Date().toISOString()
+          }, { onConflict: "google_course_id" }).select("class_id").single();
+          if (classError || !classRow) throw classError || new Error("Class import failed.");
+          let studentPage = "";
+          do {
+            const page = await listClassroomStudents(access.access_token, course.id, studentPage);
+            for (const student of page.students || []) {
+              const email = student.profile?.emailAddress?.toLowerCase() || null;
+              await supabaseAdmin.from("google_classroom_roster").upsert({
+                google_course_id: course.id,
+                google_user_id: student.userId,
+                email,
+                display_name: student.profile?.name?.fullName || null,
+                synced_at: new Date().toISOString()
+              }, { onConflict: "google_course_id,google_user_id" });
+              rosterCount += 1;
+              if (!email) continue;
+              const matchedUserId = authUsersByEmail.get(email);
+              if (matchedUserId) {
+                const membership = await supabaseAdmin.from("class_memberships").upsert({ user_id: matchedUserId, class_id: classRow.class_id, role: "student" }, { onConflict: "user_id" });
+                if (!membership.error) matchedStudents += 1;
+              }
+            }
+            studentPage = page.nextPageToken || "";
+          } while (studentPage);
+        }
+        await supabaseAdmin.from("google_classroom_connections").update({ updated_at: new Date().toISOString() }).eq("teacher_user_id", teacher.id);
+        response.json({ success: true, courses: courses.length, rosterEntries: rosterCount, matchedStudents });
+      } catch (error) {
+        console.error("Google Classroom synchronization failed:", error);
+        response.status(500).json({ error: error instanceof Error ? error.message : "Google Classroom synchronization failed" });
+      }
     });
   }
 });

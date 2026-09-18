@@ -1,6 +1,7 @@
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const CLASSROOM_API = "https://classroom.googleapis.com/v1";
+import { createCipheriv, createDecipheriv, createHmac, createHash, randomBytes, timingSafeEqual } from "crypto";
 
 export const GOOGLE_CLASSROOM_SCOPES = [
   "openid",
@@ -46,6 +47,65 @@ export async function exchangeClassroomAuthorizationCode(code: string) {
   });
   if (!response.ok) throw new Error(`Google token exchange failed (${response.status}).`);
   return response.json() as Promise<{ access_token: string; refresh_token?: string; expires_in: number }>;
+}
+
+export async function refreshClassroomAccessToken(refreshToken: string) {
+  const response = await fetch(GOOGLE_TOKEN_URL, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      refresh_token: refreshToken,
+      client_id: requiredEnv("GOOGLE_CLASSROOM_CLIENT_ID"),
+      client_secret: requiredEnv("GOOGLE_CLASSROOM_CLIENT_SECRET"),
+      grant_type: "refresh_token"
+    })
+  });
+  if (!response.ok) throw new Error(`Google token refresh failed (${response.status}).`);
+  return response.json() as Promise<{ access_token: string; expires_in: number }>;
+}
+
+function encryptionKey() {
+  return createHash("sha256").update(requiredEnv("GOOGLE_CLASSROOM_CLIENT_SECRET")).digest();
+}
+
+export function encryptClassroomRefreshToken(refreshToken: string) {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", encryptionKey(), iv);
+  const ciphertext = Buffer.concat([cipher.update(refreshToken, "utf8"), cipher.final()]);
+  return [iv.toString("base64url"), cipher.getAuthTag().toString("base64url"), ciphertext.toString("base64url")].join(".");
+}
+
+export function decryptClassroomRefreshToken(value: string) {
+  const [ivValue, tagValue, ciphertextValue] = String(value || "").split(".");
+  if (!ivValue || !tagValue || !ciphertextValue) throw new Error("Stored Google token is invalid.");
+  const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), Buffer.from(ivValue, "base64url"));
+  decipher.setAuthTag(Buffer.from(tagValue, "base64url"));
+  return Buffer.concat([decipher.update(Buffer.from(ciphertextValue, "base64url")), decipher.final()]).toString("utf8");
+}
+
+export function createClassroomState(userId: string) {
+  const payload = Buffer.from(JSON.stringify({ userId, expiresAt: Date.now() + 10 * 60 * 1000, nonce: randomBytes(16).toString("hex") })).toString("base64url");
+  const signature = createHmac("sha256", requiredEnv("GOOGLE_CLASSROOM_CLIENT_SECRET")).update(payload).digest("base64url");
+  return `${payload}.${signature}`;
+}
+
+export function verifyClassroomState(state: string) {
+  const [payload, signature] = String(state || "").split(".");
+  if (!payload || !signature) throw new Error("Google authorization state is missing.");
+  const expected = createHmac("sha256", requiredEnv("GOOGLE_CLASSROOM_CLIENT_SECRET")).update(payload).digest("base64url");
+  const suppliedBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  if (suppliedBuffer.length !== expectedBuffer.length || !timingSafeEqual(suppliedBuffer, expectedBuffer)) throw new Error("Google authorization state is invalid.");
+  const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+  if (!parsed?.userId || Number(parsed.expiresAt) < Date.now()) throw new Error("Google authorization state has expired.");
+  return parsed as { userId: string; expiresAt: number; nonce: string };
+}
+
+export function getGoogleProfile(accessToken: string) {
+  return fetch("https://openidconnect.googleapis.com/v1/userinfo", { headers: { authorization: `Bearer ${accessToken}` } }).then(async (response) => {
+    if (!response.ok) throw new Error(`Google profile request failed (${response.status}).`);
+    return response.json() as Promise<{ email?: string; name?: string }>;
+  });
 }
 
 async function classroomGet<T>(accessToken: string, path: string) {
