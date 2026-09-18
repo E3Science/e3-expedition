@@ -10980,16 +10980,38 @@ joinButton.addEventListener("click", async () => {
 
   supabase.auth.getSession().then(async ({ data }) => {
     const sessionUser = data?.session?.user;
-    if (!sessionUser || (sessionUser.email || "").toLowerCase() === ADMIN_EMAIL.toLowerCase() || !document.body.contains(wrapper)) return;
+    if (!sessionUser || !document.body.contains(wrapper)) return;
     authUser = sessionUser;
     const displayName = sessionUser.user_metadata?.display_name || sessionUser.email?.split("@")[0] || "Student";
     await supabase.from("profiles").upsert({ user_id: sessionUser.id, display_name: displayName }, { onConflict: "user_id" });
     emailInput.value = sessionUser.email || "";
     nameInput.value = displayName;
+    if ((sessionUser.email || "").toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+      localStatus.textContent = "Google account confirmed. Loading teacher classes…";
+      const servers = await loadTeacherClassServers(data.session.access_token);
+      try {
+        latestClassroomStatus = await gameServerApi("/api/google/classroom/status");
+      } catch (error) {
+        console.warn("Google Classroom status is unavailable:", error);
+      }
+      const rememberedCode = sessionStorage.getItem("classCode") || "";
+      const selectedServer = servers.find((entry) => entry.code === rememberedCode) || servers[0] || null;
+      if (selectedServer) {
+        sessionStorage.setItem("classCode", selectedServer.code);
+        const connected = await joinGame(displayName, selectedServer.code, currentMapKey || DEFAULT_MAP_KEY);
+        if (!connected) throw new Error(`Could not connect to ${selectedServer.name}.`);
+      }
+      wrapper.remove();
+      openStudentDashboard();
+      return;
+    }
     localStatus.textContent = "Account confirmed. Finding your class…";
     joinButton.disabled = false;
     joinButton.click();
-  }).catch((error) => console.warn("Existing student session could not be resumed:", error));
+  }).catch((error) => {
+    console.warn("Existing Google session could not be resumed:", error);
+    localStatus.textContent = error?.message || "Google sign-in could not be completed.";
+  });
 
   setTimeout(() => emailInput.focus(), 50);
 }
