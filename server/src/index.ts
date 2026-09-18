@@ -3,6 +3,7 @@ import { RoomState } from "./schema/RoomState";
 import { Player } from "./schema/Player";
 import { supabaseAdmin } from "./supabase";
 import cors from "cors";
+import { json } from "express";
 import {
   createClassroomAuthorizationUrl,
   createClassroomState,
@@ -9161,6 +9162,7 @@ const server = defineServer({
     class_room: defineRoom(ClassRoom).filterBy(["classCode", "mapKey"]),
   },
   express: (app) => {
+    app.use(json({ limit: "32kb" }));
     const configuredOrigins = String(process.env.CLIENT_ORIGINS || "")
       .split(",")
       .map((origin) => origin.trim())
@@ -9216,6 +9218,134 @@ const server = defineServer({
           name: entry.class_name || entry.class_code
         }))
       });
+    });
+    const listAuthUsersByEmail = async () => {
+      const byEmail = new Map<string, any>();
+      const byId = new Map<string, any>();
+      let page = 1;
+      while (true) {
+        const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 1000 });
+        if (error) throw error;
+        for (const user of data.users || []) {
+          byId.set(user.id, user);
+          if (user.email) byEmail.set(user.email.toLowerCase(), user);
+        }
+        if ((data.users || []).length < 1000) break;
+        page += 1;
+      }
+      return { byEmail, byId };
+    };
+    app.get("/api/classes/:classId/students", async (request, response) => {
+      const teacher = await authenticateTeacherRequest(request, response);
+      if (!teacher) return;
+      try {
+        const classId = String(request.params.classId || "");
+        const { data: classRow, error: classError } = await supabaseAdmin.from("classes").select("class_id, class_code, class_name, google_course_id").eq("class_id", classId).single();
+        if (classError || !classRow) {
+          response.status(404).json({ error: "Class not found" });
+          return;
+        }
+        const [{ data: memberships, error: membershipError }, authUsers] = await Promise.all([
+          supabaseAdmin.from("class_memberships").select("user_id, role").eq("class_id", classId).eq("role", "student"),
+          listAuthUsersByEmail()
+        ]);
+        if (membershipError) throw membershipError;
+        const memberIds = (memberships || []).map((entry) => entry.user_id);
+        const profileMap = new Map<string, any>();
+        if (memberIds.length) {
+          const { data: profiles, error: profileError } = await supabaseAdmin.from("profiles").select("user_id, display_name").in("user_id", memberIds);
+          if (profileError) throw profileError;
+          for (const profile of profiles || []) profileMap.set(profile.user_id, profile);
+        }
+        const rows = new Map<string, any>();
+        if (classRow.google_course_id) {
+          const { data: roster, error: rosterError } = await supabaseAdmin.from("google_classroom_roster").select("google_user_id, email, display_name").eq("google_course_id", classRow.google_course_id).order("display_name", { ascending: true });
+          if (rosterError) throw rosterError;
+          for (const entry of roster || []) {
+            const email = String(entry.email || "").toLowerCase();
+            const user = email ? authUsers.byEmail.get(email) : null;
+            rows.set(email || `google:${entry.google_user_id}`, { userId: user?.id || null, email: entry.email || null, displayName: entry.display_name || user?.user_metadata?.display_name || email || "Classroom student", source: "google", inClass: !!user && memberIds.includes(user.id) });
+          }
+        }
+        for (const membership of memberships || []) {
+          const user = authUsers.byId.get(membership.user_id);
+          const email = String(user?.email || "").toLowerCase();
+          const existing = rows.get(email || `user:${membership.user_id}`);
+          rows.set(email || `user:${membership.user_id}`, { ...existing, userId: membership.user_id, email: user?.email || existing?.email || null, displayName: profileMap.get(membership.user_id)?.display_name || user?.user_metadata?.display_name || existing?.displayName || email || "Student", source: existing?.source || "manual", inClass: true });
+        }
+        response.json({ class: { id: classRow.class_id, code: classRow.class_code, name: classRow.class_name || classRow.class_code }, students: Array.from(rows.values()).sort((a, b) => a.displayName.localeCompare(b.displayName)) });
+      } catch (error) {
+        console.error("Failed to list class students:", error);
+        response.status(500).json({ error: error instanceof Error ? error.message : "Could not load students" });
+      }
+    });
+    app.post("/api/classes/:classId/students", async (request, response) => {
+      const teacher = await authenticateTeacherRequest(request, response);
+      if (!teacher) return;
+      try {
+        const classId = String(request.params.classId || "");
+        const email = String(request.body?.email || "").trim().toLowerCase();
+        const displayName = String(request.body?.displayName || "").trim();
+        if (!/^\S+@\S+\.\S+$/.test(email)) {
+          response.status(400).json({ error: "Enter a valid student email address." });
+          return;
+        }
+        const { data: classRow } = await supabaseAdmin.from("classes").select("class_id").eq("class_id", classId).maybeSingle();
+        if (!classRow) {
+          response.status(404).json({ error: "Class not found" });
+          return;
+        }
+        const authUsers = await listAuthUsersByEmail();
+        let user = authUsers.byEmail.get(email);
+        let invited = false;
+        if (!user) {
+          const redirectTo = configuredOrigins[0] || "https://e3-expedition.onrender.com";
+          const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, { redirectTo, data: displayName ? { display_name: displayName } : undefined });
+          if (error) throw error;
+          user = data.user;
+          invited = true;
+        }
+        if (!user) throw new Error("The student account could not be created.");
+        if (displayName) await supabaseAdmin.from("profiles").upsert({ user_id: user.id, display_name: displayName }, { onConflict: "user_id" });
+        const { error: membershipError } = await supabaseAdmin.from("class_memberships").upsert({ user_id: user.id, class_id: classId, role: "student" }, { onConflict: "user_id" });
+        if (membershipError) throw membershipError;
+        response.json({ success: true, invited, userId: user.id, email });
+      } catch (error) {
+        console.error("Failed to add class student:", error);
+        response.status(500).json({ error: error instanceof Error ? error.message : "Could not add student" });
+      }
+    });
+    app.delete("/api/classes/:classId/students/:userId", async (request, response) => {
+      const teacher = await authenticateTeacherRequest(request, response);
+      if (!teacher) return;
+      const { error } = await supabaseAdmin.from("class_memberships").delete().eq("class_id", String(request.params.classId || "")).eq("user_id", String(request.params.userId || ""));
+      if (error) {
+        response.status(500).json({ error: "Could not remove student from this class" });
+        return;
+      }
+      response.json({ success: true });
+    });
+    app.get("/api/classes/:classId/students/:userId/stats", async (request, response) => {
+      const teacher = await authenticateTeacherRequest(request, response);
+      if (!teacher) return;
+      try {
+        const classId = String(request.params.classId || "");
+        const userId = String(request.params.userId || "");
+        const { data: membership } = await supabaseAdmin.from("class_memberships").select("user_id").eq("class_id", classId).eq("user_id", userId).maybeSingle();
+        if (!membership) {
+          response.status(404).json({ error: "Student is not in this class" });
+          return;
+        }
+        const [{ data: profile }, { data: inventory }, authUsers] = await Promise.all([
+          supabaseAdmin.from("profiles").select("display_name").eq("user_id", userId).maybeSingle(),
+          supabaseAdmin.from("inventories").select("item_id, quantity").eq("user_id", userId).eq("class_id", classId),
+          listAuthUsersByEmail()
+        ]);
+        const user = authUsers.byId.get(userId);
+        response.json({ student: { userId, email: user?.email || null, displayName: profile?.display_name || user?.user_metadata?.display_name || user?.email?.split("@")[0] || "Student", online: ACTIVE_ACCOUNT_CLIENTS.has(userId), inventoryTypes: (inventory || []).filter((item) => Number(item.quantity) > 0).length, inventoryItems: (inventory || []).reduce((sum, item) => sum + Math.max(0, Number(item.quantity) || 0), 0) } });
+      } catch (error) {
+        response.status(500).json({ error: error instanceof Error ? error.message : "Could not load student overview" });
+      }
     });
     app.get("/api/google/classroom/status", async (request, response) => {
       const teacher = await authenticateTeacherRequest(request, response);

@@ -38,7 +38,7 @@ async function loadTeacherClassServers(accessToken) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload?.error || `Class server request failed (${response.status})`);
   const servers = Array.isArray(payload?.classes)
-    ? payload.classes.filter((entry) => entry?.code).map((entry) => ({ code: String(entry.code), name: String(entry.name || entry.code) }))
+    ? payload.classes.filter((entry) => entry?.code).map((entry) => ({ id: String(entry.id || ""), code: String(entry.code), name: String(entry.name || entry.code) }))
     : [];
   localStorage.setItem("e3ClassServers", JSON.stringify(servers));
   return servers;
@@ -496,7 +496,11 @@ function openStudentDashboard() {
       if (data?.session?.access_token) await loadTeacherClassServers(data.session.access_token);
       latestClassroomStatus = await gameServerApi("/api/google/classroom/status");
       return result;
-    }
+    },
+    onLoadClassRoster: (classId) => gameServerApi(`/api/classes/${encodeURIComponent(classId)}/students`),
+    onAddClassStudent: (classId, student) => gameServerApi(`/api/classes/${encodeURIComponent(classId)}/students`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(student) }),
+    onRemoveClassStudent: (classId, userId) => gameServerApi(`/api/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(userId)}`, { method: "DELETE" }),
+    onLoadStudentStats: (classId, userId) => gameServerApi(`/api/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(userId)}/stats`)
   });
   const achievementScope = authUser?.id || "guest";
   const currentChapter = sessionStorage.getItem("e3CurrentChapter") || "Scientific Thinking";
