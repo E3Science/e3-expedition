@@ -432,6 +432,50 @@ async function saveClassMissionPosition(classId: string, position: number) {
   if (error) console.error("Failed to persist mission position:", error);
 }
 
+async function resolveStudentClass(userId: string, email: string) {
+  const loadMembership = async () => {
+    const { data, error } = await supabaseAdmin
+      .from("class_memberships")
+      .select("role, class_id, classes ( class_id, class_name, class_code )")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  };
+  let membership = await loadMembership();
+  if (!membership && email) {
+    const { data: rosterEntry, error: rosterError } = await supabaseAdmin
+      .from("google_classroom_roster")
+      .select("google_course_id, display_name")
+      .eq("email", email.toLowerCase())
+      .order("synced_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (rosterError) throw rosterError;
+    if (rosterEntry?.google_course_id) {
+      const { data: classRow, error: classError } = await supabaseAdmin
+        .from("classes")
+        .select("class_id")
+        .eq("google_course_id", rosterEntry.google_course_id)
+        .maybeSingle();
+      if (classError) throw classError;
+      if (classRow?.class_id) {
+        const { error: membershipError } = await supabaseAdmin
+          .from("class_memberships")
+          .upsert({ user_id: userId, class_id: classRow.class_id, role: "student" }, { onConflict: "user_id" });
+        if (membershipError) throw membershipError;
+        if (rosterEntry.display_name) {
+          await supabaseAdmin.from("profiles").upsert({ user_id: userId, display_name: rosterEntry.display_name }, { onConflict: "user_id" });
+        }
+        membership = await loadMembership();
+      }
+    }
+  }
+  if (!membership) return null;
+  const classRow = Array.isArray(membership.classes) ? membership.classes[0] : membership.classes;
+  return classRow ? { membership, classRow } : null;
+}
+
 function isVirtualProgressionItemId(itemId: string) {
   return itemId.startsWith(PROGRESSION_ITEM_PREFIX) || itemId.startsWith(LEGACY_TOKEN_ITEM_PREFIX);
 }
@@ -1288,31 +1332,11 @@ static async onAuth(
 
   /* STUDENT BRANCH */
 
-  const { data: membershipRow, error: membershipError } = await supabaseAdmin
-    .from("class_memberships")
-    .select(`
-      role,
-      class_id,
-      classes (
-        class_id,
-        class_name,
-        class_code
-      )
-    `)
-    .eq("user_id", user.id)
-    .single();
-
-  if (membershipError || !membershipRow) {
+  const resolvedMembership = await resolveStudentClass(user.id, email);
+  if (!resolvedMembership) {
     throw new ServerError(403, "No class membership found for this account");
   }
-
-  const classRow = Array.isArray(membershipRow.classes)
-    ? membershipRow.classes[0]
-    : membershipRow.classes;
-
-  if (!classRow) {
-    throw new ServerError(403, "Assigned class could not be loaded");
-  }
+  const classRow = resolvedMembership.classRow;
 
   console.log("STUDENT AUTH:", {
     email,
@@ -9180,25 +9204,45 @@ const server = defineServer({
     app.get("/health", (_request, response) => {
       response.json({ ok: true, service: "e3-multiplayer" });
     });
-    const authenticateTeacherRequest = async (request: any, response: any) => {
+    const authenticateRequest = async (request: any, response: any) => {
       const authorization = String(request.headers.authorization || "");
       const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
       if (!token) {
         response.status(401).json({ error: "Missing access token" });
         return null;
       }
-      const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
-      const email = authData?.user?.email || "";
-      if (authError || !authData?.user) {
+      const { data, error } = await supabaseAdmin.auth.getUser(token);
+      if (error || !data?.user) {
         response.status(401).json({ error: "Invalid access token" });
         return null;
       }
+      return data.user;
+    };
+    const authenticateTeacherRequest = async (request: any, response: any) => {
+      const user = await authenticateRequest(request, response);
+      if (!user) return null;
+      const email = user.email || "";
       if (email.toLowerCase() !== "mnelsen@susd.net") {
         response.status(403).json({ error: "Teacher access required" });
         return null;
       }
-      return authData.user;
+      return user;
     };
+    app.get("/api/student/class", async (request, response) => {
+      const user = await authenticateRequest(request, response);
+      if (!user) return;
+      try {
+        const resolved = await resolveStudentClass(user.id, user.email || "");
+        if (!resolved) {
+          response.status(404).json({ error: "Your email is not yet on a synchronized class roster. Ask your teacher to synchronize Google Classroom." });
+          return;
+        }
+        response.json({ id: resolved.classRow.class_id, code: resolved.classRow.class_code, name: resolved.classRow.class_name || resolved.classRow.class_code });
+      } catch (error) {
+        console.error("Failed to resolve student class:", error);
+        response.status(500).json({ error: error instanceof Error ? error.message : "Could not resolve student class" });
+      }
+    });
     app.get("/api/classes", async (request, response) => {
       const teacher = await authenticateTeacherRequest(request, response);
       if (!teacher) return;
@@ -9264,7 +9308,17 @@ const server = defineServer({
           for (const entry of roster || []) {
             const email = String(entry.email || "").toLowerCase();
             const user = email ? authUsers.byEmail.get(email) : null;
-            rows.set(email || `google:${entry.google_user_id}`, { userId: user?.id || null, email: entry.email || null, displayName: entry.display_name || user?.user_metadata?.display_name || email || "Classroom student", source: "google", inClass: !!user && memberIds.includes(user.id) });
+            let inClass = !!user && memberIds.includes(user.id);
+            if (user && !inClass) {
+              const { error: linkError } = await supabaseAdmin.from("class_memberships").upsert({ user_id: user.id, class_id: classId, role: "student" }, { onConflict: "user_id" });
+              if (!linkError) {
+                memberIds.push(user.id);
+                inClass = true;
+              } else {
+                console.error("Could not automatically link roster student:", { email, classId, error: linkError.message });
+              }
+            }
+            rows.set(email || `google:${entry.google_user_id}`, { userId: user?.id || null, email: entry.email || null, displayName: entry.display_name || user?.user_metadata?.display_name || email || "Classroom student", source: "google", inClass });
           }
         }
         for (const membership of memberships || []) {

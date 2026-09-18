@@ -10890,6 +10890,19 @@ joinButton.addEventListener("click", async () => {
 
   let enteredClassCode = classCodeInput.value.trim().toUpperCase();
 
+  if (!isAdmin) {
+    try {
+      localStatus.textContent = "Finding your class…";
+      const assignedClass = await gameServerApi("/api/student/class");
+      enteredClassCode = assignedClass.code || "";
+      resolvedClassCode = assignedClass.code || "";
+      resolvedClassName = assignedClass.name || assignedClass.code || "";
+    } catch (classError) {
+      localStatus.textContent = classError?.message || "Your account is not assigned to a class yet.";
+      return;
+    }
+  }
+
   if (isAdmin && !enteredClassCode) {
     enteredClassCode = savedClassServers[0]?.code || "";
     classCodeInput.value = enteredClassCode;
@@ -10915,7 +10928,7 @@ joinButton.addEventListener("click", async () => {
 
   const success = await joinGame(
     chosenName,
-    isAdmin ? enteredClassCode : "",
+    enteredClassCode,
     currentMapKey || DEFAULT_MAP_KEY
   );
 
@@ -10946,6 +10959,19 @@ joinButton.addEventListener("click", async () => {
   wrapper.appendChild(loginShell);
 
   app.appendChild(wrapper);
+
+  supabase.auth.getSession().then(async ({ data }) => {
+    const sessionUser = data?.session?.user;
+    if (!sessionUser || (sessionUser.email || "").toLowerCase() === ADMIN_EMAIL.toLowerCase() || !document.body.contains(wrapper)) return;
+    authUser = sessionUser;
+    const displayName = sessionUser.user_metadata?.display_name || sessionUser.email?.split("@")[0] || "Student";
+    await supabase.from("profiles").upsert({ user_id: sessionUser.id, display_name: displayName }, { onConflict: "user_id" });
+    emailInput.value = sessionUser.email || "";
+    nameInput.value = displayName;
+    localStatus.textContent = "Account confirmed. Finding your class…";
+    joinButton.disabled = false;
+    joinButton.click();
+  }).catch((error) => console.warn("Existing student session could not be resumed:", error));
 
   setTimeout(() => emailInput.focus(), 50);
 }
