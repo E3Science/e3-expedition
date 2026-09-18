@@ -10654,6 +10654,23 @@ function createJoinUI() {
   signInButton.style.fontSize = "16px";
   signInButton.style.cursor = "pointer";
 
+  const googleSignInButton = document.createElement("button");
+  googleSignInButton.type = "button";
+  googleSignInButton.className = "google-sign-in-button";
+  googleSignInButton.innerHTML = `<span aria-hidden="true">G</span> Sign in with Google`;
+  googleSignInButton.addEventListener("click", async () => {
+    googleSignInButton.disabled = true;
+    localStatus.textContent = "Opening Google sign-in…";
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}${window.location.pathname}` }
+    });
+    if (error) {
+      googleSignInButton.disabled = false;
+      localStatus.textContent = `Google sign-in failed: ${error.message}`;
+    }
+  });
+
   const joinButton = document.createElement("button");
   joinButton.type = "button";
   joinButton.textContent = "Opening dashboard…";
@@ -10947,6 +10964,7 @@ joinButton.addEventListener("click", async () => {
   formPanel.appendChild(passwordInput);
   formPanel.appendChild(nameInput);
   formPanel.appendChild(buttonRow);
+  formPanel.appendChild(googleSignInButton);
   formPanel.appendChild(joinButton);
   formPanel.appendChild(localStatus);
   formPanel.addEventListener("submit", (event) => {

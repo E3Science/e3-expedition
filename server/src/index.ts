@@ -9344,26 +9344,33 @@ const server = defineServer({
           response.status(400).json({ error: "Enter a valid student email address." });
           return;
         }
-        const { data: classRow } = await supabaseAdmin.from("classes").select("class_id").eq("class_id", classId).maybeSingle();
+        const { data: classRow } = await supabaseAdmin.from("classes").select("class_id, google_course_id").eq("class_id", classId).maybeSingle();
         if (!classRow) {
           response.status(404).json({ error: "Class not found" });
           return;
         }
         const authUsers = await listAuthUsersByEmail();
-        let user = authUsers.byEmail.get(email);
-        let invited = false;
+        const user = authUsers.byEmail.get(email);
         if (!user) {
-          const redirectTo = configuredOrigins[0] || "https://e3-expedition.onrender.com";
-          const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, { redirectTo, data: displayName ? { display_name: displayName } : undefined });
-          if (error) throw error;
-          user = data.user;
-          invited = true;
+          if (!classRow.google_course_id) {
+            response.status(409).json({ error: "This class is not connected to Google Classroom, so the email cannot be pre-authorized." });
+            return;
+          }
+          const { error: accessError } = await supabaseAdmin.from("google_classroom_roster").upsert({
+            google_course_id: classRow.google_course_id,
+            google_user_id: `manual:${email}`,
+            email,
+            display_name: displayName || email.split("@")[0],
+            synced_at: new Date().toISOString()
+          }, { onConflict: "google_course_id,google_user_id" });
+          if (accessError) throw accessError;
+          response.json({ success: true, pendingGoogleSignIn: true, email });
+          return;
         }
-        if (!user) throw new Error("The student account could not be created.");
         if (displayName) await supabaseAdmin.from("profiles").upsert({ user_id: user.id, display_name: displayName }, { onConflict: "user_id" });
         const { error: membershipError } = await supabaseAdmin.from("class_memberships").upsert({ user_id: user.id, class_id: classId, role: "student" }, { onConflict: "user_id" });
         if (membershipError) throw membershipError;
-        response.json({ success: true, invited, userId: user.id, email });
+        response.json({ success: true, pendingGoogleSignIn: false, userId: user.id, email });
       } catch (error) {
         console.error("Failed to add class student:", error);
         response.status(500).json({ error: error instanceof Error ? error.message : "Could not add student" });
