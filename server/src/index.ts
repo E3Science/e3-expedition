@@ -7414,7 +7414,10 @@ if (stillDistance > TILE_SIZE * 6) {
           itemKey: granted.itemId,
           itemLabel: granted.itemLabel,
           quality,
+          presentation: "resource_wheel",
+          resourceKind: baseItemKey.replace("_sample", "").replace("_specimen", ""),
           resourceTier: 1,
+          cooldownMs: 2200,
           rarityChances: getItemQualityChancesForTier(1, masterySteps)
         });
         client.send("interaction_result", { success: true, message: `Correct answer: ${granted.itemLabel} added to inventory.` });

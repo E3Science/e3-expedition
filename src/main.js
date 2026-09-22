@@ -16,6 +16,23 @@ let createWorldOverheadLayer;
 let createResourceCollectionSequence;
 let createStudentDashboardFactory = null;
 
+async function ensureResourcePrizeWheel() {
+  if (resourceCollectionSequence) return resourceCollectionSequence;
+  if (!createResourceCollectionSequence) {
+    createResourceCollectionSequence = (await import("./ui/resourceCollectionSequence")).createResourceCollectionSequence;
+  }
+  resourceCollectionSequence = createResourceCollectionSequence({
+    root: uiRoot,
+    qualityDefs: ITEM_QUALITY_DEFS,
+    getItemDefinition: getInventoryItemDefByKey,
+    onFloatingReward: (itemKey) => {
+      if (sceneRef) showFloatingLootText(itemKey);
+    },
+    onQuestionAttempt: () => sendRoomMessage("resource_question_attempt")
+  });
+  return resourceCollectionSequence;
+}
+
 function getConfiguredClassServers() {
   try {
     const stored = JSON.parse(localStorage.getItem("e3ClassServers") || "null");
@@ -519,6 +536,7 @@ async function openStudentDashboard() {
     getItemDefinition: getInventoryItemDefByKey,
     onOpenQuest: (questId) => openQuestTurnInUI(questId),
     onDeleteInventoryItem: (itemId) => sendRoomMessage("delete_inventory_item", { itemId }),
+    onOpenSkills: () => openSkillsWindow(),
     onEnterSimulation: async (kind, context = {}) => {
       if (kind === "original") {
         await startGameRuntime();
@@ -3911,6 +3929,7 @@ function create() {
 
   createUIRoot();
 
+  resourceCollectionSequence?.destroy?.();
   resourceCollectionSequence = createResourceCollectionSequence({
     root: uiRoot,
     qualityDefs: ITEM_QUALITY_DEFS,
@@ -14467,6 +14486,12 @@ lastEditorStatusMessage = "";
       questTurnInSubmitting = false;
       if (data?.success) {
         closeQuestTurnInUI();
+        studentDashboard?.enqueueAchievement({
+          title: "Quest Complete",
+          detail: data.message || "Research samples transmitted",
+          glyph: "✦",
+          metal: "gold"
+        });
         if (data?.artifactAwarded) {
           showFloatingLootText(data.artifactItemKey || ALIEN_ARTIFACT_ITEM_ID);
           showStatusMessage("Alien Artifact recovered from the transmission reward.", true);
@@ -14546,10 +14571,11 @@ lastEditorStatusMessage = "";
     }
   });
 
-    room.onMessage("loot_feedback", (data) => {
+    room.onMessage("loot_feedback", async (data) => {
       if (!data?.itemKey) return;
       if (data.presentation === "resource_wheel") {
-        resourceCollectionSequence?.receiveReward?.(data);
+        const sequence = await ensureResourcePrizeWheel();
+        sequence?.receiveReward?.(data);
         return;
       }
       showFloatingLootText(data.itemKey);
