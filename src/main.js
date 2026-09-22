@@ -517,6 +517,8 @@ async function openStudentDashboard() {
     getInventory: () => latestInventoryCounts,
     getQuests: () => latestQuestSnapshot,
     getItemDefinition: getInventoryItemDefByKey,
+    onOpenQuest: (questId) => openQuestTurnInUI(questId),
+    onDeleteInventoryItem: (itemId) => sendRoomMessage("delete_inventory_item", { itemId }),
     onEnterSimulation: async (kind, context = {}) => {
       if (kind === "original") {
         await startGameRuntime();
@@ -12025,6 +12027,7 @@ function updateQuestUI(snapshot = {}) {
     maxQuests: Math.max(1, Number(snapshot?.maxQuests) || 5),
     quests: Array.isArray(snapshot?.quests) ? snapshot.quests : []
   };
+  studentDashboard?.refresh();
   if (!questPanelBody) return;
   questPanelBody.innerHTML = "";
   if (questActiveSummary) {
@@ -12355,6 +12358,8 @@ function updateInventoryUI(inventoryCounts = {}) {
   const inventoryChanged = nextInventorySignature !== latestInventorySignature;
   latestInventorySignature = nextInventorySignature;
   latestInventoryCounts = { ...visibleInventoryCounts };
+
+  if (inventoryChanged) studentDashboard?.refresh();
 
   const stacks = getPackedInventoryStacks(visibleInventoryCounts);
 
@@ -14661,6 +14666,21 @@ lastEditorStatusMessage = "";
     const callbacks = Callbacks.get(room);
 
     callbacks.onAdd("players", (player, id) => {
+      if (id === myId) {
+        const syncDashboardInventory = () => {
+          const inventoryCounts = {};
+          player.inventory?.forEach?.((count, key) => {
+            inventoryCounts[key] = Number(count) || 0;
+          });
+          updateInventoryUI(inventoryCounts);
+        };
+        syncDashboardInventory();
+        if (player.inventory) {
+          callbacks.onAdd(player.inventory, syncDashboardInventory);
+          callbacks.onChange(player.inventory, syncDashboardInventory);
+          callbacks.onRemove(player.inventory, syncDashboardInventory);
+        }
+      }
       if (!sceneRef || !Phaser) return;
       if (players[id]) {
         players[id].shadow?.destroy();

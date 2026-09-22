@@ -47,7 +47,7 @@ MISSION_UNITS.forEach((unit, unitIndex) => {
 function el(tag, className = "", text = "") { const node = document.createElement(tag); if (className) node.className = className; if (text) node.textContent = text; return node; }
 function icon(name) { return `<span class="dashboard-icon" aria-hidden="true">${name}</span>`; }
 
-export function createStudentDashboard({ root, isAdmin = false, classServers = [], missionPosition = 0, classroomStatus = {}, getStudent = () => ({}), getProgression = () => ({}), getInventory = () => ({}), getQuests = () => ({ quests: [] }), getItemDefinition = () => null, onEnterSimulation = () => {}, onOpenSettings = () => {}, onSendChat = () => false, onRequestQuest = () => false, onAnswerStudyQuestion = () => false, onSwitchClass = () => {}, onSetMissionPosition = () => {}, onConnectClassroom = async () => {}, onSyncClassroom = async () => ({}), onLoadClassRoster = async () => ({ students: [] }), onAddClassStudent = async () => ({}), onRemoveClassStudent = async () => ({}), onLoadStudentStats = async () => ({}), onLoadAccounts = async () => ({ accounts: [] }), onUpdateAccount = async () => ({}) } = {}) {
+export function createStudentDashboard({ root, isAdmin = false, classServers = [], missionPosition = 0, classroomStatus = {}, getStudent = () => ({}), getProgression = () => ({}), getInventory = () => ({}), getQuests = () => ({ quests: [] }), getItemDefinition = () => null, onOpenQuest = () => {}, onDeleteInventoryItem = () => false, onEnterSimulation = () => {}, onOpenSettings = () => {}, onSendChat = () => false, onRequestQuest = () => false, onAnswerStudyQuestion = () => false, onSwitchClass = () => {}, onSetMissionPosition = () => {}, onConnectClassroom = async () => {}, onSyncClassroom = async () => ({}), onLoadClassRoster = async () => ({ students: [] }), onAddClassStudent = async () => ({}), onRemoveClassStudent = async () => ({}), onLoadStudentStats = async () => ({}), onLoadAccounts = async () => ({ accounts: [] }), onUpdateAccount = async () => ({}) } = {}) {
   if (!root) return null;
   root.querySelector("#student-dashboard")?.remove();
   const shell = el("main", "student-dashboard"); shell.id = "student-dashboard"; shell.setAttribute("aria-label", "Student learning dashboard");
@@ -61,7 +61,7 @@ export function createStudentDashboard({ root, isAdmin = false, classServers = [
   if (isAdmin) { const serverSelect = el("select", "teacher-server-select"); serverSelect.setAttribute("aria-label", "Active class server"); serverSelect.appendChild(new Option(classServers.length ? "Select class server…" : "No class servers available", "")); classServers.forEach(({ code, name }) => serverSelect.appendChild(new Option(name, code))); serverSelect.value = getStudent().classCode || ""; serverSelect.addEventListener("change", () => { if (serverSelect.value) onSwitchClass(serverSelect.value); }); topActions.appendChild(serverSelect); }
   const userChip = el("div", "user-chip"); userChip.innerHTML = `<span class="user-initial">S</span><div><strong>Student</strong><small class="rank-line">Recruit</small><small class="chapter-line">Current chapter: —</small></div>`; topActions.append(classPill, settings, userChip); topbar.append(titleGroup, topActions);
   const viewport = el("div", "dashboard-viewport"); content.append(topbar, viewport); shell.append(sidebar, content); root.appendChild(shell);
-  let activeView = "overview"; let avatarPreview = null; let portalEnabled = true; let chatMessages = []; let achievementQueue = []; let activeAchievement = null; let studyContext = null; let studyQuestionIndex = 0; let studyProgress = 0; let currentMissionPosition = Math.max(0, Math.min(MISSION_STOPS.length - 1, Number(missionPosition) || 0));
+  let activeView = "overview"; let avatarPreview = null; let portalEnabled = true; let chatMessages = []; let achievementQueue = []; let activeAchievement = null; let studyContext = null; let studyQuestionIndex = 0; let studyProgress = 0; let selectedInventoryKey = null; let currentMissionPosition = Math.max(0, Math.min(MISSION_STOPS.length - 1, Number(missionPosition) || 0));
   const achievementOverlay = el("div", "achievement-reveal");
   achievementOverlay.hidden = true;
   achievementOverlay.innerHTML = `<div class="confetti-field" aria-hidden="true"></div><div class="reveal-medallion"><span class="medal-glyph">✦</span><small>Achievement unlocked</small><strong>Achievement</strong><em>Continue</em></div><p>Click any button or press any key to continue</p>`;
@@ -147,7 +147,51 @@ export function createStudentDashboard({ root, isAdmin = false, classServers = [
     load(); return wrap;
   }
   function renderAvatar() { const wrap = el("div", "avatar-layout avatar-only-layout"); const preview = el("div", "dashboard-avatar-preview"); const stage = el("div", "dashboard-avatar-stage"); preview.appendChild(stage); const caption = el("div", "avatar-caption"); caption.innerHTML = `<span>3D avatar</span><h2>${studentName()}</h2><p>Outfit choices and wearable customization will appear here.</p>`; preview.appendChild(caption); const coming = el("section", "dashboard-card outfit-preview"); coming.innerHTML = `<span class="eyebrow">Outfit bay</span><h2>Outfits coming next</h2><p>Your avatar is now separate from collected samples and quests. Future suits, helmets, and accessories will be managed on this page.</p>`; wrap.append(preview, coming); requestAnimationFrame(() => { avatarPreview = createAstronautPreview(stage); }); return wrap; }
-  function renderInventoryAndQuests() { const wrap = el("div", "page-stack"); const counts = getInventory() || {}; const keys = Object.keys(counts).filter((key) => Number(counts[key]) > 0).slice(0, 24); const inventory = el("section", "dashboard-card inventory-browser"); inventory.innerHTML = `<div class="inventory-toolbar"><div><span class="eyebrow">Collection</span><h2>Scientific inventory</h2></div><span>${keys.length} item types</span></div>`; const grid = el("div", "dashboard-inventory-grid"); (keys.length ? keys : ["rock_sample", "plant_sample", "water_sample", "herbivore_specimen"]).forEach((key, index) => { const def = getItemDefinition(key) || {}; const item = el("div", "inventory-tile"); item.innerHTML = `${def.imageSrc ? `<img src="${def.imageSrc}" alt="">` : `<span>${["◆", "❋", "≈", "◌"][index % 4]}</span>`}<strong>${def.label || key.replaceAll("_", " ")}</strong><small>× ${counts[key] || 0}</small>`; grid.appendChild(item); }); inventory.appendChild(grid); const quests = el("section", "dashboard-card dashboard-quest-list"); const snapshot = getQuests() || {}; const active = snapshot.quests || []; quests.innerHTML = `<div class="inventory-toolbar"><div><span class="eyebrow">Sample missions</span><h2>Active quests</h2></div><span>${active.length}/${snapshot.maxQuests || 5}</span></div><div class="quest-list-body"></div>`; const body = quests.querySelector(".quest-list-body"); if (!active.length) body.innerHTML = `<p>No active quests. Receive one from the Learning Labs.</p>`; active.forEach((quest) => { const row = el("article", "dashboard-quest-row"); row.innerHTML = `<strong>${quest.resourceLabel || "Sample collection"}</strong><span>${quest.progress || 0}/${quest.requiredCount || 1} · ${quest.minimumQuality || "common"} or better</span><small>${quest.ready ? "Ready to complete in the Original E3 World" : "Collect matching samples to complete this quest"}</small>`; body.appendChild(row); }); wrap.append(inventory, quests); return wrap; }
+  function renderInventoryAndQuests() {
+    const wrap = el("div", "page-stack");
+    const counts = getInventory() || {};
+    const keys = Object.keys(counts).filter((key) => Number(counts[key]) > 0);
+    if (selectedInventoryKey && !keys.includes(selectedInventoryKey)) selectedInventoryKey = null;
+    const slotLimit = Math.max(1, Number(getProgression()?.vitals?.inventorySlots) || 12);
+    const usedSlots = keys.reduce((total, key) => total + Math.ceil(Number(counts[key]) / 10), 0);
+    const inventory = el("section", "dashboard-card inventory-browser");
+    inventory.innerHTML = `<div class="inventory-toolbar"><div><span class="eyebrow">Collection</span><h2>Scientific inventory</h2></div><div class="dashboard-inventory-actions"><span>${usedSlots}/${slotLimit} slots</span><button type="button" class="inventory-delete" ${selectedInventoryKey ? "" : "disabled"}>Delete 1</button></div></div>`;
+    const grid = el("div", "dashboard-inventory-grid");
+    if (!keys.length) {
+      grid.innerHTML = `<p class="dashboard-inventory-empty">Your inventory is empty. Complete an Orbital Study Archive mastery bar or collect samples in a simulation.</p>`;
+    }
+    keys.forEach((key, index) => {
+      const def = getItemDefinition(key) || {};
+      const item = el("button", `inventory-tile${selectedInventoryKey === key ? " selected" : ""}`);
+      item.type = "button";
+      item.innerHTML = `${def.imageSrc ? `<img src="${def.imageSrc}" alt="">` : `<span>${["◆", "❋", "≈", "◌"][index % 4]}</span>`}<strong>${def.label || key.replaceAll("_", " ")}</strong><small>× ${counts[key]}</small>`;
+      item.addEventListener("click", () => { selectedInventoryKey = selectedInventoryKey === key ? null : key; render("inventory"); });
+      grid.appendChild(item);
+    });
+    inventory.querySelector(".inventory-delete").addEventListener("click", () => {
+      if (!selectedInventoryKey) return;
+      onDeleteInventoryItem(selectedInventoryKey);
+    });
+    inventory.appendChild(grid);
+
+    const quests = el("section", "dashboard-card dashboard-quest-list");
+    const snapshot = getQuests() || {};
+    const active = snapshot.quests || [];
+    quests.innerHTML = `<div class="inventory-toolbar"><div><span class="eyebrow">Sample missions</span><h2>Active quests</h2></div><span>${active.length}/${snapshot.maxQuests || 5}</span></div><div class="quest-list-body"></div>`;
+    const body = quests.querySelector(".quest-list-body");
+    if (!active.length) body.innerHTML = `<p>No active quests. Receive one from the Learning Labs.</p>`;
+    active.forEach((quest) => {
+      const eligible = Math.max(0, Number(quest.eligibleInventoryCount ?? quest.progress) || 0);
+      const ready = quest.status === "ready" || eligible >= Number(quest.requiredCount || 1);
+      const row = el("button", `dashboard-quest-row${ready ? " ready" : ""}`);
+      row.type = "button";
+      row.innerHTML = `<strong>${quest.resourceLabel || "Sample collection"}</strong><span>${eligible}/${quest.requiredCount || 1} eligible · ${quest.minimumQuality || "common"} or better</span><small>${ready ? "Ready — click to select the items for this quest" : "Click to review eligible items"}</small>`;
+      row.addEventListener("click", () => onOpenQuest(quest.id));
+      body.appendChild(row);
+    });
+    wrap.append(inventory, quests);
+    return wrap;
+  }
   function renderSimulations() {
     const wrap = el("div", "page-stack");
     const heading = el("div", "section-intro");
