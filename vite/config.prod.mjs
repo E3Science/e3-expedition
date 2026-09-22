@@ -20,13 +20,6 @@ export default defineConfig({
     base: './',
     logLevel: 'warn',
     build: {
-        rollupOptions: {
-            output: {
-                manualChunks: {
-                    phaser: ['phaser']
-                }
-            }
-        },
         minify: 'terser',
         terserOptions: {
             compress: {

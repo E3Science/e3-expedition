@@ -44,6 +44,14 @@ In Authentication > URL Configuration:
 2. Add that same address to Redirect URLs.
 3. Keep `http://localhost:8080/**` as an additional redirect while local development is needed.
 
+## Local Google Classroom testing
+
+Google Classroom synchronization works locally. In Google Cloud, keep the production callback and add this second authorized redirect URI to the Classroom OAuth client:
+
+`http://localhost:2567/auth/google/classroom/callback`
+
+For the local server, set `GOOGLE_CLASSROOM_REDIRECT_URI` to that localhost URL and put `http://localhost:8080` first in `CLIENT_ORIGINS`. Run the multiplayer server and Vite site together. Supabase Google sign-in also requires `http://localhost:8080/**` in Authentication > URL Configuration. Never copy the Google client secret or Supabase service-role key into the browser `.env.local` file.
+
 ## Connection test
 
 1. Open `/health` on the multiplayer service and confirm it returns `{ "ok": true }`.

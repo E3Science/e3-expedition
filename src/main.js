@@ -1,18 +1,20 @@
 import { supabase } from "./supabase";
-import Phaser from "phaser";
 import { Client, Callbacks } from "@colyseus/sdk";
-import { createThreeBackground } from "./three/backgroundScene";
-import { createAstronautPreview } from "./three/astronautPreview";
-import { createPortalPreview } from "./three/portalPreview";
-import { createGLTFModelPreview } from "./three/gltfModelPreview";
-import { createProceduralObjectPreview } from "./three/proceduralObjectPreview";
-import { createWorldPortalLayer } from "./three/worldPortalLayer";
-import { createWorldOverheadLayer } from "./three/worldOverheadLayer";
-import { createResourceCollectionSequence } from "./ui/resourceCollectionSequence";
-import { createStudentDashboard } from "./ui/studentDashboard";
 
 const ADMIN_EMAIL = "mnelsen@susd.net";
 const DEFAULT_CLASS_SERVERS = [];
+let Phaser = null;
+let threeBackground = null;
+let gameRuntimePromise = null;
+let gameRuntimeReadyResolve = null;
+let createAstronautPreview;
+let createPortalPreview;
+let createGLTFModelPreview;
+let createProceduralObjectPreview;
+let createWorldPortalLayer;
+let createWorldOverheadLayer;
+let createResourceCollectionSequence;
+let createStudentDashboardFactory = null;
 
 function getConfiguredClassServers() {
   try {
@@ -24,7 +26,7 @@ function getConfiguredClassServers() {
 }
 
 function isAdminUser() {
-  return (authUser?.email || "").toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  return (authUser?.email || "").toLowerCase() === ADMIN_EMAIL.toLowerCase() || authUser?.app_metadata?.e3_role === "teacher";
 }
 
 function getGameServerUrl() {
@@ -446,10 +448,59 @@ function setSimulationMode(active) {
   if (active) window.requestAnimationFrame(applyDefaultHUDLayout);
 }
 
-function openStudentDashboard() {
+async function startGameRuntime() {
+  if (game) return game;
+  if (gameRuntimePromise) return gameRuntimePromise;
+  gameRuntimePromise = (async () => {
+    const [
+      { default: PhaserModule }, backgroundModule, astronautModule, portalModule,
+      gltfModule, proceduralModule, worldPortalModule, overheadModule, collectionModule
+    ] = await Promise.all([
+      import("phaser"),
+      import("./three/backgroundScene"),
+      import("./three/astronautPreview"),
+      import("./three/portalPreview"),
+      import("./three/gltfModelPreview"),
+      import("./three/proceduralObjectPreview"),
+      import("./three/worldPortalLayer"),
+      import("./three/worldOverheadLayer"),
+      import("./ui/resourceCollectionSequence")
+    ]);
+    Phaser = PhaserModule;
+    createAstronautPreview = astronautModule.createAstronautPreview;
+    createPortalPreview = portalModule.createPortalPreview;
+    createGLTFModelPreview = gltfModule.createGLTFModelPreview;
+    createProceduralObjectPreview = proceduralModule.createProceduralObjectPreview;
+    createWorldPortalLayer = worldPortalModule.createWorldPortalLayer;
+    createWorldOverheadLayer = overheadModule.createWorldOverheadLayer;
+    createResourceCollectionSequence = collectionModule.createResourceCollectionSequence;
+    threeBackground = backgroundModule.createThreeBackground(document.getElementById("app"));
+    game = new Phaser.Game({
+      type: Phaser.AUTO,
+      width: 800,
+      height: 520,
+      backgroundColor: "rgba(0,0,0,0)",
+      transparent: true,
+      parent: "app",
+      scene: { preload, create, update }
+    });
+    if (game.canvas) {
+      game.canvas.style.position = "relative";
+      game.canvas.style.zIndex = "1";
+    }
+    await new Promise((resolve) => { gameRuntimeReadyResolve = resolve; });
+    return game;
+  })();
+  return gameRuntimePromise;
+}
+
+async function openStudentDashboard() {
   if (!uiRoot) return;
+  if (!createStudentDashboardFactory) {
+    createStudentDashboardFactory = (await import("./ui/studentDashboard")).createStudentDashboard;
+  }
   studentDashboard?.destroy?.();
-  studentDashboard = createStudentDashboard({
+  studentDashboard = createStudentDashboardFactory({
     root: uiRoot,
     isAdmin: isAdminUser(),
     classServers: getConfiguredClassServers(),
@@ -464,9 +515,12 @@ function openStudentDashboard() {
     }),
     getProgression: () => latestProgressionSnapshot,
     getInventory: () => latestInventoryCounts,
+    getQuests: () => latestQuestSnapshot,
     getItemDefinition: getInventoryItemDefByKey,
-    onEnterSimulation: (kind, context = {}) => {
+    onEnterSimulation: async (kind, context = {}) => {
       if (kind === "original") {
+        await startGameRuntime();
+        await rejoinCurrentMap(currentMapKey || DEFAULT_MAP_KEY, resolvedClassCode || undefined);
         setSimulationMode(true);
         return;
       }
@@ -500,7 +554,9 @@ function openStudentDashboard() {
     onLoadClassRoster: (classId) => gameServerApi(`/api/classes/${encodeURIComponent(classId)}/students`),
     onAddClassStudent: (classId, student) => gameServerApi(`/api/classes/${encodeURIComponent(classId)}/students`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(student) }),
     onRemoveClassStudent: (classId, userId) => gameServerApi(`/api/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(userId)}`, { method: "DELETE" }),
-    onLoadStudentStats: (classId, userId) => gameServerApi(`/api/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(userId)}/stats`)
+    onLoadStudentStats: (classId, userId) => gameServerApi(`/api/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(userId)}/stats`),
+    onLoadAccounts: () => gameServerApi("/api/accounts"),
+    onUpdateAccount: (userId, changes) => gameServerApi(`/api/accounts/${encodeURIComponent(userId)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(changes) })
   });
   const achievementScope = authUser?.id || "guest";
   const currentChapter = sessionStorage.getItem("e3CurrentChapter") || "Scientific Thinking";
@@ -573,6 +629,7 @@ Creates a full-screen overlay container that holds all UI panels.
 function createUIRoot() {
   const app = document.getElementById("app");
   if (!app) return;
+  if (uiRoot?.isConnected) return;
 
   app.style.position = "relative";
   app.style.width = "100vw";
@@ -2306,31 +2363,6 @@ const OBJECT_PALETTE_HEIGHT = 420;
 const OBJECT_PALETTE_VIEWPORT_WIDTH = 336;
 const OBJECT_PALETTE_VIEWPORT_HEIGHT = 360;
 
-const config = {
-  type: Phaser.AUTO,
-  width: 800,
-  height: 520,
-  backgroundColor: "rgba(0,0,0,0)",
-  transparent: true,
-  parent: "app",
-  scene: {
-    preload,
-    create,
-    update
-  }
-};
-
-const appContainer = document.getElementById("app");
-const threeBackground = createThreeBackground(appContainer);
-
-game = new Phaser.Game(config);
-
-// Make the render order explicit: Three.js backdrop, Phaser world, DOM UI.
-if (game.canvas) {
-  game.canvas.style.position = "relative";
-  game.canvas.style.zIndex = "1";
-}
-
 window.addEventListener("pagehide", () => {
   threeBackground?.dispose();
   astronautPreview?.dispose();
@@ -4006,7 +4038,6 @@ function create() {
   if (this.input.mouse?.disableContextMenu) {
     this.input.mouse.disableContextMenu();
   }
-  createJoinUI();
   createChatUI();
   createInventoryUI();
   createQuestUI();
@@ -4062,6 +4093,8 @@ function create() {
       lastEditorStatusMessage = "";
     }
   });
+  gameRuntimeReadyResolve?.(game);
+  gameRuntimeReadyResolve = null;
 }
 
 /*
@@ -10809,7 +10842,7 @@ signInButton.addEventListener("click", async () => {
   nameInput.value = savedName;
   nameInput.disabled = true;
 
-  const isAdmin = email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  const isAdmin = isAdminUser();
 
   if (isAdmin) {
     classCodeInput.style.display = "none";
@@ -10903,7 +10936,7 @@ joinButton.addEventListener("click", async () => {
 
   const chosenName = profileData.display_name || "Player";
   const signedInEmail = sessionUser.email || "";
-  const isAdmin = signedInEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  const isAdmin = isAdminUser();
 
   let enteredClassCode = classCodeInput.value.trim().toUpperCase();
 
@@ -10986,7 +11019,7 @@ joinButton.addEventListener("click", async () => {
     await supabase.from("profiles").upsert({ user_id: sessionUser.id, display_name: displayName }, { onConflict: "user_id" });
     emailInput.value = sessionUser.email || "";
     nameInput.value = displayName;
-    if ((sessionUser.email || "").toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+    if (isAdminUser()) {
       localStatus.textContent = "Google account confirmed. Loading teacher classes…";
       const servers = await loadTeacherClassServers(data.session.access_token);
       try {
@@ -12620,7 +12653,24 @@ function createSettingsWindow() {
     sendRoomMessage("set_trade_settings", { enabled: tradesEnabled });
   });
   tradeRow.append(copy, toggle);
-  dialog.append(header, tradeRow);
+  const logoutButton = document.createElement("button");
+  logoutButton.textContent = "Log out";
+  logoutButton.style.width = "100%";
+  logoutButton.style.marginTop = "14px";
+  styleDialogButton(logoutButton, "red");
+  logoutButton.addEventListener("click", async () => {
+    logoutButton.disabled = true;
+    logoutButton.textContent = "Logging out…";
+    try {
+      await room?.leave?.(true);
+      await supabase.auth.signOut();
+    } finally {
+      sessionStorage.removeItem("playerName");
+      sessionStorage.removeItem("classCode");
+      window.location.reload();
+    }
+  });
+  dialog.append(header, tradeRow, logoutButton);
   settingsOverlay.appendChild(dialog);
   uiRoot.appendChild(settingsOverlay);
 }
@@ -14611,6 +14661,7 @@ lastEditorStatusMessage = "";
     const callbacks = Callbacks.get(room);
 
     callbacks.onAdd("players", (player, id) => {
+      if (!sceneRef || !Phaser) return;
       if (players[id]) {
         players[id].shadow?.destroy();
         players[id].ring?.destroy();
@@ -14711,3 +14762,8 @@ lastEditorStatusMessage = "";
     joinGameInProgress = false;
   }
 }
+
+// Authentication and the learning dashboard are lightweight. The Phaser world
+// and its art assets are created only after the Original E3 World is launched.
+createUIRoot();
+createJoinUI();

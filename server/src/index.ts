@@ -1289,7 +1289,7 @@ static async onAuth(
   const requestedName = options?.name || "Player";
 
   const ADMIN_EMAIL = "mnelsen@susd.net";
-  const isAdmin = email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  const isAdmin = email.toLowerCase() === ADMIN_EMAIL.toLowerCase() || user.app_metadata?.e3_role === "teacher";
 
   /* ADMIN BRANCH */
   if (isAdmin) {
@@ -9222,7 +9222,7 @@ const server = defineServer({
       const user = await authenticateRequest(request, response);
       if (!user) return null;
       const email = user.email || "";
-      if (email.toLowerCase() !== "mnelsen@susd.net") {
+      if (email.toLowerCase() !== "mnelsen@susd.net" && user.app_metadata?.e3_role !== "teacher") {
         response.status(403).json({ error: "Teacher access required" });
         return null;
       }
@@ -9279,6 +9279,74 @@ const server = defineServer({
       }
       return { byEmail, byId };
     };
+    app.get("/api/accounts", async (request, response) => {
+      const teacher = await authenticateTeacherRequest(request, response);
+      if (!teacher) return;
+      try {
+        const [{ byId }, { data: memberships, error: membershipError }, { data: profiles, error: profileError }] = await Promise.all([
+          listAuthUsersByEmail(),
+          supabaseAdmin.from("class_memberships").select("user_id, class_id, role, classes ( class_code, class_name )"),
+          supabaseAdmin.from("profiles").select("user_id, display_name")
+        ]);
+        if (membershipError) throw membershipError;
+        if (profileError) throw profileError;
+        const membershipByUser = new Map((memberships || []).map((entry) => [entry.user_id, entry]));
+        const profileByUser = new Map((profiles || []).map((entry) => [entry.user_id, entry]));
+        const accounts = Array.from(byId.values()).map((user: any) => {
+          const membership: any = membershipByUser.get(user.id);
+          const classRow: any = Array.isArray(membership?.classes) ? membership.classes[0] : membership?.classes;
+          const email = user.email || "";
+          return {
+            userId: user.id,
+            email,
+            displayName: profileByUser.get(user.id)?.display_name || user.user_metadata?.display_name || email.split("@")[0] || "New user",
+            role: email.toLowerCase() === "mnelsen@susd.net" || user.app_metadata?.e3_role === "teacher" ? "teacher" : "student",
+            classId: membership?.class_id || null,
+            classCode: classRow?.class_code || null,
+            className: classRow?.class_name || null,
+            createdAt: user.created_at,
+            lastSignInAt: user.last_sign_in_at || null
+          };
+        }).sort((a: any, b: any) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+        response.json({ accounts });
+      } catch (error) {
+        console.error("Failed to list E3 accounts:", error);
+        response.status(500).json({ error: error instanceof Error ? error.message : "Could not load accounts" });
+      }
+    });
+    app.patch("/api/accounts/:userId", async (request, response) => {
+      const teacher = await authenticateTeacherRequest(request, response);
+      if (!teacher) return;
+      try {
+        const userId = String(request.params.userId || "");
+        const role = String(request.body?.role || "student") === "teacher" ? "teacher" : "student";
+        const classId = String(request.body?.classId || "");
+        const { data: targetData, error: targetError } = await supabaseAdmin.auth.admin.getUserById(userId);
+        if (targetError || !targetData.user) {
+          response.status(404).json({ error: "Account not found" });
+          return;
+        }
+        if ((targetData.user.email || "").toLowerCase() === "mnelsen@susd.net" && role !== "teacher") {
+          response.status(409).json({ error: "The primary E3 administrator cannot be demoted." });
+          return;
+        }
+        const appMetadata = { ...(targetData.user.app_metadata || {}), e3_role: role };
+        const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, { app_metadata: appMetadata });
+        if (updateError) throw updateError;
+        if (role === "student") {
+          if (!classId) {
+            await supabaseAdmin.from("class_memberships").delete().eq("user_id", userId);
+          } else {
+            const { error: membershipError } = await supabaseAdmin.from("class_memberships").upsert({ user_id: userId, class_id: classId, role: "student" }, { onConflict: "user_id" });
+            if (membershipError) throw membershipError;
+          }
+        }
+        response.json({ success: true, role, classId: role === "student" ? classId || null : null, requiresRelogin: true });
+      } catch (error) {
+        console.error("Failed to update E3 account:", error);
+        response.status(500).json({ error: error instanceof Error ? error.message : "Could not update account" });
+      }
+    });
     app.get("/api/classes/:classId/students", async (request, response) => {
       const teacher = await authenticateTeacherRequest(request, response);
       if (!teacher) return;
