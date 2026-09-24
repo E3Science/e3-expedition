@@ -25,3 +25,13 @@ alter table public.google_classroom_roster enable row level security;
 
 -- No browser policies are intentionally created. These tables are accessible
 -- only through the trusted multiplayer server's secret/service-role key.
+revoke all on table public.google_classroom_connections from anon, authenticated;
+revoke all on table public.google_classroom_roster from anon, authenticated;
+
+grant select, insert, update, delete
+  on table public.google_classroom_connections
+  to service_role;
+
+grant select, insert, update, delete
+  on table public.google_classroom_roster
+  to service_role;
