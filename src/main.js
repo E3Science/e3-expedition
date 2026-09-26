@@ -97,8 +97,81 @@ Includes:
 
 let resolvedClassCode = "";
 let resolvedClassName = "";
+let resolvedClassId = "";
 let activeMatchClassCode = "";
 let isNormalizingClassRoom = false;
+let classChatChannel = null;
+let classChatClassId = "";
+let classChatHistory = [];
+const classChatMessageIds = new Set();
+
+function appendClassChatMessage(message) {
+  const messageId = String(message?.message_id || message?.id || "");
+  if (messageId && classChatMessageIds.has(messageId)) return;
+  if (messageId) classChatMessageIds.add(messageId);
+  const displayName = String(message?.display_name || "Student");
+  const body = String(message?.body || "");
+  if (!body) return;
+  const entry = { id: messageId, text: `${displayName}: ${body}`, kind: "chat" };
+  classChatHistory.push(entry);
+  classChatHistory = classChatHistory.slice(-100);
+  studentDashboard?.appendChat(entry);
+  if (chatLog) {
+    const line = document.createElement("div");
+    line.textContent = entry.text;
+    line.style.marginBottom = "4px";
+    line.style.color = "#ffffff";
+    chatLog.appendChild(line);
+    chatLog.scrollTop = chatLog.scrollHeight;
+  }
+}
+
+async function subscribeToClassChat(classId) {
+  const nextClassId = String(classId || "");
+  if (!nextClassId || !authUser) return false;
+  if (classChatChannel && classChatClassId === nextClassId) return true;
+  if (classChatChannel) await supabase.removeChannel(classChatChannel);
+  classChatChannel = null;
+  classChatClassId = nextClassId;
+  classChatHistory = [];
+  classChatMessageIds.clear();
+
+  const { data, error } = await supabase
+    .from("class_messages")
+    .select("message_id, display_name, body, created_at")
+    .eq("class_id", nextClassId)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) {
+    console.warn("Supabase class chat is not ready; using multiplayer chat fallback.", error);
+    return false;
+  }
+  [...(data || [])].reverse().forEach(appendClassChatMessage);
+  classChatChannel = supabase
+    .channel(`class-chat:${nextClassId}`)
+    .on("postgres_changes", {
+      event: "INSERT", schema: "public", table: "class_messages",
+      filter: `class_id=eq.${nextClassId}`
+    }, (payload) => appendClassChatMessage(payload.new))
+    .subscribe();
+  return true;
+}
+
+async function sendClassChatMessage(text) {
+  const body = String(text || "").trim().slice(0, 240);
+  if (!body) return false;
+  if (body.startsWith("/") && room) return sendRoomMessage("chat", { text: body });
+  if (!resolvedClassId || !authUser) return room ? sendRoomMessage("chat", { text: body }) : false;
+  const { error } = await supabase.from("class_messages").insert({
+    class_id: resolvedClassId,
+    user_id: authUser.id,
+    display_name: authUser.user_metadata?.display_name || authUser.email?.split("@")?.[0] || "Student",
+    body
+  });
+  if (!error) return true;
+  console.warn("Supabase class chat send failed; using multiplayer fallback.", error);
+  return room ? sendRoomMessage("chat", { text: body }) : false;
+}
 
 let game;
 let sceneRef;
@@ -548,15 +621,18 @@ async function openStudentDashboard() {
       sendRoomMessage("set_learning_lab_context", context);
     },
     onOpenSettings: openSettingsWindow,
-    onSendChat: (text) => sendRoomMessage("chat", { text }),
+    onSendChat: (text) => sendClassChatMessage(text),
     onRequestQuest: () => sendRoomMessage("request_learning_lab_quest"),
     onAnswerStudyQuestion: (context) => sendRoomMessage("complete_study_question", context),
     onSwitchClass: async (classCode) => {
       if (!isAdminUser() || !classCode) return;
+      const selectedClass = getConfiguredClassServers().find((entry) => entry.code === classCode);
+      resolvedClassId = selectedClass?.id || "";
       sessionStorage.setItem("classCode", classCode);
       resolvedClassCode = "";
       resolvedClassName = "";
       await rejoinCurrentMap(currentMapKey || DEFAULT_MAP_KEY, classCode);
+      if (resolvedClassId) await subscribeToClassChat(resolvedClassId);
       studentDashboard?.refresh();
     },
     onSetMissionPosition: (index) => sendRoomMessage("set_mission_progress", { position: index }),
@@ -578,6 +654,8 @@ async function openStudentDashboard() {
     onLoadAccounts: () => gameServerApi("/api/accounts"),
     onUpdateAccount: (userId, changes) => gameServerApi(`/api/accounts/${encodeURIComponent(userId)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(changes) })
   });
+  classChatHistory.forEach((message) => studentDashboard?.appendChat(message));
+  if (resolvedClassId) subscribeToClassChat(resolvedClassId);
   const achievementScope = authUser?.id || "guest";
   const currentChapter = sessionStorage.getItem("e3CurrentChapter") || "Scientific Thinking";
   const seenChapterKey = `e3SeenChapter:${achievementScope}`;
@@ -1291,16 +1369,15 @@ function createChatUI() {
     chatInput.blur();
   };
 
-  const sendChatMessage = () => {
+  const sendChatMessage = async () => {
     const text = chatInput?.value?.trim();
-    if (!room) return;
 
     if (!text) {
       closeChatInput();
       return;
     }
 
-    if (sendRoomMessage("chat", { text })) {
+    if (await sendClassChatMessage(text)) {
       chatInput.value = "";
     }
   };
@@ -10897,6 +10974,7 @@ signInButton.addEventListener("click", async () => {
       const rememberedCode = sessionStorage.getItem("classCode") || "";
       const selectedServer = servers.find((entry) => entry.code === rememberedCode) || servers[0] || null;
       if (selectedServer) {
+        resolvedClassId = selectedServer.id || "";
         sessionStorage.setItem("classCode", selectedServer.code);
         localStatus.textContent = `Connecting to ${selectedServer.name}…`;
         const connected = await joinGame(savedName, selectedServer.code, currentMapKey || DEFAULT_MAP_KEY);
@@ -10965,6 +11043,7 @@ joinButton.addEventListener("click", async () => {
     try {
       localStatus.textContent = "Finding your class…";
       const assignedClass = await gameServerApi("/api/student/class");
+      resolvedClassId = assignedClass.id || "";
       enteredClassCode = assignedClass.code || "";
       resolvedClassCode = assignedClass.code || "";
       resolvedClassName = assignedClass.name || assignedClass.code || "";
@@ -11051,6 +11130,7 @@ joinButton.addEventListener("click", async () => {
       const rememberedCode = sessionStorage.getItem("classCode") || "";
       const selectedServer = servers.find((entry) => entry.code === rememberedCode) || servers[0] || null;
       if (selectedServer) {
+        resolvedClassId = selectedServer.id || "";
         sessionStorage.setItem("classCode", selectedServer.code);
         const connected = await joinGame(displayName, selectedServer.code, currentMapKey || DEFAULT_MAP_KEY);
         if (!connected) throw new Error(`Could not connect to ${selectedServer.name}.`);
