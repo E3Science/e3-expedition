@@ -93,6 +93,12 @@ async function loadDashboardInventory() {
   updateInventoryUI(counts);
 }
 
+async function dashboardRpc(functionName, parameters = {}) {
+  const { data, error } = await supabase.rpc(functionName, parameters);
+  if (error) throw error;
+  return data || {};
+}
+
 async function gameServerApi(path, options = {}) {
   const { data } = await supabase.auth.getSession();
   const accessToken = data?.session?.access_token;
@@ -679,12 +685,12 @@ async function openStudentDashboard() {
       latestClassroomStatus = await gameServerApi("/api/google/classroom/status");
       return result;
     },
-    onLoadClassRoster: (classId) => gameServerApi(`/api/classes/${encodeURIComponent(classId)}/students`),
-    onAddClassStudent: (classId, student) => gameServerApi(`/api/classes/${encodeURIComponent(classId)}/students`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(student) }),
-    onRemoveClassStudent: (classId, userId) => gameServerApi(`/api/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(userId)}`, { method: "DELETE" }),
-    onLoadStudentStats: (classId, userId) => gameServerApi(`/api/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(userId)}/stats`),
-    onLoadAccounts: () => gameServerApi("/api/accounts"),
-    onUpdateAccount: (userId, changes) => gameServerApi(`/api/accounts/${encodeURIComponent(userId)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(changes) })
+    onLoadClassRoster: (classId) => dashboardRpc("e3_class_roster", { requested_class_id: classId }),
+    onAddClassStudent: (classId, student) => dashboardRpc("e3_authorize_student", { requested_class_id: classId, student_email: student.email, student_display_name: student.displayName || "" }),
+    onRemoveClassStudent: (classId, userId) => dashboardRpc("e3_remove_student", { requested_class_id: classId, requested_user_id: userId }),
+    onLoadStudentStats: (classId, userId) => dashboardRpc("e3_student_overview", { requested_class_id: classId, requested_user_id: userId }),
+    onLoadAccounts: () => dashboardRpc("e3_teacher_people"),
+    onUpdateAccount: (userId, changes) => dashboardRpc("e3_update_person", { requested_user_id: userId, requested_role: changes.role, requested_class_id: changes.classId || null })
   });
   classChatHistory.forEach((message) => studentDashboard?.appendChat(message));
   if (resolvedClassId) subscribeToClassChat(resolvedClassId);
