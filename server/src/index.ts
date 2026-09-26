@@ -9347,7 +9347,12 @@ const server = defineServer({
         response.json({ success: true, role, classId: role === "student" ? classId || null : null, requiresRelogin: true });
       } catch (error) {
         console.error("Failed to update E3 account:", error);
-        response.status(500).json({ error: error instanceof Error ? error.message : "Could not update account" });
+        const message = error instanceof Error
+          ? error.message
+          : error && typeof error === "object" && "message" in error
+            ? String((error as { message?: unknown }).message || "Could not update account")
+            : "Could not update account";
+        response.status(500).json({ error: message });
       }
     });
     app.get("/api/classes/:classId/students", async (request, response) => {
@@ -9444,7 +9449,12 @@ const server = defineServer({
         response.json({ success: true, pendingGoogleSignIn: false, userId: user.id, email });
       } catch (error) {
         console.error("Failed to add class student:", error);
-        response.status(500).json({ error: error instanceof Error ? error.message : "Could not add student" });
+        const message = error instanceof Error
+          ? error.message
+          : error && typeof error === "object" && "message" in error
+            ? String((error as { message?: unknown }).message || "Could not add student")
+            : "Could not add student";
+        response.status(500).json({ error: message });
       }
     });
     app.delete("/api/classes/:classId/students/:userId", async (request, response) => {
