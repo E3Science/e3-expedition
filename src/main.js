@@ -51,16 +51,46 @@ function getGameServerUrl() {
 }
 
 async function loadTeacherClassServers(accessToken) {
-  const response = await fetch(`${getGameServerUrl()}/api/classes`, {
-    headers: { Authorization: `Bearer ${accessToken}` }
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload?.error || `Class server request failed (${response.status})`);
-  const servers = Array.isArray(payload?.classes)
-    ? payload.classes.filter((entry) => entry?.code).map((entry) => ({ id: String(entry.id || ""), code: String(entry.code), name: String(entry.name || entry.code) }))
+  const { data: directClasses, error: directError } = await supabase.rpc("e3_teacher_classes");
+  let classes = directClasses;
+  if (directError) {
+    if (!accessToken) throw directError;
+    const response = await fetch(`${getGameServerUrl()}/api/classes`, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload?.error || `Class server request failed (${response.status})`);
+    classes = payload?.classes;
+  }
+  const servers = Array.isArray(classes)
+    ? classes.filter((entry) => entry?.code).map((entry) => ({ id: String(entry.id || ""), code: String(entry.code), name: String(entry.name || entry.code) }))
     : [];
   localStorage.setItem("e3ClassServers", JSON.stringify(servers));
   return servers;
+}
+
+async function loadStudentClassDirect() {
+  const { data, error } = await supabase.rpc("e3_current_class");
+  if (error) throw error;
+  const assignedClass = Array.isArray(data) ? data[0] : data;
+  if (!assignedClass?.id) throw new Error("Your account is not assigned to a class yet.");
+  return assignedClass;
+}
+
+async function loadDashboardInventory() {
+  if (!authUser?.id || !resolvedClassId) return;
+  const { data, error } = await supabase
+    .from("inventories")
+    .select("item_id, quantity")
+    .eq("user_id", authUser.id)
+    .eq("class_id", resolvedClassId);
+  if (error) {
+    console.warn("Could not load dashboard inventory directly from Supabase.", error);
+    return;
+  }
+  const counts = {};
+  (data || []).forEach((entry) => { counts[entry.item_id] = Number(entry.quantity) || 0; });
+  updateInventoryUI(counts);
 }
 
 async function gameServerApi(path, options = {}) {
@@ -69,6 +99,7 @@ async function gameServerApi(path, options = {}) {
   if (!accessToken) throw new Error("Sign in before using teacher integrations.");
   const response = await fetch(`${getGameServerUrl()}${path}`, {
     ...options,
+    signal: options.signal || (typeof AbortSignal?.timeout === "function" ? AbortSignal.timeout(4000) : undefined),
     headers: { ...(options.headers || {}), Authorization: `Bearer ${accessToken}` }
   });
   const payload = await response.json().catch(() => ({}));
@@ -135,6 +166,7 @@ async function subscribeToClassChat(classId) {
   classChatClassId = nextClassId;
   classChatHistory = [];
   classChatMessageIds.clear();
+  studentDashboard?.replaceChat?.([]);
 
   const { data, error } = await supabase
     .from("class_messages")
@@ -628,10 +660,10 @@ async function openStudentDashboard() {
       if (!isAdminUser() || !classCode) return;
       const selectedClass = getConfiguredClassServers().find((entry) => entry.code === classCode);
       resolvedClassId = selectedClass?.id || "";
+      resolvedClassCode = selectedClass?.code || classCode;
+      resolvedClassName = selectedClass?.name || classCode;
       sessionStorage.setItem("classCode", classCode);
-      resolvedClassCode = "";
-      resolvedClassName = "";
-      await rejoinCurrentMap(currentMapKey || DEFAULT_MAP_KEY, classCode);
+      await loadDashboardInventory();
       if (resolvedClassId) await subscribeToClassChat(resolvedClassId);
       studentDashboard?.refresh();
     },
@@ -10975,13 +11007,11 @@ signInButton.addEventListener("click", async () => {
       const selectedServer = servers.find((entry) => entry.code === rememberedCode) || servers[0] || null;
       if (selectedServer) {
         resolvedClassId = selectedServer.id || "";
+        resolvedClassCode = selectedServer.code || "";
+        resolvedClassName = selectedServer.name || selectedServer.code || "";
         sessionStorage.setItem("classCode", selectedServer.code);
-        localStatus.textContent = `Connecting to ${selectedServer.name}…`;
-        const connected = await joinGame(savedName, selectedServer.code, currentMapKey || DEFAULT_MAP_KEY);
-        if (!connected) {
-          localStatus.textContent = `Signed in, but ${selectedServer.name} could not be connected.`;
-          return;
-        }
+        localStatus.textContent = `Opening ${selectedServer.name}…`;
+        await loadDashboardInventory();
       }
       wrapper.remove();
       openStudentDashboard();
@@ -11042,7 +11072,13 @@ joinButton.addEventListener("click", async () => {
   if (!isAdmin) {
     try {
       localStatus.textContent = "Finding your class…";
-      const assignedClass = await gameServerApi("/api/student/class");
+      let assignedClass;
+      try {
+        assignedClass = await loadStudentClassDirect();
+      } catch (directError) {
+        console.warn("Direct class lookup failed; trying multiplayer API fallback.", directError);
+        assignedClass = await gameServerApi("/api/student/class");
+      }
       resolvedClassId = assignedClass.id || "";
       enteredClassCode = assignedClass.code || "";
       resolvedClassCode = assignedClass.code || "";
@@ -11076,18 +11112,9 @@ joinButton.addEventListener("click", async () => {
     sceneRef.input.keyboard.resetKeys();
   }
 
-  const success = await joinGame(
-    chosenName,
-    enteredClassCode,
-    currentMapKey || DEFAULT_MAP_KEY
-  );
-
-  if (success) {
-    wrapper.remove();
-    openStudentDashboard();
-  } else {
-    localStatus.textContent = "Failed to join the game.";
-  }
+  await loadDashboardInventory();
+  wrapper.remove();
+  openStudentDashboard();
 });
 
   buttonRow.appendChild(signUpButton);
@@ -11131,9 +11158,10 @@ joinButton.addEventListener("click", async () => {
       const selectedServer = servers.find((entry) => entry.code === rememberedCode) || servers[0] || null;
       if (selectedServer) {
         resolvedClassId = selectedServer.id || "";
+        resolvedClassCode = selectedServer.code || "";
+        resolvedClassName = selectedServer.name || selectedServer.code || "";
         sessionStorage.setItem("classCode", selectedServer.code);
-        const connected = await joinGame(displayName, selectedServer.code, currentMapKey || DEFAULT_MAP_KEY);
-        if (!connected) throw new Error(`Could not connect to ${selectedServer.name}.`);
+        await loadDashboardInventory();
       }
       wrapper.remove();
       openStudentDashboard();
