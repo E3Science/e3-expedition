@@ -1,6 +1,15 @@
 -- Adaptive study archive, teacher question editor, trading post, and chat moderation.
 -- Run once in Supabase SQL Editor. Safe to run repeatedly.
 
+-- Older projects may not have received the original voyage-position migration.
+-- Keep this migration self-contained because study availability depends on it.
+alter table public.classes
+  add column if not exists mission_position integer not null default 0;
+alter table public.classes
+  drop constraint if exists classes_mission_position_check;
+alter table public.classes
+  add constraint classes_mission_position_check check (mission_position between 0 and 36);
+
 create table if not exists public.question_sets (
   set_id uuid primary key default gen_random_uuid(),
   unit_name text not null,
