@@ -144,15 +144,17 @@ const classChatMessageIds = new Set();
 
 function appendClassChatMessage(message) {
   const messageId = String(message?.message_id || message?.id || "");
-  if (messageId && classChatMessageIds.has(messageId)) return;
+  const existingIndex = messageId ? classChatHistory.findIndex((entry) => entry.id === messageId) : -1;
   if (messageId) classChatMessageIds.add(messageId);
   const displayName = String(message?.display_name || "Student");
   const body = String(message?.body || "");
   if (!body) return;
-  const entry = { id: messageId, text: `${displayName}: ${body}`, kind: "chat" };
-  classChatHistory.push(entry);
+  const entry = { id: messageId, userId: String(message?.user_id || ""), displayName, body, text: `${displayName}: ${body}`, deletedAt: message?.deleted_at || null, deletedBy: message?.deleted_by || null, kind: "chat" };
+  if (existingIndex >= 0) classChatHistory.splice(existingIndex, 1, entry);
+  else classChatHistory.push(entry);
   classChatHistory = classChatHistory.slice(-100);
-  studentDashboard?.appendChat(entry);
+  if (existingIndex >= 0) studentDashboard?.replaceChat(classChatHistory);
+  else studentDashboard?.appendChat(entry);
   if (chatLog) {
     const line = document.createElement("div");
     line.textContent = entry.text;
@@ -176,7 +178,7 @@ async function subscribeToClassChat(classId) {
 
   const { data, error } = await supabase
     .from("class_messages")
-    .select("message_id, display_name, body, created_at")
+    .select("message_id, user_id, display_name, body, created_at, deleted_at, deleted_by")
     .eq("class_id", nextClassId)
     .order("created_at", { ascending: false })
     .limit(100);
@@ -188,7 +190,7 @@ async function subscribeToClassChat(classId) {
   classChatChannel = supabase
     .channel(`class-chat:${nextClassId}`)
     .on("postgres_changes", {
-      event: "INSERT", schema: "public", table: "class_messages",
+      event: "*", schema: "public", table: "class_messages",
       filter: `class_id=eq.${nextClassId}`
     }, (payload) => appendClassChatMessage(payload.new))
     .subscribe();
@@ -208,7 +210,8 @@ async function sendClassChatMessage(text) {
   });
   if (!error) return true;
   console.warn("Supabase class chat send failed; using multiplayer fallback.", error);
-  return room ? sendRoomMessage("chat", { text: body }) : false;
+  if (room) return sendRoomMessage("chat", { text: body });
+  throw error;
 }
 
 let game;
@@ -624,6 +627,10 @@ async function startGameRuntime() {
 
 async function openStudentDashboard() {
   if (!uiRoot) return;
+  if (resolvedClassId) {
+    try { latestMissionPosition = Number(await dashboardRpc("e3_mission_position", { requested_class_id: resolvedClassId })) || 0; }
+    catch (error) { console.warn("Could not load saved mission position.", error); }
+  }
   if (!createStudentDashboardFactory) {
     createStudentDashboardFactory = (await import("./ui/studentDashboard")).createStudentDashboard;
   }
@@ -635,6 +642,7 @@ async function openStudentDashboard() {
     missionPosition: latestMissionPosition,
     classroomStatus: latestClassroomStatus,
     getStudent: () => ({
+      userId: authUser?.id || "",
       name: authUser?.user_metadata?.display_name || authUser?.email?.split("@")?.[0] || "Student",
       className: resolvedClassName || resolvedClassCode || "Class connected",
       classCode: resolvedClassCode || activeMatchClassCode || sessionStorage.getItem("classCode") || "",
@@ -660,8 +668,45 @@ async function openStudentDashboard() {
     },
     onOpenSettings: openSettingsWindow,
     onSendChat: (text) => sendClassChatMessage(text),
+    onDeleteChatMessage: (messageId) => dashboardRpc("e3_delete_chat_message", { requested_message_id: Number(messageId) }),
+    onMuteChatUser: (userId, minutes = 15) => dashboardRpc("e3_set_chat_mute", { requested_class_id: resolvedClassId, requested_user_id: userId, mute_minutes: minutes }),
     onRequestQuest: () => sendRoomMessage("request_learning_lab_quest"),
-    onAnswerStudyQuestion: (context) => sendRoomMessage("complete_study_question", context),
+    onNextStudyQuestion: (unit = null) => dashboardRpc("e3_next_study_question", { requested_class_id: resolvedClassId, requested_unit: unit || null }),
+    onAnswerStudyQuestion: async ({ questionId, selectedIndex, sphere }) => {
+      const result = await dashboardRpc("e3_answer_study_question", { requested_class_id: resolvedClassId, requested_question_id: questionId, selected_index: selectedIndex, selected_sphere: sphere });
+      if (result?.reward) {
+        const sequence = await ensureResourcePrizeWheel();
+        sequence?.receiveReward?.(result.reward);
+        await loadDashboardInventory();
+      }
+      return result;
+    },
+    onLoadQuestionSets: async () => {
+      const { data, error } = await supabase.from("question_sets").select("set_id,unit_name,chapter_name,mission_position,active,study_questions(question_id,prompt,answers,correct_index,active)").order("mission_position");
+      if (error) throw error;
+      return data || [];
+    },
+    onSaveQuestion: async (entry) => {
+      const setPayload = { unit_name: entry.unitName, chapter_name: entry.chapterName, mission_position: Number(entry.missionPosition), active: true };
+      let setId = entry.setId;
+      if (setId) {
+        const { error } = await supabase.from("question_sets").update(setPayload).eq("set_id", setId);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase.from("question_sets").upsert(setPayload, { onConflict: "unit_name,chapter_name" }).select("set_id").single();
+        if (error) throw error;
+        setId = data.set_id;
+      }
+      const questionPayload = { set_id: setId, prompt: entry.prompt, answers: entry.answers, correct_index: Number(entry.correctIndex), active: true };
+      const query = entry.questionId ? supabase.from("study_questions").update(questionPayload).eq("question_id", entry.questionId) : supabase.from("study_questions").insert(questionPayload);
+      const { error } = await query;
+      if (error) throw error;
+      return { success: true };
+    },
+    onDeleteQuestionSet: async (setId) => { const { error } = await supabase.from("question_sets").delete().eq("set_id", setId); if (error) throw error; },
+    onLoadMarket: () => dashboardRpc("e3_market_snapshot", { requested_class_id: resolvedClassId }),
+    onSellMarketItem: async (itemId) => { const result = await dashboardRpc("e3_sell_inventory_item", { requested_class_id: resolvedClassId, requested_item_id: itemId }); await loadDashboardInventory(); return result; },
+    onBuyMarketItem: async (listingId) => { const result = await dashboardRpc("e3_buy_market_item", { requested_listing_id: listingId }); await loadDashboardInventory(); return result; },
     onSwitchClass: async (classCode) => {
       if (!isAdminUser() || !classCode) return;
       const selectedClass = getConfiguredClassServers().find((entry) => entry.code === classCode);
@@ -673,7 +718,12 @@ async function openStudentDashboard() {
       if (resolvedClassId) await subscribeToClassChat(resolvedClassId);
       studentDashboard?.refresh();
     },
-    onSetMissionPosition: (index) => sendRoomMessage("set_mission_progress", { position: index }),
+    onSetMissionPosition: async (index, title) => {
+      if (!resolvedClassId) return;
+      const result = await dashboardRpc("e3_set_mission_position", { requested_class_id: resolvedClassId, requested_position: index });
+      latestMissionPosition = Number(result?.missionPosition) || 0;
+      if (title) sessionStorage.setItem("e3CurrentChapter", title);
+    },
     onConnectClassroom: async () => {
       const result = await gameServerApi("/api/google/classroom/authorization-url");
       window.location.assign(result.url);
