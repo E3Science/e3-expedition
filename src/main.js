@@ -678,9 +678,15 @@ async function openStudentDashboard() {
         const sequence = await ensureResourcePrizeWheel();
         sequence?.receiveReward?.(result.reward);
         await loadDashboardInventory();
+        studentDashboard?.refreshGameOverview?.();
+        const completions = Number(result?.studyCompletions) || 0;
+        if (completions === 1 || [10, 25, 50].includes(completions) || (completions > 0 && completions % 100 === 0)) {
+          studentDashboard?.enqueueAchievement?.({ title: completions === 1 ? "First Archive Complete" : `${completions} Archives Complete`, detail: "Orbital Study Archive milestone", glyph: "✦", metal: completions >= 10 ? "gold" : "silver" });
+        }
       }
       return result;
     },
+    onLoadGameOverview: () => dashboardRpc("e3_game_overview", { requested_class_id: resolvedClassId }),
     onLoadQuestionSets: async () => {
       const { data, error } = await supabase.from("question_sets").select("set_id,unit_name,chapter_name,mission_position,active,study_questions(question_id,prompt,answers,correct_index,active)").order("mission_position");
       if (error) throw error;
@@ -705,7 +711,7 @@ async function openStudentDashboard() {
     },
     onDeleteQuestionSet: async (setId) => { const { error } = await supabase.from("question_sets").delete().eq("set_id", setId); if (error) throw error; },
     onLoadMarket: () => dashboardRpc("e3_market_snapshot", { requested_class_id: resolvedClassId }),
-    onSellMarketItem: async (itemId) => { const result = await dashboardRpc("e3_sell_inventory_item", { requested_class_id: resolvedClassId, requested_item_id: itemId }); await loadDashboardInventory(); return result; },
+    onSellMarketItem: async (itemId) => { const result = await dashboardRpc("e3_sell_inventory_item", { requested_class_id: resolvedClassId, requested_item_id: itemId }); await loadDashboardInventory(); studentDashboard?.refreshGameOverview?.(); const sold = Number(result?.itemsSold) || 0; if ([1,10,100,1000].includes(sold)) studentDashboard?.enqueueAchievement?.({ title: sold === 1 ? "First Market Sale" : `${sold} Items Sold`, detail: "Nova Trading Post milestone", glyph: "◆", metal: sold >= 100 ? "gold" : "silver" }); return result; },
     onBuyMarketItem: async (listingId) => { const result = await dashboardRpc("e3_buy_market_item", { requested_listing_id: listingId }); await loadDashboardInventory(); return result; },
     onSwitchClass: async (classCode) => {
       if (!isAdminUser() || !classCode) return;
