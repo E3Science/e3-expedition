@@ -9,8 +9,8 @@ const NAV_ITEMS = [
 const SAMPLE_GRADES = [["Life Science", "A−", 92, "Ecosystem interactions"], ["Earth Science", "B+", 88, "Rock cycle & minerals"], ["Scientific Practice", "A", 96, "Evidence and explanations"]];
 const ACHIEVEMENTS = [["Science 101", "Unit medallion", "Earned", "unit-science"], ["Geology on Mars", "Unit medallion", "Earned", "unit-geology"], ["Field Researcher", "Complete your first investigation", "Earned", "field"], ["Evidence Builder", "Submit 5 evidence-based explanations", "3 / 5", "evidence"], ["Systems Thinker", "Balance an ecosystem simulation", "Locked", "systems"]];
 const STUDY_UNITS = {
-  "Science 101": ["Scientific Thinking", "Matter & Energy", "Living Systems"],
-  "Geology on Mars": ["The Red Planet", "Rocks & Minerals", "Planetary Change"],
+  "Science 101": ["Chapter 1", "Chapter 2", "Chapter 3"],
+  "Geology of Mars": ["Chapter 1", "Chapter 2", "Chapter 3"],
   "Plate Motion": ["Chapter 1", "Chapter 2", "Chapter 3", "Chapter 4"],
   "Rock Transformation": ["Chapter 1", "Chapter 2", "Chapter 3", "Chapter 4"],
   "Phase Change": ["Chapter 1", "Chapter 2", "Chapter 3", "Chapter 4"],
