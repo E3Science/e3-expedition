@@ -831,7 +831,7 @@ async function openStudentDashboard() {
     onDeleteQuestionSet: async (setId) => { const { error } = await supabase.from("question_sets").delete().eq("set_id", setId); if (error) throw error; },
     onLoadMarket: () => dashboardRpc("e3_market_snapshot", { requested_class_id: resolvedClassId }),
     onSellMarketItem: async (itemId) => { const result = await dashboardRpc("e3_sell_inventory_item", { requested_class_id: resolvedClassId, requested_item_id: itemId }); await loadDashboardInventory(); studentDashboard?.refreshGameOverview?.(); const sold = Number(result?.itemsSold) || 0; if ([1,10,100,1000].includes(sold)) studentDashboard?.enqueueAchievement?.({ title: sold === 1 ? "First Market Sale" : `${sold} Items Sold`, detail: "Nova Trading Post milestone", glyph: "◆", metal: sold >= 100 ? "gold" : "silver" }); return result; },
-    onBuyMarketItem: async (listingId) => { const result = await dashboardRpc("e3_buy_market_item", { requested_listing_id: listingId }); await loadDashboardInventory(); return result; },
+    onBuyMarketItem: async (itemId, quantity) => { const result = await dashboardRpc("e3_buy_market_stack", { requested_class_id: resolvedClassId, requested_item_id: itemId, requested_quantity: quantity }); await loadDashboardInventory(); return result; },
     onSwitchClass: async (classCode) => {
       if (!isAdminUser() || !classCode) return;
       const selectedClass = getConfiguredClassServers().find((entry) => entry.code === classCode);
