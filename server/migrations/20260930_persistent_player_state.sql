@@ -161,3 +161,6 @@ $$;
 
 revoke all on function public.e3_quest_snapshot(uuid),public.e3_request_quest(uuid),public.e3_discard_quest(uuid,uuid),public.e3_delete_inventory_item(uuid,text),public.e3_complete_quest(uuid,uuid,jsonb) from public,anon;
 grant execute on function public.e3_quest_snapshot(uuid),public.e3_request_quest(uuid),public.e3_discard_quest(uuid,uuid),public.e3_delete_inventory_item(uuid,text),public.e3_complete_quest(uuid,uuid,jsonb) to authenticated,service_role;
+
+-- Ask PostgREST to expose the newly created functions immediately.
+notify pgrst, 'reload schema';

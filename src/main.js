@@ -176,8 +176,45 @@ async function deleteDashboardInventoryItem(itemId) {
 
 async function dashboardRpc(functionName, parameters = {}) {
   const { data, error } = await supabase.rpc(functionName, parameters);
-  if (error) throw error;
+  if (error) {
+    if (error.code === "PGRST202" || /could not find the function|schema cache/i.test(error.message || "")) {
+      throw new Error(`The database update for ${functionName} has not been applied in Supabase yet.`);
+    }
+    throw error;
+  }
   return data || {};
+}
+
+async function loadDashboardGameOverview() {
+  try {
+    return await dashboardRpc("e3_game_overview", { requested_class_id: resolvedClassId });
+  } catch (rpcError) {
+    console.warn("Game overview RPC is unavailable; loading its persisted tables directly.", rpcError);
+    if (!authUser?.id || !resolvedClassId) return {};
+    const [statsResult, walletResult, achievementsResult, inventoryResult] = await Promise.all([
+      supabase.from("student_game_stats").select("study_completions,geosphere_completions,atmosphere_completions,hydrosphere_completions,biosphere_completions,items_sold").eq("user_id", authUser.id).eq("class_id", resolvedClassId).maybeSingle(),
+      supabase.from("student_wallets").select("nova_credits").eq("user_id", authUser.id).eq("class_id", resolvedClassId).maybeSingle(),
+      supabase.from("player_achievements").select("achievement_key,title,detail,metal,earned_at").eq("user_id", authUser.id).eq("class_id", resolvedClassId).order("earned_at", { ascending: false }).limit(12),
+      supabase.from("inventories").select("item_id,quantity").eq("user_id", authUser.id).eq("class_id", resolvedClassId)
+    ]);
+    const firstError = [statsResult, walletResult, achievementsResult, inventoryResult].find((result) => result.error)?.error;
+    if (firstError) throw firstError;
+    const stats = statsResult.data || {};
+    const inventory = Object.fromEntries((inventoryResult.data || []).map((entry) => [entry.item_id, Number(entry.quantity) || 0]));
+    const questTokens = Object.entries(inventory).reduce((sum, [key, value]) => sum + (key.startsWith("comm_quest_token:") ? value : 0), 0);
+    const skillPoints = ["geology", "botany", "zoology", "chemistry", "astrobiology"].reduce((sum, key) => sum + (inventory[`progress_skill_${key}`] || 0), 0);
+    const achievements = (achievementsResult.data || []).map((entry) => ({ key: entry.achievement_key, title: entry.title, detail: entry.detail, metal: entry.metal, earnedAt: entry.earned_at }));
+    return {
+      studyCompletions: Number(stats.study_completions) || 0,
+      sphereCompletions: { Geosphere: Number(stats.geosphere_completions) || 0, Atmosphere: Number(stats.atmosphere_completions) || 0, Hydrosphere: Number(stats.hydrosphere_completions) || 0, Biosphere: Number(stats.biosphere_completions) || 0 },
+      itemsSold: Number(stats.items_sold) || 0,
+      novaCredits: Number(walletResult.data?.nova_credits) || 0,
+      questTokens,
+      skillPoints,
+      achievementCount: achievements.length,
+      achievements
+    };
+  }
 }
 
 async function gameServerApi(path, options = {}) {
@@ -768,7 +805,7 @@ async function openStudentDashboard() {
       }
       return result;
     },
-    onLoadGameOverview: () => dashboardRpc("e3_game_overview", { requested_class_id: resolvedClassId }),
+    onLoadGameOverview: () => loadDashboardGameOverview(),
     onLoadQuestionSets: async () => {
       const { data, error } = await supabase.from("question_sets").select("set_id,unit_name,chapter_name,mission_position,active,study_questions(question_id,prompt,answers,correct_index,active)").order("mission_position");
       if (error) throw error;
@@ -820,7 +857,7 @@ async function openStudentDashboard() {
       const result = await gameServerApi("/api/google/classroom/sync", { method: "POST" });
       const { data } = await supabase.auth.getSession();
       if (data?.session?.access_token) await loadTeacherClassServers(data.session.access_token);
-      latestClassroomStatus = await gameServerApi("/api/google/classroom/status");
+      latestClassroomStatus = { ...latestClassroomStatus, configured: true, connected: true };
       return result;
     },
     onLoadClassRoster: (classId) => dashboardRpc("e3_class_roster", { requested_class_id: classId }),
@@ -11141,12 +11178,7 @@ signInButton.addEventListener("click", async () => {
     localStatus.textContent = "Loading class servers…";
     try {
       const servers = await loadTeacherClassServers(data?.session?.access_token);
-      try {
-        latestClassroomStatus = await gameServerApi("/api/google/classroom/status");
-      } catch (classroomError) {
-        console.warn("Google Classroom status is unavailable:", classroomError);
-        latestClassroomStatus = { configured: false, connected: false };
-      }
+      latestClassroomStatus = { configured: true, connected: servers.length > 0 };
       const rememberedCode = sessionStorage.getItem("classCode") || "";
       const selectedServer = servers.find((entry) => entry.code === rememberedCode) || servers[0] || null;
       if (selectedServer) {
@@ -11293,11 +11325,7 @@ joinButton.addEventListener("click", async () => {
     if (isAdminUser()) {
       localStatus.textContent = "Google account confirmed. Loading teacher classes…";
       const servers = await loadTeacherClassServers(data.session.access_token);
-      try {
-        latestClassroomStatus = await gameServerApi("/api/google/classroom/status");
-      } catch (error) {
-        console.warn("Google Classroom status is unavailable:", error);
-      }
+      latestClassroomStatus = { configured: true, connected: servers.length > 0 };
       const rememberedCode = sessionStorage.getItem("classCode") || "";
       const selectedServer = servers.find((entry) => entry.code === rememberedCode) || servers[0] || null;
       if (selectedServer) {
