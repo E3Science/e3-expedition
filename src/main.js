@@ -115,7 +115,8 @@ function restoreProgressionFromInventory(counts = {}) {
       const rarityXp = Math.max(0, Number(counts[`progress_skill_${key}_${quality}`]) || 0);
       return { quality, xp: rarityXp, ...getProgressLevelFromPoints(rarityXp) };
     });
-    return { key, xp, ...progress, rarityRanks, rarityBonusPercent: 0, structuresDestroyed: key === "astrobiology" ? Math.max(0, Number(counts.progress_astrobiology_structures_destroyed) || 0) : 0 };
+    const masterySteps = key === "astrobiology" ? 0 : Math.max(0, progress.level - 1) + (Number(counts[`progress_special_${key}_mastery`]) > 0 ? 3 : 0);
+    return { key, xp, ...progress, rarityRanks, masterySteps, rarityBonusPercent: masterySteps * 0.1, structuresDestroyed: key === "astrobiology" ? Math.max(0, Number(counts.progress_astrobiology_structures_destroyed) || 0) : 0 };
   });
   const byQuality = Object.fromEntries(qualities.map((quality) => [quality, Math.max(0, Number(counts[`comm_quest_token:${quality}`]) || 0)]));
   const total = Object.values(byQuality).reduce((sum, quantity) => sum + quantity, 0);
@@ -831,7 +832,9 @@ async function openStudentDashboard() {
     onDeleteQuestionSet: async (setId) => { const { error } = await supabase.from("question_sets").delete().eq("set_id", setId); if (error) throw error; },
     onLoadMarket: () => dashboardRpc("e3_market_snapshot", { requested_class_id: resolvedClassId }),
     onSellMarketItem: async (itemId) => { const result = await dashboardRpc("e3_sell_inventory_item", { requested_class_id: resolvedClassId, requested_item_id: itemId }); await loadDashboardInventory(); studentDashboard?.refreshGameOverview?.(); const sold = Number(result?.itemsSold) || 0; if ([1,10,100,1000].includes(sold)) studentDashboard?.enqueueAchievement?.({ title: sold === 1 ? "First Market Sale" : `${sold} Items Sold`, detail: "Nova Trading Post milestone", glyph: "◆", metal: sold >= 100 ? "gold" : "silver" }); return result; },
-    onBuyMarketItem: async (itemId, quantity) => { const result = await dashboardRpc("e3_buy_market_stack", { requested_class_id: resolvedClassId, requested_item_id: itemId, requested_quantity: quantity }); await loadDashboardInventory(); return result; },
+    onBuyMarketItem: async (itemId, quantity) => { const result = await dashboardRpc("e3_buy_market_stack", { requested_class_id: resolvedClassId, requested_item_id: itemId, requested_quantity: quantity }); await loadDashboardInventory(); studentDashboard?.refreshGameOverview?.(); return result; },
+    onLoadLocker: () => dashboardRpc("e3_locker_snapshot", { requested_class_id: resolvedClassId }),
+    onEquipLockerItem: (slot, itemKey) => dashboardRpc("e3_equip_locker_item", { requested_class_id: resolvedClassId, requested_slot: slot, requested_item_key: itemKey }),
     onSwitchClass: async (classCode) => {
       if (!isAdminUser() || !classCode) return;
       const selectedClass = getConfiguredClassServers().find((entry) => entry.code === classCode);
