@@ -90,7 +90,88 @@ async function loadDashboardInventory() {
   }
   const counts = {};
   (data || []).forEach((entry) => { counts[entry.item_id] = Number(entry.quantity) || 0; });
+  restoreProgressionFromInventory(counts);
   updateInventoryUI(counts);
+}
+
+function getProgressLevelFromPoints(points) {
+  let level = 1;
+  let remaining = Math.max(0, Math.floor(Number(points) || 0));
+  let nextLevelCost = 20;
+  while (remaining >= nextLevelCost && level < 20) {
+    remaining -= nextLevelCost;
+    level += 1;
+    nextLevelCost *= 2;
+  }
+  return { level, pointsIntoLevel: remaining, pointsForNextLevel: level >= 20 ? 0 : nextLevelCost };
+}
+
+function restoreProgressionFromInventory(counts = {}) {
+  const qualities = ["common", "uncommon", "rare", "epic", "legendary"];
+  const skills = ["geology", "botany", "zoology", "chemistry", "astrobiology"].map((key) => {
+    const xp = Math.max(0, Number(counts[`progress_skill_${key}`]) || 0);
+    const progress = getProgressLevelFromPoints(xp);
+    const rarityRanks = qualities.map((quality) => {
+      const rarityXp = Math.max(0, Number(counts[`progress_skill_${key}_${quality}`]) || 0);
+      return { quality, xp: rarityXp, ...getProgressLevelFromPoints(rarityXp) };
+    });
+    return { key, xp, ...progress, rarityRanks, rarityBonusPercent: 0, structuresDestroyed: key === "astrobiology" ? Math.max(0, Number(counts.progress_astrobiology_structures_destroyed) || 0) : 0 };
+  });
+  const byQuality = Object.fromEntries(qualities.map((quality) => [quality, Math.max(0, Number(counts[`comm_quest_token:${quality}`]) || 0)]));
+  const total = Object.values(byQuality).reduce((sum, quantity) => sum + quantity, 0);
+  const completedQuests = Math.max(0, Number(counts.progress_quests_completed) || 0);
+  const profileXp = skills.reduce((sum, skill) => sum + skill.xp, 0);
+  const rankProgress = getProgressLevelFromPoints(profileXp);
+  const rankLabels = [[20,"Expedition Commander"],[17,"Mission Commander"],[13,"Principal Scientist"],[9,"Expedition Scientist"],[6,"Senior Specialist"],[4,"Research Specialist"],[2,"Field Technician"]];
+  const rankLabel = rankLabels.find(([level]) => rankProgress.level >= level)?.[1] || "Recruit";
+  latestProgressionSnapshot = {
+    ...latestProgressionSnapshot,
+    skills,
+    profileRank: { ...rankProgress, xp: profileXp, label: rankLabel },
+    tokens: {
+      ...latestProgressionSnapshot.tokens,
+      total,
+      byQuality,
+      spent: Math.max(0, Number(counts.progress_tokens_spent) || 0),
+      completedQuests,
+      specialEarned: Math.max(0, Number(counts.progress_special_tokens_earned) || 0),
+      specialAvailable: Math.max(0, Number(counts.progress_special_tokens_available) || 0)
+    }
+  };
+  studentDashboard?.refresh();
+  if (skillsOverlay) renderSkillsWindow();
+  updateProfileUI();
+}
+
+async function loadDashboardQuests() {
+  if (!authUser?.id || !resolvedClassId) return;
+  try {
+    updateQuestUI(await dashboardRpc("e3_quest_snapshot", { requested_class_id: resolvedClassId }));
+  } catch (error) {
+    console.warn("Could not load persistent quests. Apply the persistent player-state migration.", error);
+  }
+}
+
+async function requestDashboardQuest() {
+  const result = await dashboardRpc("e3_request_quest", { requested_class_id: resolvedClassId });
+  updateQuestUI(result.snapshot || result);
+  if (result.quest) showQuestAcquiredPopup(result.quest);
+  return result;
+}
+
+async function discardDashboardQuest(questId) {
+  const result = await dashboardRpc("e3_discard_quest", { requested_class_id: resolvedClassId, requested_quest_id: questId });
+  updateQuestUI(result.snapshot || result);
+  if (questId === activeQuestTurnInId) closeQuestTurnInUI();
+  showStatusMessage(result.message || "Quest discarded.", true);
+  return result;
+}
+
+async function deleteDashboardInventoryItem(itemId) {
+  const result = await dashboardRpc("e3_delete_inventory_item", { requested_class_id: resolvedClassId, requested_item_id: itemId });
+  await Promise.all([loadDashboardInventory(), loadDashboardQuests()]);
+  showStatusMessage(result.message || "Item deleted.", true);
+  return result;
 }
 
 async function dashboardRpc(functionName, parameters = {}) {
@@ -631,6 +712,7 @@ async function openStudentDashboard() {
     try { latestMissionPosition = Number(await dashboardRpc("e3_mission_position", { requested_class_id: resolvedClassId })) || 0; }
     catch (error) { console.warn("Could not load saved mission position.", error); }
   }
+  await Promise.all([loadDashboardInventory(), loadDashboardQuests()]);
   if (!createStudentDashboardFactory) {
     createStudentDashboardFactory = (await import("./ui/studentDashboard")).createStudentDashboard;
   }
@@ -654,7 +736,7 @@ async function openStudentDashboard() {
     getQuests: () => latestQuestSnapshot,
     getItemDefinition: getInventoryItemDefByKey,
     onOpenQuest: (questId) => openQuestTurnInUI(questId),
-    onDeleteInventoryItem: (itemId) => sendRoomMessage("delete_inventory_item", { itemId }),
+    onDeleteInventoryItem: (itemId) => deleteDashboardInventoryItem(itemId),
     onOpenSkills: () => openSkillsWindow(),
     onEnterSimulation: async (kind, context = {}) => {
       if (kind === "original") {
@@ -670,7 +752,7 @@ async function openStudentDashboard() {
     onSendChat: (text) => sendClassChatMessage(text),
     onDeleteChatMessage: (messageId) => dashboardRpc("e3_delete_chat_message", { requested_message_id: Number(messageId) }),
     onMuteChatUser: (userId, minutes = 15) => dashboardRpc("e3_set_chat_mute", { requested_class_id: resolvedClassId, requested_user_id: userId, mute_minutes: minutes }),
-    onRequestQuest: () => sendRoomMessage("request_learning_lab_quest"),
+    onRequestQuest: () => requestDashboardQuest(),
     onNextStudyQuestion: (unit = null) => dashboardRpc("e3_next_study_question", { requested_class_id: resolvedClassId, requested_unit: unit || null }),
     onAnswerStudyQuestion: async ({ questionId, selectedIndex, sphere }) => {
       const result = await dashboardRpc("e3_answer_study_question", { requested_class_id: resolvedClassId, requested_question_id: questionId, selected_index: selectedIndex, selected_sphere: sphere });
@@ -720,7 +802,7 @@ async function openStudentDashboard() {
       resolvedClassCode = selectedClass?.code || classCode;
       resolvedClassName = selectedClass?.name || classCode;
       sessionStorage.setItem("classCode", classCode);
-      await loadDashboardInventory();
+      await Promise.all([loadDashboardInventory(), loadDashboardQuests()]);
       if (resolvedClassId) await subscribeToClassChat(resolvedClassId);
       studentDashboard?.refresh();
     },
@@ -11975,11 +12057,19 @@ function createQuestTurnInUI() {
   questTurnInAbandonButton.style.color = "#ffe4e4";
   questTurnInAbandonButton.style.fontWeight = "700";
   questTurnInAbandonButton.style.cursor = "pointer";
-  questTurnInAbandonButton.addEventListener("click", () => {
+  questTurnInAbandonButton.addEventListener("click", async () => {
     const quest = getActiveQuestTurnIn();
     if (!quest || questTurnInSubmitting) return;
     if (window.confirm("Abandon this quest? Its progress will be lost.")) {
-      sendRoomMessage("discard_quest", { questId: quest.id });
+      questTurnInSubmitting = true;
+      renderQuestTurnInUI();
+      try {
+        await discardDashboardQuest(quest.id);
+      } catch (error) {
+        questTurnInSubmitting = false;
+        renderQuestTurnInUI();
+        showStatusMessage(error?.message || "Quest could not be discarded.", false);
+      }
     }
   });
 
@@ -12196,7 +12286,7 @@ function renderQuestTurnInUI() {
   questTurnInSubmitButton.style.cursor = questTurnInSubmitButton.disabled ? "default" : "pointer";
 }
 
-function submitQuestTurnIn() {
+async function submitQuestTurnIn() {
   const quest = getActiveQuestTurnIn();
   if (!quest || questTurnInSubmitting || getQuestTurnInSelectedCount() !== quest.requiredCount) return;
   const items = Object.entries(questTurnInSelection)
@@ -12204,10 +12294,33 @@ function submitQuestTurnIn() {
     .map(([itemId, quantity]) => ({ itemId, quantity: Number(quantity) }));
   questTurnInSubmitting = true;
   renderQuestTurnInUI();
-  if (!sendRoomMessage("complete_quest", { questId: quest.id, items })) {
+  try {
+    const result = await dashboardRpc("e3_complete_quest", {
+      requested_class_id: resolvedClassId,
+      requested_quest_id: quest.id,
+      selected_items: items
+    });
+    await loadDashboardInventory();
+    updateQuestUI(result.snapshot || {});
+    questTurnInSubmitting = false;
+    closeQuestTurnInUI();
+    studentDashboard?.enqueueAchievement({
+      title: "Quest Complete",
+      detail: result.message || "Research samples transmitted",
+      glyph: "✦",
+      metal: "gold"
+    });
+    if (result.artifactAwarded) {
+      showFloatingLootText(result.artifactItemKey || ALIEN_ARTIFACT_ITEM_ID);
+      showStatusMessage("Alien Artifact recovered from the transmission reward.", true);
+    } else {
+      showStatusMessage(result.message || "Quest complete.", true);
+    }
+    studentDashboard?.refreshGameOverview?.();
+  } catch (error) {
     questTurnInSubmitting = false;
     renderQuestTurnInUI();
-    showStatusMessage("Quest turn-in could not be sent.", false);
+    showStatusMessage(error?.message || "Quest turn-in failed.", false);
   }
 }
 
