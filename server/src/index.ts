@@ -9194,10 +9194,23 @@ const server = defineServer({
       .split(",")
       .map((origin) => origin.trim())
       .filter(Boolean);
-    const localOrigins = ["http://localhost:8080", "http://127.0.0.1:8080"];
+    const trustedProductionOrigins = ["https://e3-expedition.onrender.com"];
+    const isTrustedLocalOrigin = (origin: string) => {
+      try {
+        const url = new URL(origin);
+        return (url.hostname === "localhost" || url.hostname === "127.0.0.1") && url.protocol === "http:";
+      } catch {
+        return false;
+      }
+    };
     app.use(cors({
       origin(origin, callback) {
-        if (!origin || localOrigins.includes(origin) || configuredOrigins.includes(origin)) {
+        if (
+          !origin ||
+          trustedProductionOrigins.includes(origin) ||
+          configuredOrigins.includes(origin) ||
+          isTrustedLocalOrigin(origin)
+        ) {
           callback(null, true);
           return;
         }

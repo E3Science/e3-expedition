@@ -16,7 +16,21 @@ export function createAstronautPreview(container, equipment = {}) {
   Object.assign(renderer.domElement.style, {
     width: "100%", height: "100%", display: "block", cursor: "grab", touchAction: "none"
   });
-  container.replaceChildren(renderer.domElement);
+  const loadingStatus = document.createElement("div");
+  loadingStatus.textContent = "Loading astronaut…";
+  loadingStatus.setAttribute("role", "status");
+  Object.assign(loadingStatus.style, {
+    position: "absolute",
+    inset: "0",
+    display: "grid",
+    placeItems: "center",
+    color: "#246b69",
+    fontSize: "12px",
+    fontWeight: "700",
+    pointerEvents: "none"
+  });
+  if (getComputedStyle(container).position === "static") container.style.position = "relative";
+  container.replaceChildren(renderer.domElement, loadingStatus);
 
   const astronautRoot = new THREE.Group();
   astronautRoot.rotation.x = -0.045;
@@ -43,8 +57,15 @@ export function createAstronautPreview(container, equipment = {}) {
     }
     astronautModel = model;
     astronautRoot.add(model.root);
+    loadingStatus.remove();
   }).catch((error) => {
-    if (!disposed) console.warn("Could not load astronaut avatar.", error);
+    if (!disposed) {
+      console.warn("Could not load astronaut avatar.", error);
+      loadingStatus.textContent = `Astronaut could not load: ${error?.message || "unknown error"}`;
+      loadingStatus.style.color = "#a72d32";
+      loadingStatus.style.padding = "16px";
+      loadingStatus.style.textAlign = "center";
+    }
   });
 
   function resize() {
