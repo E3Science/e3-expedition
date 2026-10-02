@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { acquireGLTFAsset } from "./gltfAssetCache";
-import { createAstronautModel } from "./models/astronautModel";
+import { loadAnimatedAstronaut } from "./models/animatedAstronautModel";
 import { createMobModel } from "./models/mobModels";
 import { createResourceModel } from "./models/resourceModels";
 
@@ -138,7 +138,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
     const nextIds = new Set(players.map((player) => player.id));
     playerEntries.forEach((entry, id) => {
       if (nextIds.has(id)) return;
-      disposeModel(entry.model.root);
+      entry.model?.dispose();
       entry.root.removeFromParent();
       playerEntries.delete(id);
     });
@@ -146,13 +146,21 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
     players.forEach((player) => {
       let entry = playerEntries.get(player.id);
       if (!entry) {
-        const model = createAstronautModel(!!player.isLocalPlayer);
         const root = new THREE.Group();
-        root.add(model.root);
         root.position.set(player.x ?? 0, -(player.y ?? 0) + 2.14 * 10.5, 12);
         playerRoot.add(root);
-        entry = { root, model, x: player.x, y: player.y, direction: player.direction || "down", moving: false, actionActive: false };
+        entry = { root, model: null, x: player.x, y: player.y, direction: player.direction || "down", moving: false, actionActive: false };
         playerEntries.set(player.id, entry);
+        loadAnimatedAstronaut({ isLocalPlayer: !!player.isLocalPlayer }).then((model) => {
+          if (disposed || playerEntries.get(player.id) !== entry) {
+            model.dispose();
+            return;
+          }
+          entry.model = model;
+          root.add(model.root);
+        }).catch((error) => {
+          if (!disposed) console.warn("Could not load world astronaut.", error);
+        });
       }
 
       entry.x = player.x ?? 0;
@@ -183,18 +191,19 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
         right_down: Math.PI / 4
       };
       const targetRotation = directionRotations[entry.direction] ?? 0;
+      if (!entry.model) return;
       const angleDelta = Math.atan2(
         Math.sin(targetRotation - entry.model.root.rotation.y),
         Math.cos(targetRotation - entry.model.root.rotation.y)
       );
       entry.model.root.rotation.y += angleDelta * 0.24;
-
-      const stride = entry.moving ? Math.sin(elapsed * 11) * 0.42 : 0;
-      entry.model.limbs.arms[0].rotation.x = entry.actionActive ? -1.1 : stride;
-      entry.model.limbs.arms[1].rotation.x = entry.actionActive ? -1.1 : -stride;
-      entry.model.limbs.legs[0].rotation.x = -stride * 0.72;
-      entry.model.limbs.legs[1].rotation.x = stride * 0.72;
-      entry.model.root.position.y = entry.moving ? Math.abs(Math.sin(elapsed * 11)) * 0.045 : Math.sin(elapsed * 1.8) * 0.018;
+      entry.model.animator.update(elapsed, {
+        moving: entry.moving,
+        actionActive: entry.actionActive
+      });
+      entry.model.root.position.y = entry.moving
+        ? Math.abs(Math.sin(elapsed * 8.7)) * 0.045
+        : Math.sin(elapsed * 1.8) * 0.018;
     });
   }
 
@@ -429,7 +438,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       disposed = true;
       generation += 1;
       releaseEntries();
-      playerEntries.forEach((entry) => disposeModel(entry.model.root));
+      playerEntries.forEach((entry) => entry.model?.dispose());
       playerEntries.clear();
       mobEntries.forEach((entry) => disposeModel(entry.model.root));
       mobEntries.clear();
