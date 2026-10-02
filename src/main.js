@@ -343,6 +343,8 @@ let cursors;
 let movementKeys = null;
 let interactKey;
 let joined = false;
+let standaloneWorld = false;
+let standaloneInput = { left: false, right: false, up: false, down: false, speedScale: 1 };
 let authUser = null;
 let authStatusText = null;
 
@@ -779,7 +781,10 @@ async function openStudentDashboard() {
     onEnterSimulation: async (kind, context = {}) => {
       if (kind === "original") {
         await startGameRuntime();
-        await rejoinCurrentMap(currentMapKey || DEFAULT_MAP_KEY, resolvedClassCode || undefined);
+        startStandaloneWorld(
+          authUser?.user_metadata?.display_name || authUser?.email?.split("@")?.[0] || "Explorer",
+          currentMapKey || DEFAULT_MAP_KEY
+        );
         setSimulationMode(true);
         return;
       }
@@ -4072,6 +4077,98 @@ function createPlayerDisplayObject(scene, x, y, isLocalPlayer) {
   return { shadow, ring, container, layers };
 }
 
+function createStandalonePlayerDisplay(player, id) {
+  if (!sceneRef || !Phaser) return;
+  const display = createPlayerDisplayObject(sceneRef, player.x, player.y, true);
+  const label = sceneRef.add.text(player.x, player.y - PLAYER_LABEL_OFFSET_Y, player.name || "Explorer", {
+    color: "#ffffff",
+    fontSize: "14px",
+    backgroundColor: "rgba(10, 16, 24, 0.65)",
+    padding: { left: 6, right: 6, top: 2, bottom: 2 }
+  });
+  label.setOrigin(0.5, 0.5);
+  label.setDepth(11);
+  players[id] = {
+    shadow: display.shadow,
+    ring: display.ring,
+    container: display.container,
+    layers: display.layers,
+    label,
+    lastDirection: "down",
+    currentAnim: null,
+    activeActionName: null,
+    activeActionUntil: 0
+  };
+  display.container.setSize(34, 54);
+  setPlayerScreenPosition(players[id], player.x, player.y);
+  updatePlayerSprite(sceneRef, players[id], player, id);
+  startFollowingLocalPlayer();
+}
+
+function startStandaloneWorld(chosenName, mapKey = DEFAULT_MAP_KEY) {
+  Object.values(players).forEach((entry) => {
+    entry.shadow?.destroy();
+    entry.ring?.destroy();
+    entry.container?.destroy();
+    entry.label?.destroy();
+  });
+  players = {};
+  room?.leave?.(true)?.catch?.(() => {});
+  client = null;
+  standaloneWorld = true;
+  myId = `local-${authUser?.id || "explorer"}`;
+  setCurrentMapKey(mapKey || DEFAULT_MAP_KEY);
+  const spawn = findSpawnMarkerTile();
+  const player = {
+    name: chosenName || "Explorer",
+    x: spawn ? tileToWorldX(spawn.tileX) + TILE_SIZE / 2 : 100,
+    y: spawn ? tileToWorldY(spawn.tileY) + TILE_SIZE / 2 : 100,
+    left: false,
+    right: false,
+    up: false,
+    down: false,
+    stamina: 100,
+    maxStamina: 100,
+    health: 100,
+    maxHealth: 100,
+    inventory: new Map(Object.entries(latestInventoryCounts || {}))
+  };
+  const localPlayers = new Map([[myId, player]]);
+  room = {
+    connection: { isOpen: true },
+    state: { players: localPlayers },
+    send(type, payload = {}) {
+      if (type !== "input") return;
+      standaloneInput = { ...standaloneInput, ...payload };
+      Object.assign(player, {
+        left: !!payload.left,
+        right: !!payload.right,
+        up: !!payload.up,
+        down: !!payload.down
+      });
+    },
+    async leave() {}
+  };
+  joined = true;
+  lastInput = { left: false, right: false, up: false, down: false, editorMode: false, speedScale: 1 };
+  createStandalonePlayerDisplay(player, myId);
+  appendSystemChatLine("System: Original E3 World opened in local simulation mode.", "#7CFC00");
+}
+
+function updateStandalonePlayer() {
+  if (!standaloneWorld || !room?.state?.players || !myId || !sceneRef) return;
+  const player = room.state.players.get(myId);
+  if (!player) return;
+  const horizontal = Number(!!standaloneInput.right) - Number(!!standaloneInput.left);
+  const vertical = Number(!!standaloneInput.down) - Number(!!standaloneInput.up);
+  if (!horizontal && !vertical) return;
+  const deltaSeconds = Math.min(0.05, Math.max(0, Number(sceneRef.game?.loop?.delta) || 16.67) / 1000);
+  const diagonalScale = horizontal && vertical ? Math.SQRT1_2 : 1;
+  const distance = 175 * deltaSeconds * diagonalScale * (Number(standaloneInput.speedScale) || 1);
+  player.x = Math.min(ROOM_OFFSET_X + getCurrentRoomWorldWidth(), Math.max(ROOM_OFFSET_X, player.x + horizontal * distance));
+  player.y = Math.min(ROOM_OFFSET_Y + getCurrentRoomWorldHeight(), Math.max(ROOM_OFFSET_Y, player.y + vertical * distance));
+}
+
 function setPlayerScreenPosition(entry, x, y) {
   const displayPosition = logicalWorldToDisplay(x, y);
   const displayX = displayPosition.x;
@@ -4704,6 +4801,8 @@ function update() {
       lastInput = { ...inputMessage };
     }
   }
+
+  updateStandalonePlayer();
 
   room.state.players.forEach((player, id) => {
     const entry = players[id];
@@ -8204,6 +8303,20 @@ Notes:
 
 async function rejoinCurrentMap(fallbackMapKey = DEFAULT_MAP_KEY, matchmakingClassCode = null) {
   if (!authUser) return false;
+
+  if (standaloneWorld) {
+    setCurrentMapKey(fallbackMapKey || DEFAULT_MAP_KEY);
+    const player = room?.state?.players?.get?.(myId);
+    const spawn = findSpawnMarkerTile();
+    if (player && spawn) {
+      player.x = pendingSpawnX ?? tileToWorldX(spawn.tileX) + TILE_SIZE / 2;
+      player.y = pendingSpawnY ?? tileToWorldY(spawn.tileY) + TILE_SIZE / 2;
+    }
+    pendingSpawnX = null;
+    pendingSpawnY = null;
+    appendSystemChatLine(`System: Switched to local map "${currentMapKey}".`, "#7CFC00");
+    return true;
+  }
 
   const chosenName =
     sessionStorage.getItem("playerName") ||
