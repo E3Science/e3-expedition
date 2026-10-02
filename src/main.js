@@ -50,18 +50,9 @@ function getGameServerUrl() {
   return (import.meta.env.VITE_GAME_SERVER_URL || `${window.location.protocol}//${window.location.hostname}:2567`).replace(/\/$/, "");
 }
 
-async function loadTeacherClassServers(accessToken) {
-  const { data: directClasses, error: directError } = await supabase.rpc("e3_teacher_classes");
-  let classes = directClasses;
-  if (directError) {
-    if (!accessToken) throw directError;
-    const response = await fetch(`${getGameServerUrl()}/api/classes`, {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload?.error || `Class server request failed (${response.status})`);
-    classes = payload?.classes;
-  }
+async function loadTeacherClassServers() {
+  const { data: classes, error } = await supabase.rpc("e3_teacher_classes");
+  if (error) throw error;
   const servers = Array.isArray(classes)
     ? classes.filter((entry) => entry?.code).map((entry) => ({ id: String(entry.id || ""), code: String(entry.code), name: String(entry.name || entry.code) }))
     : [];
@@ -218,18 +209,11 @@ async function loadDashboardGameOverview() {
   }
 }
 
-async function gameServerApi(path, options = {}) {
-  const { data } = await supabase.auth.getSession();
-  const accessToken = data?.session?.access_token;
-  if (!accessToken) throw new Error("Sign in before using teacher integrations.");
-  const response = await fetch(`${getGameServerUrl()}${path}`, {
-    ...options,
-    signal: options.signal || (typeof AbortSignal?.timeout === "function" ? AbortSignal.timeout(4000) : undefined),
-    headers: { ...(options.headers || {}), Authorization: `Bearer ${accessToken}` }
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload?.error || `Server request failed (${response.status})`);
-  return payload;
+async function classroomFunction(action) {
+  const { data, error } = await supabase.functions.invoke("classroom", { body: { action } });
+  if (error) throw new Error(error.context?.body?.error || error.message || "Google Classroom request failed.");
+  if (data?.error) throw new Error(data.error);
+  return data || {};
 }
 
 /*
@@ -858,13 +842,12 @@ async function openStudentDashboard() {
       if (title) sessionStorage.setItem("e3CurrentChapter", title);
     },
     onConnectClassroom: async () => {
-      const result = await gameServerApi("/api/google/classroom/authorization-url");
+      const result = await classroomFunction("authorization-url");
       window.location.assign(result.url);
     },
     onSyncClassroom: async () => {
-      const result = await gameServerApi("/api/google/classroom/sync", { method: "POST" });
-      const { data } = await supabase.auth.getSession();
-      if (data?.session?.access_token) await loadTeacherClassServers(data.session.access_token);
+      const result = await classroomFunction("sync");
+      await loadTeacherClassServers();
       latestClassroomStatus = { ...latestClassroomStatus, configured: true, connected: true };
       return result;
     },
@@ -11368,8 +11351,7 @@ joinButton.addEventListener("click", async () => {
       try {
         assignedClass = await loadStudentClassDirect();
       } catch (directError) {
-        console.warn("Direct class lookup failed; trying multiplayer API fallback.", directError);
-        assignedClass = await gameServerApi("/api/student/class");
+        throw directError;
       }
       resolvedClassId = assignedClass.id || "";
       enteredClassCode = assignedClass.code || "";

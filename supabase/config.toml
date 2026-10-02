@@ -1,0 +1,2 @@
+[functions.classroom]
+verify_jwt = false

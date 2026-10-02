@@ -1,30 +1,35 @@
-# Google Classroom and remote-access setup
+# Google Classroom without Render multiplayer
 
-The E3 client and multiplayer server are now configurable for deployment. Google Classroom credentials are intentionally not committed to this repository.
+E3 uses a Supabase Edge Function for Google OAuth and roster synchronization. The original world runs locally, while persistence, accounts, rosters, and class chat use Supabase. The `e3-multiplayer` Render service is not required.
 
-## Google Cloud configuration
+## One-time Supabase setup
 
-1. Create or select a Google Cloud project.
-2. Enable the **Google Classroom API**.
-3. Configure the Google Auth consent screen.
-   - Use **Internal** only if every user belongs to the same Google Workspace organization.
-   - Use **External** if teachers or students will sign in from other organizations or personal Google accounts.
-4. Create an OAuth 2.0 client with application type **Web application**.
-5. Add the deployed server callback URL as an authorized redirect URI, for example:
-   `https://api.example.com/auth/google/classroom/callback`
-6. Configure the variables listed in `.env.example` on the server host.
+Install/login to the Supabase CLI and link this repository to the existing project. Then set these Edge Function secrets:
 
-The requested read-only scopes cover active courses, rosters, student email identity, coursework, submissions, and grades. Refresh tokens and access tokens must be encrypted at rest and stored only on the server. Do not put the Google client secret or refresh tokens in Vite/browser variables.
+```powershell
+supabase secrets set GOOGLE_CLASSROOM_CLIENT_ID="YOUR_CLIENT_ID"
+supabase secrets set GOOGLE_CLASSROOM_CLIENT_SECRET="YOUR_CLIENT_SECRET"
+supabase secrets set GOOGLE_CLASSROOM_REDIRECT_URI="https://YOUR_PROJECT_REF.supabase.co/functions/v1/classroom?action=callback"
+supabase secrets set E3_FRONTEND_URL="https://e3-expedition.onrender.com"
+supabase functions deploy classroom --no-verify-jwt
+```
 
-The initial service implementation is in `server/src/googleClassroom.ts`. The remaining credential-dependent step is to expose authorization/callback endpoints, save each teacher's encrypted refresh token, and schedule course/roster/grade synchronization into Supabase.
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are supplied automatically inside hosted Edge Functions.
 
-## Making E3 available on other computers
+## Google Cloud
 
-Two services must be deployed:
+In the OAuth web client, replace the old Render callback with this exact authorized redirect URI:
 
-1. The Vite production build (`npm run build`, output in `dist/`) on a static HTTPS host.
-2. The Colyseus server (`server/src/index.ts`) on a Node host that supports WebSockets.
+```text
+https://YOUR_PROJECT_REF.supabase.co/functions/v1/classroom?action=callback
+```
 
-Set `VITE_GAME_SERVER_URL` to the public HTTPS/WSS-capable server origin before building the client. Configure the public client URL in Supabase Authentication under Site URL and Redirect URLs. The server host must receive `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `PORT` as private environment variables.
+Keep the Classroom API enabled. Existing encrypted refresh tokens remain compatible because both implementations use AES-256-GCM with a SHA-256 key derived from the same Google client secret.
 
-Students should never receive Supabase's service-role key, Google OAuth client secret, or Google refresh tokens.
+## Local testing
+
+The local Vite client calls the deployed Supabase Edge Function, so Classroom authorization and synchronization work locally without starting the old Node/Colyseus server. Add local Vite URLs to Supabase Auth redirect URLs for Google sign-in as usual.
+
+## Render
+
+Only `e3-expedition` needs to remain deployed. After the Edge Function is live and tested, the `e3-multiplayer` service may be deleted from Render.
