@@ -166,8 +166,31 @@ export function createStudentDashboard({ root, isAdmin = false, classServers = [
   function renderPeople() {
     const wrap = el("div", "page-stack people-admin-page");
     wrap.innerHTML = `<div class="section-intro"><div><span class="eyebrow">Teacher controls</span><h2>Students & access</h2><p>Manage the selected class roster, authorize student emails, inspect student records, and assign account roles in one place.</p></div></div>`;
+    const classroomControls = el("section", "dashboard-card classroom-controls");
+    classroomControls.innerHTML = `<div><span class="eyebrow">Class import</span><h2>Google Classroom</h2><p class="classroom-connection-status">${classroomStatus.connected ? `Connected${classroomStatus.email ? ` as ${classroomStatus.email}` : ""}` : "Connect or synchronize to import your current classes and rosters."}</p></div><div class="classroom-control-actions"><button type="button" data-classroom="connect">${classroomStatus.connected ? "Reconnect Google Classroom" : "Connect Google Classroom"}</button><button type="button" data-classroom="sync">Synchronize classes & rosters</button></div>`;
+    classroomControls.addEventListener("click", async (event) => {
+      const button = event.target.closest("button[data-classroom]");
+      if (!button) return;
+      const status = classroomControls.querySelector(".classroom-connection-status");
+      const buttons = classroomControls.querySelectorAll("button");
+      buttons.forEach((entry) => { entry.disabled = true; });
+      try {
+        if (button.dataset.classroom === "connect") {
+          status.textContent = "Opening Google authorization…";
+          await onConnectClassroom();
+          return;
+        }
+        status.textContent = "Synchronizing classes and student rosters…";
+        const result = await onSyncClassroom();
+        status.textContent = `Imported ${result.courses || 0} classes and ${result.rosterEntries || 0} roster entries; ${result.matchedStudents || 0} existing E3 accounts matched.`;
+      } catch (error) {
+        status.textContent = error?.message || "Google Classroom action failed.";
+      } finally {
+        buttons.forEach((entry) => { entry.disabled = false; });
+      }
+    });
     const roster = renderStudents(false);
-    const panel = el("section", "dashboard-card people-list"); panel.innerHTML = `<p>Loading accounts…</p>`; wrap.append(roster, panel);
+    const panel = el("section", "dashboard-card people-list"); panel.innerHTML = `<p>Loading accounts…</p>`; wrap.append(classroomControls, roster, panel);
     const load = async () => { try { const result = await onLoadAccounts(); const accounts = result.accounts || []; panel.innerHTML = `<div class="inventory-toolbar"><div><span class="eyebrow">${accounts.length} accounts</span><h2>Recent logins</h2></div><span>Newest first</span></div><div class="people-rows"></div>`; const rows = panel.querySelector(".people-rows"); accounts.forEach((account) => { const row = el("article", "people-row"); const classOptions = [`<option value="">Unassigned</option>`, ...classServers.map((entry) => `<option value="${entry.id}" ${entry.id === account.classId ? "selected" : ""}>${entry.name}</option>`)].join(""); row.innerHTML = `<div class="people-identity"><span class="roster-avatar">${(account.displayName || "U").charAt(0).toUpperCase()}</span><span><strong>${account.displayName}</strong><small>${account.email}</small><em>${account.lastSignInAt ? `Last login ${new Date(account.lastSignInAt).toLocaleDateString()}` : "Account created; no completed login yet"}</em></span></div><label>Role<select class="people-role"><option value="student" ${account.role === "student" ? "selected" : ""}>Student</option><option value="teacher" ${account.role === "teacher" ? "selected" : ""}>Teacher</option></select></label><label>Class<select class="people-class" ${account.role === "teacher" ? "disabled" : ""}>${classOptions}</select></label><button type="button">Save access</button><small class="people-status"></small>`; const role = row.querySelector(".people-role"); const classSelect = row.querySelector(".people-class"); role.addEventListener("change", () => { classSelect.disabled = role.value === "teacher"; }); row.querySelector("button").addEventListener("click", async (event) => { const button = event.currentTarget; const status = row.querySelector(".people-status"); button.disabled = true; status.textContent = "Saving…"; try { const updated = await onUpdateAccount(account.userId, { role: role.value, classId: classSelect.value }); status.textContent = updated.requiresRelogin ? "Saved. This person should log out and back in." : "Saved."; } catch (error) { status.textContent = error?.message || "Could not update access."; } finally { button.disabled = false; } }); rows.appendChild(row); }); } catch (error) { panel.innerHTML = `<p class="roster-error">${error?.message || "Could not load accounts."}</p>`; } };
     load(); return wrap;
   }
