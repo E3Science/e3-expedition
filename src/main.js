@@ -679,9 +679,14 @@ function setSimulationMode(active) {
     document.getElementById("app")?.appendChild(exitButton);
   }
   if (exitButton) exitButton.hidden = !active;
-  if (active) studentDashboard?.hide();
-  else studentDashboard?.show();
-  if (active) window.requestAnimationFrame(applyDefaultHUDLayout);
+  if (active) {
+    game?.loop?.wake?.();
+    studentDashboard?.hide();
+    window.requestAnimationFrame(applyDefaultHUDLayout);
+  } else {
+    studentDashboard?.show();
+    game?.loop?.sleep?.();
+  }
 }
 
 async function startGameRuntime() {
@@ -765,7 +770,7 @@ async function openStudentDashboard() {
     onEnterSimulation: async (kind, context = {}) => {
       if (kind === "original") {
         await startGameRuntime();
-        startStandaloneWorld(
+        await startStandaloneWorld(
           authUser?.user_metadata?.display_name || authUser?.email?.split("@")?.[0] || "Explorer",
           currentMapKey || DEFAULT_MAP_KEY
         );
@@ -853,20 +858,13 @@ async function openStudentDashboard() {
     },
     onLoadClassRoster: (classId) => dashboardRpc("e3_class_roster", { requested_class_id: classId }),
     onAddClassStudent: (classId, student) => dashboardRpc("e3_authorize_student", { requested_class_id: classId, student_email: student.email, student_display_name: student.displayName || "" }),
-    onRemoveClassStudent: (classId, userId) => dashboardRpc("e3_remove_student", { requested_class_id: classId, requested_user_id: userId }),
+    onRemoveClassStudent: (classId, student) => dashboardRpc("e3_remove_student_access", { requested_class_id: classId, requested_user_id: student?.userId || null, student_email: student?.email || null }),
     onLoadStudentStats: (classId, userId) => dashboardRpc("e3_student_overview", { requested_class_id: classId, requested_user_id: userId }),
     onLoadAccounts: () => dashboardRpc("e3_teacher_people"),
     onUpdateAccount: (userId, changes) => dashboardRpc("e3_update_person", { requested_user_id: userId, requested_role: changes.role, requested_class_id: changes.classId || null })
   });
   classChatHistory.forEach((message) => studentDashboard?.appendChat(message));
   if (resolvedClassId) subscribeToClassChat(resolvedClassId);
-  const achievementScope = authUser?.id || "guest";
-  const currentChapter = sessionStorage.getItem("e3CurrentChapter") || "Scientific Thinking";
-  const seenChapterKey = `e3SeenChapter:${achievementScope}`;
-  if (localStorage.getItem(seenChapterKey) !== currentChapter) {
-    studentDashboard?.enqueueAchievement({ title: "New Chapter", detail: currentChapter, glyph: "◉" });
-    localStorage.setItem(seenChapterKey, currentChapter);
-  }
   setSimulationMode(false);
 }
 
@@ -4088,7 +4086,74 @@ function createStandalonePlayerDisplay(player, id) {
   startFollowingLocalPlayer();
 }
 
-function startStandaloneWorld(chosenName, mapKey = DEFAULT_MAP_KEY) {
+function getStandaloneMobSpecies(frameIndex) {
+  const row = getObjectSheetRow(frameIndex);
+  if (row === OBJECT_ROW_LEVEL1_HERBIVORE_A) return "herbivore_a";
+  if (row === OBJECT_ROW_LEVEL1_HERBIVORE_B) return "herbivore_b";
+  if (row === OBJECT_ROW_LEVEL2_HERBIVORE_A) return "herbivore_c";
+  if (row === OBJECT_ROW_LEVEL2_HERBIVORE_B) return "herbivore_d";
+  if (row === OBJECT_ROW_LEVEL1_CARNIVORE) return "carnivore_a";
+  if (row === OBJECT_ROW_LEVEL2_CARNIVORE_A) return "carnivore_b";
+  if (row === OBJECT_ROW_LEVEL2_CARNIVORE_B) return "carnivore_c";
+  if (row === OBJECT_ROW_LEVEL2_APEX_PREDATOR) return "apex_predator_a";
+  if (row === OBJECT_ROW_LEVEL3_APEX_PREDATOR) return "apex_predator_b";
+  return "unknown";
+}
+
+function createStandaloneAnimalsFromMap() {
+  const mobs = [];
+  roomObjectLayerMap.forEach((row, tileY) => row?.forEach?.((frame, tileX) => {
+    if (!isMobObjectFrame(frame)) return;
+    const homeX = tileToWorldX(tileX) + TILE_SIZE / 2;
+    const homeY = tileToWorldY(tileY) + TILE_SIZE / 2;
+    mobs.push({
+      id: `local-mob-${tileX}-${tileY}`,
+      mapKey: currentMapKey,
+      anchorFrame: frame,
+      kind: getMobKindForFrame(frame),
+      tier: getObjectTierForFrame(frame),
+      speciesKey: getStandaloneMobSpecies(frame),
+      x: homeX,
+      y: homeY,
+      homeX,
+      homeY,
+      facing: (tileX + tileY) % 2 ? "left" : "right",
+      state: "walk",
+      phase: (tileX * 0.73 + tileY * 0.41) % (Math.PI * 2),
+      esm: 20,
+      maxEsm: 20,
+      ecosystemState: "local simulation"
+    });
+  }));
+  applyRuntimeMobSnapshot({ mapKey: currentMapKey, mobs });
+}
+
+async function loadStandaloneMap(mapKey) {
+  const { data, error } = await supabase
+    .from("room_layouts")
+    .select("layout_key,base_layer,detail_layer,overhead_layer,object_layer")
+    .eq("layout_key", mapKey || DEFAULT_MAP_KEY)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) {
+    console.warn(`No saved map was found for ${mapKey}; keeping the bundled fallback map.`);
+    createStandaloneAnimalsFromMap();
+    return false;
+  }
+  const layout = {
+    base: data.base_layer || [],
+    detail: data.detail_layer || [],
+    overhead: data.overhead_layer || [],
+    objects: data.object_layer || []
+  };
+  const expanded = expandRoomLayoutToSize(layout, DEFAULT_ROOM_TILE_WIDTH, DEFAULT_ROOM_TILE_HEIGHT);
+  if (!applyRoomLayout(sceneRef, expanded)) throw new Error("The saved map layout is invalid.");
+  currentLayoutKey = data.layout_key;
+  createStandaloneAnimalsFromMap();
+  return true;
+}
+
+async function startStandaloneWorld(chosenName, mapKey = DEFAULT_MAP_KEY) {
   Object.values(players).forEach((entry) => {
     entry.shadow?.destroy();
     entry.ring?.destroy();
@@ -4101,6 +4166,13 @@ function startStandaloneWorld(chosenName, mapKey = DEFAULT_MAP_KEY) {
   standaloneWorld = true;
   myId = `local-${authUser?.id || "explorer"}`;
   setCurrentMapKey(mapKey || DEFAULT_MAP_KEY);
+  try {
+    await loadStandaloneMap(currentMapKey);
+  } catch (error) {
+    console.error("Could not load the standalone saved map.", error);
+    appendSystemChatLine(`System: Saved map could not load: ${error?.message || error}`, "#ffcc88");
+    createStandaloneAnimalsFromMap();
+  }
   const spawn = findSpawnMarkerTile();
   const player = {
     name: chosenName || "Explorer",
@@ -4150,6 +4222,21 @@ function updateStandalonePlayer() {
   const distance = 175 * deltaSeconds * diagonalScale * (Number(standaloneInput.speedScale) || 1);
   player.x = Math.min(ROOM_OFFSET_X + getCurrentRoomWorldWidth(), Math.max(ROOM_OFFSET_X, player.x + horizontal * distance));
   player.y = Math.min(ROOM_OFFSET_Y + getCurrentRoomWorldHeight(), Math.max(ROOM_OFFSET_Y, player.y + vertical * distance));
+}
+
+function updateStandaloneAnimals(elapsedSeconds) {
+  if (!standaloneWorld) return;
+  Object.values(latestRuntimeMobSnapshot).forEach((mob) => {
+    if (!mob?.homeX && !mob?.homeY) return;
+    const phase = elapsedSeconds * 0.42 + Number(mob.phase || 0);
+    const radius = TILE_SIZE * (1.3 + Number(mob.tier || 1) * 0.35);
+    const nextX = mob.homeX + Math.cos(phase) * radius;
+    const nextY = mob.homeY + Math.sin(phase * 0.83) * radius * 0.65;
+    mob.facing = nextX < mob.x ? "left" : "right";
+    mob.x = nextX;
+    mob.y = nextY;
+    mob.state = "walk";
+  });
 }
 
 function setPlayerScreenPosition(entry, x, y) {
@@ -4786,6 +4873,7 @@ function update() {
   }
 
   updateStandalonePlayer();
+  updateStandaloneAnimals((sceneRef?.time?.now || 0) / 1000);
 
   room.state.players.forEach((player, id) => {
     const entry = players[id];
@@ -8289,6 +8377,13 @@ async function rejoinCurrentMap(fallbackMapKey = DEFAULT_MAP_KEY, matchmakingCla
 
   if (standaloneWorld) {
     setCurrentMapKey(fallbackMapKey || DEFAULT_MAP_KEY);
+    try {
+      await loadStandaloneMap(currentMapKey);
+    } catch (error) {
+      console.error("Could not load the local destination map.", error);
+      appendSystemChatLine(`System: Local map could not load: ${error?.message || error}`, "#ff6666");
+      return false;
+    }
     const player = room?.state?.players?.get?.(myId);
     const spawn = findSpawnMarkerTile();
     if (player && spawn) {
