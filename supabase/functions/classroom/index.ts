@@ -7,7 +7,9 @@ const SCOPES = [
   "openid", "email", "profile",
   "https://www.googleapis.com/auth/classroom.courses.readonly",
   "https://www.googleapis.com/auth/classroom.rosters.readonly",
-  "https://www.googleapis.com/auth/classroom.profile.emails"
+  "https://www.googleapis.com/auth/classroom.profile.emails",
+  "https://www.googleapis.com/auth/classroom.coursework.me",
+  "https://www.googleapis.com/auth/classroom.coursework.students.readonly"
 ];
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -79,6 +81,11 @@ async function tokenRequest(parameters: Record<string, string>) {
 async function classroomGet(accessToken: string, path: string) {
   const response = await fetch(`${CLASSROOM_API}${path}`, { headers: { authorization: `Bearer ${accessToken}` } });
   if (!response.ok) throw new Error(`Google Classroom request failed (${response.status}).`);
+  return response.json();
+}
+async function classroomPost(accessToken: string, path: string, body: unknown) {
+  const response = await fetch(`${CLASSROOM_API}${path}`, { method: "POST", headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" }, body: JSON.stringify(body) });
+  if (!response.ok) throw new Error(`Google Classroom request failed (${response.status}): ${await response.text()}`);
   return response.json();
 }
 function adminClient() {
@@ -170,6 +177,45 @@ async function syncClassroom(request: Request) {
   await admin.from("google_classroom_connections").update({ updated_at: new Date().toISOString() }).eq("teacher_user_id", teacher.id);
   return { success: true, courses: courses.length, rosterEntries, matchedStudents };
 }
+async function postAssignment(request: Request, payload: any) {
+  const teacher = await teacherFromRequest(request);
+  const assignment = payload.assignment || {};
+  if (!payload.classId || !assignment.title) throw new Error("Choose a class and provide an assignment title.");
+  const admin = adminClient();
+  const [{ data: connection, error: connectionError }, { data: classRow, error: classError }] = await Promise.all([
+    admin.from("google_classroom_connections").select("refresh_token_ciphertext").eq("teacher_user_id", teacher.id).single(),
+    admin.from("classes").select("google_course_id").eq("class_id", payload.classId).single()
+  ]);
+  if (connectionError || !connection) throw new Error("Reconnect Google Classroom before posting assignments.");
+  if (classError || !classRow?.google_course_id) throw new Error("This E3 class is not linked to a Google Classroom course.");
+  const access = await tokenRequest({ refresh_token: await decryptToken(connection.refresh_token_ciphertext), client_id: env("GOOGLE_CLASSROOM_CLIENT_ID"), client_secret: env("GOOGLE_CLASSROOM_CLIENT_SECRET"), grant_type: "refresh_token" });
+  const description = [assignment.description || "", assignment.durationMinutes ? `Estimated time: ${assignment.durationMinutes} minutes` : ""].filter(Boolean).join("\n\n");
+  const courseWork: Record<string, unknown> = { title: assignment.title, description, workType: "ASSIGNMENT", state: "PUBLISHED" };
+  if (assignment.url) courseWork.materials = [{ link: { url: assignment.url, title: assignment.title } }];
+  if (assignment.dueDate && /^\d{4}-\d{2}-\d{2}$/.test(assignment.dueDate)) {
+    const [year, month, day] = assignment.dueDate.split("-").map(Number);
+    courseWork.dueDate = { year, month, day };
+  }
+  if (Number.isFinite(Number(assignment.points)) && Number(assignment.points) > 0) courseWork.maxPoints = Number(assignment.points);
+  const created = await classroomPost(access.access_token, `/courses/${encodeURIComponent(classRow.google_course_id)}/courseWork`, courseWork);
+  return { success: true, id: created.id, alternateLink: created.alternateLink || null };
+}
+async function listReusableAssignments(request: Request, payload: any) {
+  const teacher = await teacherFromRequest(request);
+  const sourceCourseId = String(payload.sourceCourseId || "").replace(/\D/g, "");
+  if (!sourceCourseId) throw new Error("A source Google Classroom course is required.");
+  const admin = adminClient();
+  const { data: connection, error } = await admin.from("google_classroom_connections").select("refresh_token_ciphertext").eq("teacher_user_id", teacher.id).single();
+  if (error || !connection) throw new Error("Reconnect Google Classroom before reusing assignments.");
+  const access = await tokenRequest({ refresh_token: await decryptToken(connection.refresh_token_ciphertext), client_id: env("GOOGLE_CLASSROOM_CLIENT_ID"), client_secret: env("GOOGLE_CLASSROOM_CLIENT_SECRET"), grant_type: "refresh_token" });
+  const assignments: any[] = []; let pageToken = "";
+  do {
+    const query = new URLSearchParams({ pageSize: "100", orderBy: "updateTime desc" }); query.append("courseWorkStates", "PUBLISHED"); query.append("courseWorkStates", "DRAFT"); if (pageToken) query.set("pageToken", pageToken);
+    const page = await classroomGet(access.access_token, `/courses/${encodeURIComponent(sourceCourseId)}/courseWork?${query}`);
+    assignments.push(...(page.courseWork || [])); pageToken = page.nextPageToken || "";
+  } while (pageToken);
+  return { assignments: assignments.map((item) => ({ id: item.id, title: item.title || "Assignment", description: item.description || "", url: item.alternateLink || item.materials?.find((material: any) => material.link?.url)?.link?.url || item.materials?.find((material: any) => material.driveFile?.driveFile?.alternateLink)?.driveFile?.driveFile?.alternateLink || "", dueDate: item.dueDate ? `${item.dueDate.year}-${String(item.dueDate.month).padStart(2, "0")}-${String(item.dueDate.day).padStart(2, "0")}` : null, maxPoints: item.maxPoints || null, state: item.state || "" })) };
+}
 
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -179,6 +225,8 @@ Deno.serve(async (request) => {
     const body = await request.json().catch(() => ({}));
     if (body.action === "authorization-url") return json(await authorizationUrl(request));
     if (body.action === "sync") return json(await syncClassroom(request));
+    if (body.action === "post-assignment") return json(await postAssignment(request, body));
+    if (body.action === "list-reusable-assignments") return json(await listReusableAssignments(request, body));
     return json({ error: "Unknown Classroom action." }, 400);
   } catch (error) {
     console.error(error);

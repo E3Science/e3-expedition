@@ -70,15 +70,9 @@ async function loadStudentClassDirect() {
 
 async function loadDashboardInventory() {
   if (!authUser?.id || !resolvedClassId) return;
-  const { data, error } = await supabase
-    .from("inventories")
-    .select("item_id, quantity")
-    .eq("user_id", authUser.id)
-    .eq("class_id", resolvedClassId);
-  if (error) {
-    console.warn("Could not load dashboard inventory directly from Supabase.", error);
-    return;
-  }
+  let data;
+  try { const snapshot=await dashboardRpc("e3_inventory_snapshot",{requested_class_id:resolvedClassId});data=Object.entries(snapshot?.items||{}).map(([item_id,quantity])=>({item_id,quantity})); }
+  catch(error){console.warn("Could not load player inventory.",error);return;}
   const counts = {};
   (data || []).forEach((entry) => { counts[entry.item_id] = Number(entry.quantity) || 0; });
   restoreProgressionFromInventory(counts);
@@ -184,7 +178,7 @@ async function loadDashboardGameOverview() {
     console.warn("Game overview RPC is unavailable; loading its persisted tables directly.", rpcError);
     if (!authUser?.id || !resolvedClassId) return {};
     const [statsResult, walletResult, achievementsResult, inventoryResult] = await Promise.all([
-      supabase.from("student_game_stats").select("study_completions,geosphere_completions,atmosphere_completions,hydrosphere_completions,biosphere_completions,items_sold").eq("user_id", authUser.id).eq("class_id", resolvedClassId).maybeSingle(),
+      supabase.from("student_game_stats").select("experience_points,study_completions,geosphere_completions,atmosphere_completions,hydrosphere_completions,biosphere_completions,items_sold").eq("user_id", authUser.id).eq("class_id", resolvedClassId).maybeSingle(),
       supabase.from("student_wallets").select("nova_credits").eq("user_id", authUser.id).eq("class_id", resolvedClassId).maybeSingle(),
       supabase.from("player_achievements").select("achievement_key,title,detail,metal,earned_at").eq("user_id", authUser.id).eq("class_id", resolvedClassId).order("earned_at", { ascending: false }).limit(12),
       supabase.from("inventories").select("item_id,quantity").eq("user_id", authUser.id).eq("class_id", resolvedClassId)
@@ -197,6 +191,7 @@ async function loadDashboardGameOverview() {
     const skillPoints = ["geology", "botany", "zoology", "chemistry", "astrobiology"].reduce((sum, key) => sum + (inventory[`progress_skill_${key}`] || 0), 0);
     const achievements = (achievementsResult.data || []).map((entry) => ({ key: entry.achievement_key, title: entry.title, detail: entry.detail, metal: entry.metal, earnedAt: entry.earned_at }));
     return {
+      experiencePoints: Number(stats.experience_points) || 0,
       studyCompletions: Number(stats.study_completions) || 0,
       sphereCompletions: { Geosphere: Number(stats.geosphere_completions) || 0, Atmosphere: Number(stats.atmosphere_completions) || 0, Hydrosphere: Number(stats.hydrosphere_completions) || 0, Biosphere: Number(stats.biosphere_completions) || 0 },
       itemsSold: Number(stats.items_sold) || 0,
@@ -209,9 +204,15 @@ async function loadDashboardGameOverview() {
   }
 }
 
-async function classroomFunction(action) {
-  const { data, error } = await supabase.functions.invoke("classroom", { body: { action } });
-  if (error) throw new Error(error.context?.body?.error || error.message || "Google Classroom request failed.");
+async function classroomFunction(action, payload = {}) {
+  const { data, error } = await supabase.functions.invoke("classroom", { body: { action, ...payload } });
+  if (error) {
+    let detail = error.context?.body?.error;
+    if (!detail && error.context instanceof Response) {
+      try { detail = (await error.context.clone().json())?.error; } catch {}
+    }
+    throw new Error(detail || error.message || "Google Classroom request failed.");
+  }
   if (data?.error) throw new Error(data.error);
   return data || {};
 }
@@ -252,7 +253,7 @@ function appendClassChatMessage(message) {
   const displayName = String(message?.display_name || "Student");
   const body = String(message?.body || "");
   if (!body) return;
-  const entry = { id: messageId, userId: String(message?.user_id || ""), displayName, body, text: `${displayName}: ${body}`, deletedAt: message?.deleted_at || null, deletedBy: message?.deleted_by || null, kind: "chat" };
+  const entry = { id: messageId, userId: String(message?.user_id || ""), displayName, body, text: `${displayName}: ${body}`, createdAt: message?.created_at || message?.createdAt || new Date().toISOString(), deletedAt: message?.deleted_at || null, deletedBy: message?.deleted_by || null, kind: "chat" };
   if (existingIndex >= 0) classChatHistory.splice(existingIndex, 1, entry);
   else classChatHistory.push(entry);
   classChatHistory = classChatHistory.slice(-100);
@@ -800,6 +801,8 @@ async function openStudentDashboard() {
       }
       return result;
     },
+    onCompletePlateMotion: async () => dashboardRpc("e3_complete_plate_motion_run", { requested_class_id: resolvedClassId }),
+    onClaimDailyLogin: () => dashboardRpc("e3_claim_daily_login", { requested_class_id: resolvedClassId }),
     onLoadGameOverview: () => loadDashboardGameOverview(),
     onLoadQuestionSets: async () => {
       const { data, error } = await supabase.from("question_sets").select("set_id,unit_name,chapter_name,mission_position,active,study_questions(question_id,prompt,answers,correct_index,active)").order("mission_position");
@@ -824,9 +827,45 @@ async function openStudentDashboard() {
       return { success: true };
     },
     onDeleteQuestionSet: async (setId) => { const { error } = await supabase.from("question_sets").delete().eq("set_id", setId); if (error) throw error; },
+    onLoadLessonWorkspace: async () => {
+      const [{ data: lessons, error: lessonError }, { data: progress, error: progressError }] = await Promise.all([
+        supabase.from("lesson_records").select("*").order("sort_order").order("lesson_code"),
+        resolvedClassId ? supabase.from("class_lesson_progress").select("*").eq("class_id", resolvedClassId).maybeSingle() : Promise.resolve({ data: null, error: null })
+      ]);
+      if (lessonError) throw lessonError;
+      if (progressError) throw progressError;
+      return { lessons: lessons || [], progress };
+    },
+    onSaveLesson: async (entry) => {
+      const record = {
+        lesson_code: entry.lessonCode, title: entry.title, unit_name: entry.unitName, chapter_name: entry.chapterName,
+        status: entry.status, estimated_periods: entry.estimatedPeriods, mission_position: entry.missionPosition,
+        sort_order: entry.sortOrder, presentation_url: entry.presentationUrl, guide_url: entry.guideUrl,
+        assignment_links: entry.assignmentLinks, notebook_links: entry.notebookLinks, resource_links: entry.resourceLinks,
+        assignments: entry.assignments,
+        notebook_pages: entry.notebookPages,
+        lesson_notes: entry.lessonNotes,
+        prep_materials: entry.prepMaterials, teacher_notes: entry.teacherNotes, updated_at: new Date().toISOString()
+      };
+      const query = entry.lessonId ? supabase.from("lesson_records").update(record).eq("lesson_id", entry.lessonId) : supabase.from("lesson_records").insert(record);
+      const { error } = await query;
+      if (error) throw error;
+      return { success: true };
+    },
+    onSaveLessonProgress: async ({ lessonId, slideNumber, classNotes }) => {
+      if (!resolvedClassId) throw new Error("Select a class before saving lesson progress.");
+      const { error } = await supabase.from("class_lesson_progress").upsert({ class_id: resolvedClassId, lesson_id: lessonId, slide_number: Math.max(1, Number(slideNumber) || 1), class_notes: classNotes || "", updated_by: authUser?.id || null, updated_at: new Date().toISOString() }, { onConflict: "class_id" });
+      if (error) throw error;
+      return { success: true };
+    },
+    onPostClassroomAssignment: (assignment) => classroomFunction("post-assignment", { classId: resolvedClassId, assignment }),
+    onLoadReusableAssignments: () => classroomFunction("list-reusable-assignments", { sourceCourseId: "795477243404" }),
     onLoadMarket: () => dashboardRpc("e3_market_snapshot", { requested_class_id: resolvedClassId }),
     onSellMarketItem: async (itemId) => { const result = await dashboardRpc("e3_sell_inventory_item", { requested_class_id: resolvedClassId, requested_item_id: itemId }); await loadDashboardInventory(); studentDashboard?.refreshGameOverview?.(); const sold = Number(result?.itemsSold) || 0; if ([1,10,100,1000].includes(sold)) studentDashboard?.enqueueAchievement?.({ title: sold === 1 ? "First Market Sale" : `${sold} Items Sold`, detail: "Nova Trading Post milestone", glyph: "◆", metal: sold >= 100 ? "gold" : "silver" }); return result; },
     onBuyMarketItem: async (itemId, quantity) => { const result = await dashboardRpc("e3_buy_market_stack", { requested_class_id: resolvedClassId, requested_item_id: itemId, requested_quantity: quantity }); await loadDashboardInventory(); studentDashboard?.refreshGameOverview?.(); return result; },
+    onBuySystemMarketItem: async (itemId, rotationBucket) => { const result = await dashboardRpc("e3_buy_system_market_item", { requested_class_id: resolvedClassId, requested_item_id: itemId, requested_rotation_bucket: rotationBucket }); await loadDashboardInventory(); studentDashboard?.refreshGameOverview?.(); return result; },
+    onUpgradeMarketSkill: async () => { const result=await dashboardRpc("e3_upgrade_market_skill",{requested_class_id:resolvedClassId});studentDashboard?.refreshGameOverview?.();return result; },
+    onUpgradeInventoryCapacity: async () => { const result=await dashboardRpc("e3_upgrade_inventory_capacity",{requested_class_id:resolvedClassId});studentDashboard?.refreshGameOverview?.();return result; },
     onLoadLocker: () => dashboardRpc("e3_locker_snapshot", { requested_class_id: resolvedClassId }),
     onEquipLockerItem: (slot, itemKey) => dashboardRpc("e3_equip_locker_item", { requested_class_id: resolvedClassId, requested_slot: slot, requested_item_key: itemKey }),
     onSwitchClass: async (classCode) => {
@@ -15151,7 +15190,7 @@ lastEditorStatusMessage = "";
     });
 
     room.onMessage("chat_result", (data) => {
-      studentDashboard?.appendChat({ text: data?.message || "", kind: data?.kind || "chat" });
+      studentDashboard?.appendChat({ text: data?.message || "", kind: data?.kind || "chat", createdAt: data?.createdAt || new Date().toISOString() });
       if (!chatLog) return;
 
       const line = document.createElement("div");
