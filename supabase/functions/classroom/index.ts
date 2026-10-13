@@ -143,6 +143,13 @@ async function syncClassroom(request: Request) {
   const { data: connection, error } = await admin.from("google_classroom_connections").select("refresh_token_ciphertext").eq("teacher_user_id", teacher.id).single();
   if (error || !connection) throw new Error("Connect Google Classroom before synchronizing.");
   const access = await tokenRequest({ refresh_token: await decryptToken(connection.refresh_token_ciphertext), client_id: env("GOOGLE_CLASSROOM_CLIENT_ID"), client_secret: env("GOOGLE_CLASSROOM_CLIENT_SECRET"), grant_type: "refresh_token" });
+  let { data: curriculum } = await admin.from("curricula").select("curriculum_id").eq("owner_user_id", teacher.id).order("created_at").limit(1).maybeSingle();
+  if (!curriculum) {
+    const created = await admin.from("curricula").insert({ owner_user_id: teacher.id, name: "My Science Curriculum", subject: "Science" }).select("curriculum_id").single();
+    if (created.error || !created.data) throw created.error || new Error("Could not create a curriculum for this teacher.");
+    curriculum = created.data;
+  }
+  await admin.from("curriculum_members").upsert({ curriculum_id: curriculum.curriculum_id, user_id: teacher.id, role: "owner" }, { onConflict: "curriculum_id,user_id" });
   const courses: Array<{ id: string; name: string; section?: string }> = [];
   let pageToken = "";
   do {
@@ -158,7 +165,7 @@ async function syncClassroom(request: Request) {
   let rosterEntries = 0; let matchedStudents = 0;
   for (const course of courses) {
     const classCode = `GC${course.id.replace(/[^a-z0-9]/gi, "").slice(-8).toUpperCase()}`;
-    const { data: classRow, error: classError } = await admin.from("classes").upsert({ google_course_id: course.id, class_code: classCode, class_name: course.section ? `${course.name} · ${course.section}` : course.name, classroom_synced_at: new Date().toISOString() }, { onConflict: "google_course_id" }).select("class_id").single();
+    const { data: classRow, error: classError } = await admin.from("classes").upsert({ google_course_id: course.id, class_code: classCode, class_name: course.section ? `${course.name} · ${course.section}` : course.name, teacher_user_id: teacher.id, curriculum_id: curriculum.curriculum_id, classroom_synced_at: new Date().toISOString() }, { onConflict: "google_course_id" }).select("class_id").single();
     if (classError) throw classError;
     let studentPage = "";
     do {
@@ -184,10 +191,11 @@ async function postAssignment(request: Request, payload: any) {
   const admin = adminClient();
   const [{ data: connection, error: connectionError }, { data: classRow, error: classError }] = await Promise.all([
     admin.from("google_classroom_connections").select("refresh_token_ciphertext").eq("teacher_user_id", teacher.id).single(),
-    admin.from("classes").select("google_course_id").eq("class_id", payload.classId).single()
+    admin.from("classes").select("google_course_id,teacher_user_id").eq("class_id", payload.classId).single()
   ]);
   if (connectionError || !connection) throw new Error("Reconnect Google Classroom before posting assignments.");
   if (classError || !classRow?.google_course_id) throw new Error("This E3 class is not linked to a Google Classroom course.");
+  if (classRow.teacher_user_id !== teacher.id) throw new Error("You can only post to one of your own classes.");
   const access = await tokenRequest({ refresh_token: await decryptToken(connection.refresh_token_ciphertext), client_id: env("GOOGLE_CLASSROOM_CLIENT_ID"), client_secret: env("GOOGLE_CLASSROOM_CLIENT_SECRET"), grant_type: "refresh_token" });
   const description = [assignment.description || "", assignment.durationMinutes ? `Estimated time: ${assignment.durationMinutes} minutes` : ""].filter(Boolean).join("\n\n");
   const courseWork: Record<string, unknown> = { title: assignment.title, description, workType: "ASSIGNMENT", state: "PUBLISHED" };

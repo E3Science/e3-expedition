@@ -239,6 +239,7 @@ Includes:
 let resolvedClassCode = "";
 let resolvedClassName = "";
 let resolvedClassId = "";
+let resolvedCurriculumId = "";
 let activeMatchClassCode = "";
 let isNormalizingClassRoom = false;
 let classChatChannel = null;
@@ -828,16 +829,21 @@ async function openStudentDashboard() {
     },
     onDeleteQuestionSet: async (setId) => { const { error } = await supabase.from("question_sets").delete().eq("set_id", setId); if (error) throw error; },
     onLoadLessonWorkspace: async () => {
+      if (!resolvedClassId) return { lessons: [], progress: null, curriculumId: null };
+      const { data: curriculumId, error: curriculumError } = await supabase.rpc("e3_class_curriculum", { requested_class_id: resolvedClassId });
+      if (curriculumError) throw curriculumError;
+      resolvedCurriculumId = String(curriculumId || "");
       const [{ data: lessons, error: lessonError }, { data: progress, error: progressError }] = await Promise.all([
-        supabase.from("lesson_records").select("*").order("sort_order").order("lesson_code"),
+        supabase.from("lesson_records").select("*").eq("curriculum_id", resolvedCurriculumId).order("sort_order").order("lesson_code"),
         resolvedClassId ? supabase.from("class_lesson_progress").select("*").eq("class_id", resolvedClassId).maybeSingle() : Promise.resolve({ data: null, error: null })
       ]);
       if (lessonError) throw lessonError;
       if (progressError) throw progressError;
-      return { lessons: lessons || [], progress };
+      return { lessons: lessons || [], progress, curriculumId: resolvedCurriculumId };
     },
     onSaveLesson: async (entry) => {
       const record = {
+        curriculum_id: resolvedCurriculumId,
         lesson_code: entry.lessonCode, title: entry.title, unit_name: entry.unitName, chapter_name: entry.chapterName,
         status: entry.status, estimated_periods: entry.estimatedPeriods, mission_position: entry.missionPosition,
         sort_order: entry.sortOrder, presentation_url: entry.presentationUrl, guide_url: entry.guideUrl,
