@@ -9,7 +9,7 @@ const SCOPES = [
   "https://www.googleapis.com/auth/classroom.rosters.readonly",
   "https://www.googleapis.com/auth/classroom.profile.emails",
   "https://www.googleapis.com/auth/classroom.coursework.me",
-  "https://www.googleapis.com/auth/classroom.coursework.students.readonly"
+  "https://www.googleapis.com/auth/classroom.coursework.students"
 ];
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -85,7 +85,11 @@ async function classroomGet(accessToken: string, path: string) {
 }
 async function classroomPost(accessToken: string, path: string, body: unknown) {
   const response = await fetch(`${CLASSROOM_API}${path}`, { method: "POST", headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" }, body: JSON.stringify(body) });
-  if (!response.ok) throw new Error(`Google Classroom request failed (${response.status}): ${await response.text()}`);
+  if (!response.ok) {
+    const detail = await response.text();
+    if (response.status === 403 && detail.includes("ACCESS_TOKEN_SCOPE_INSUFFICIENT")) throw new Error("Google Classroom needs updated assignment permissions. Open Classes, reconnect Google Classroom, approve the requested access, and try again.");
+    throw new Error(`Google Classroom request failed (${response.status}): ${detail}`);
+  }
   return response.json();
 }
 function adminClient() {
@@ -140,7 +144,7 @@ async function callback(url: URL) {
 async function syncClassroom(request: Request) {
   const teacher = await teacherFromRequest(request);
   const admin = adminClient();
-  const { data: connection, error } = await admin.from("google_classroom_connections").select("refresh_token_ciphertext").eq("teacher_user_id", teacher.id).single();
+  const { data: connection, error } = await admin.from("google_classroom_connections").select("refresh_token_ciphertext,google_email").eq("teacher_user_id", teacher.id).single();
   if (error || !connection) throw new Error("Connect Google Classroom before synchronizing.");
   const access = await tokenRequest({ refresh_token: await decryptToken(connection.refresh_token_ciphertext), client_id: env("GOOGLE_CLASSROOM_CLIENT_ID"), client_secret: env("GOOGLE_CLASSROOM_CLIENT_SECRET"), grant_type: "refresh_token" });
   let { data: curriculum } = await admin.from("curricula").select("curriculum_id").eq("owner_user_id", teacher.id).order("created_at").limit(1).maybeSingle();
@@ -184,6 +188,90 @@ async function syncClassroom(request: Request) {
   await admin.from("google_classroom_connections").update({ updated_at: new Date().toISOString() }).eq("teacher_user_id", teacher.id);
   return { success: true, courses: courses.length, rosterEntries, matchedStudents };
 }
+async function classroomAccess(request: Request) {
+  const teacher = await teacherFromRequest(request);
+  const admin = adminClient();
+  const { data: connection, error } = await admin.from("google_classroom_connections").select("refresh_token_ciphertext,google_email").eq("teacher_user_id", teacher.id).single();
+  if (error || !connection) throw new Error("Connect Google Classroom before adding a class.");
+  const access = await tokenRequest({ refresh_token: await decryptToken(connection.refresh_token_ciphertext), client_id: env("GOOGLE_CLASSROOM_CLIENT_ID"), client_secret: env("GOOGLE_CLASSROOM_CLIENT_SECRET"), grant_type: "refresh_token" });
+  return { teacher, admin, accessToken: access.access_token, googleEmail: String(connection.google_email || "").toLowerCase() };
+}
+async function listTeacherCourses(request: Request) {
+  const { teacher, admin, accessToken } = await classroomAccess(request);
+  const courses: any[] = []; let pageToken = "";
+  do {
+    const query = new URLSearchParams({ teacherId: "me", courseStates: "ACTIVE", pageSize: "100" });
+    if (pageToken) query.set("pageToken", pageToken);
+    const page = await classroomGet(accessToken, `/courses?${query}`);
+    courses.push(...(page.courses || [])); pageToken = page.nextPageToken || "";
+  } while (pageToken);
+  const { data: existing } = await admin.from("classes").select("google_course_id").eq("teacher_user_id", teacher.id).not("google_course_id", "is", null);
+  const added = new Set((existing || []).map((entry) => String(entry.google_course_id)));
+  return { courses: courses.map((course) => ({ id: course.id, name: course.name || "Untitled class", section: course.section || "", room: course.room || "", alreadyAdded: added.has(String(course.id)) })) };
+}
+async function listAssignmentSourceCourses(request: Request) {
+  const { accessToken } = await classroomAccess(request);
+  const courses: any[] = []; let pageToken = "";
+  do {
+    const query = new URLSearchParams({ teacherId: "me", pageSize: "100" });
+    query.append("courseStates", "ACTIVE"); query.append("courseStates", "ARCHIVED");
+    if (pageToken) query.set("pageToken", pageToken);
+    const page = await classroomGet(accessToken, `/courses?${query}`);
+    courses.push(...(page.courses || [])); pageToken = page.nextPageToken || "";
+  } while (pageToken);
+  return { courses: courses.map((course) => ({ id: course.id, name: course.name || "Untitled class", section: course.section || "", state: course.courseState || "" })).sort((a, b) => a.name.localeCompare(b.name)) };
+}
+async function addTeacherCourse(request: Request, payload: any) {
+  const courseId = String(payload.courseId || "");
+  if (!courseId) throw new Error("Choose a Google Classroom class.");
+  const { teacher, admin, accessToken, googleEmail } = await classroomAccess(request);
+  const course = await classroomGet(accessToken, `/courses/${encodeURIComponent(courseId)}`);
+  const teachers = await classroomGet(accessToken, `/courses/${encodeURIComponent(courseId)}/teachers`);
+  const canManage = (teachers.teachers || []).some((entry: any) => entry.profile?.emailAddress?.toLowerCase() === googleEmail);
+  if (!canManage) throw new Error("You must be a teacher of this class to add it.");
+  let { data: curriculum } = await admin.from("curricula").select("curriculum_id").eq("owner_user_id", teacher.id).order("created_at").limit(1).maybeSingle();
+  if (!curriculum) {
+    const created = await admin.from("curricula").insert({ owner_user_id: teacher.id, name: "New Curriculum", subject: "Science" }).select("curriculum_id").single();
+    if (created.error || !created.data) throw created.error || new Error("Could not create a curriculum.");
+    curriculum = created.data;
+  }
+  await admin.from("curriculum_members").upsert({ curriculum_id: curriculum.curriculum_id, user_id: teacher.id, role: "owner" }, { onConflict: "curriculum_id,user_id" });
+  const classCode = `GC${courseId.replace(/[^a-z0-9]/gi, "").slice(-8).toUpperCase()}`;
+  const { data: classRow, error: classError } = await admin.from("classes").upsert({ google_course_id: courseId, class_code: classCode, class_name: course.section ? `${course.name} · ${course.section}` : course.name, teacher_user_id: teacher.id, curriculum_id: curriculum.curriculum_id, classroom_synced_at: new Date().toISOString() }, { onConflict: "google_course_id" }).select("class_id,class_code,class_name").single();
+  if (classError || !classRow) throw classError || new Error("Could not add the class.");
+  const authByEmail = new Map<string, string>(); let authPage = 1;
+  while (true) {
+    const { data, error: usersError } = await admin.auth.admin.listUsers({ page: authPage, perPage: 1000 }); if (usersError) throw usersError;
+    data.users.forEach((user) => { if (user.email) authByEmail.set(user.email.toLowerCase(), user.id); });
+    if (data.users.length < 1000) break; authPage += 1;
+  }
+  let rosterEntries = 0; let matchedStudents = 0; let studentPage = "";
+  do {
+    const query = new URLSearchParams({ pageSize: "100" }); if (studentPage) query.set("pageToken", studentPage);
+    const page = await classroomGet(accessToken, `/courses/${encodeURIComponent(courseId)}/students?${query}`);
+    for (const student of page.students || []) {
+      const email = student.profile?.emailAddress?.toLowerCase() || null;
+      const { error: rosterError } = await admin.from("google_classroom_roster").upsert({ google_course_id: courseId, google_user_id: student.userId, email, display_name: student.profile?.name?.fullName || null, synced_at: new Date().toISOString() }, { onConflict: "google_course_id,google_user_id" });
+      if (rosterError) throw rosterError; rosterEntries += 1;
+      const userId = email ? authByEmail.get(email) : null;
+      if (userId) { const membership = await admin.from("class_memberships").upsert({ user_id: userId, class_id: classRow.class_id, role: "student" }, { onConflict: "user_id" }); if (!membership.error) matchedStudents += 1; }
+    }
+    studentPage = page.nextPageToken || "";
+  } while (studentPage);
+  return { success: true, class: { id: classRow.class_id, code: classRow.class_code, name: classRow.class_name }, rosterEntries, matchedStudents };
+}
+function pacificEndOfDayUtc(dateValue: string) {
+  const [year, month, day] = dateValue.split("-").map(Number);
+  const desired = Date.UTC(year, month - 1, day, 23, 59, 0);
+  let instant = desired;
+  const formatter = new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const parts = Object.fromEntries(formatter.formatToParts(new Date(instant)).filter((part) => part.type !== "literal").map((part) => [part.type, Number(part.value)]));
+    const represented = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+    instant += desired - represented;
+  }
+  return new Date(instant);
+}
 async function postAssignment(request: Request, payload: any) {
   const teacher = await teacherFromRequest(request);
   const assignment = payload.assignment || {};
@@ -201,8 +289,10 @@ async function postAssignment(request: Request, payload: any) {
   const courseWork: Record<string, unknown> = { title: assignment.title, description, workType: "ASSIGNMENT", state: "PUBLISHED" };
   if (assignment.url) courseWork.materials = [{ link: { url: assignment.url, title: assignment.title } }];
   if (assignment.dueDate && /^\d{4}-\d{2}-\d{2}$/.test(assignment.dueDate)) {
-    const [year, month, day] = assignment.dueDate.split("-").map(Number);
-    courseWork.dueDate = { year, month, day };
+    const dueAt = pacificEndOfDayUtc(assignment.dueDate);
+    if (dueAt.getTime() <= Date.now()) throw new Error("Google Classroom requires a future due date for new assignments. Choose today or a later date, or clear the due date before posting.");
+    courseWork.dueDate = { year: dueAt.getUTCFullYear(), month: dueAt.getUTCMonth() + 1, day: dueAt.getUTCDate() };
+    courseWork.dueTime = { hours: dueAt.getUTCHours(), minutes: dueAt.getUTCMinutes(), seconds: 0, nanos: 0 };
   }
   if (Number.isFinite(Number(assignment.points)) && Number(assignment.points) > 0) courseWork.maxPoints = Number(assignment.points);
   const created = await classroomPost(access.access_token, `/courses/${encodeURIComponent(classRow.google_course_id)}/courseWork`, courseWork);
@@ -232,6 +322,9 @@ Deno.serve(async (request) => {
   try {
     const body = await request.json().catch(() => ({}));
     if (body.action === "authorization-url") return json(await authorizationUrl(request));
+    if (body.action === "list-courses") return json(await listTeacherCourses(request));
+    if (body.action === "add-class") return json(await addTeacherCourse(request, body));
+    if (body.action === "list-assignment-source-courses") return json(await listAssignmentSourceCourses(request));
     if (body.action === "sync") return json(await syncClassroom(request));
     if (body.action === "post-assignment") return json(await postAssignment(request, body));
     if (body.action === "list-reusable-assignments") return json(await listReusableAssignments(request, body));

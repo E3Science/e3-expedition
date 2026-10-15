@@ -748,10 +748,11 @@ async function openStudentDashboard() {
     createStudentDashboardFactory = (await import("./ui/studentDashboard")).createStudentDashboard;
   }
   studentDashboard?.destroy?.();
+  const dashboardClassServers = getConfiguredClassServers();
   studentDashboard = createStudentDashboardFactory({
     root: uiRoot,
     isAdmin: isAdminUser(),
-    classServers: getConfiguredClassServers(),
+    classServers: dashboardClassServers,
     missionPosition: latestMissionPosition,
     classroomStatus: latestClassroomStatus,
     getStudent: () => ({
@@ -865,7 +866,8 @@ async function openStudentDashboard() {
       return { success: true };
     },
     onPostClassroomAssignment: (assignment) => classroomFunction("post-assignment", { classId: resolvedClassId, assignment }),
-    onLoadReusableAssignments: () => classroomFunction("list-reusable-assignments", { sourceCourseId: "795477243404" }),
+    onLoadReusableClasses: () => classroomFunction("list-assignment-source-courses"),
+    onLoadReusableAssignments: (sourceCourseId) => classroomFunction("list-reusable-assignments", { sourceCourseId }),
     onLoadMarket: () => dashboardRpc("e3_market_snapshot", { requested_class_id: resolvedClassId }),
     onSellMarketItem: async (itemId) => { const result = await dashboardRpc("e3_sell_inventory_item", { requested_class_id: resolvedClassId, requested_item_id: itemId }); await loadDashboardInventory(); studentDashboard?.refreshGameOverview?.(); const sold = Number(result?.itemsSold) || 0; if ([1,10,100,1000].includes(sold)) studentDashboard?.enqueueAchievement?.({ title: sold === 1 ? "First Market Sale" : `${sold} Items Sold`, detail: "Nova Trading Post milestone", glyph: "◆", metal: sold >= 100 ? "gold" : "silver" }); return result; },
     onBuyMarketItem: async (itemId, quantity) => { const result = await dashboardRpc("e3_buy_market_stack", { requested_class_id: resolvedClassId, requested_item_id: itemId, requested_quantity: quantity }); await loadDashboardInventory(); studentDashboard?.refreshGameOverview?.(); return result; },
@@ -895,12 +897,19 @@ async function openStudentDashboard() {
       const result = await classroomFunction("authorization-url");
       window.location.assign(result.url);
     },
-    onSyncClassroom: async () => {
-      const result = await classroomFunction("sync");
-      await loadTeacherClassServers();
+    onListClassroomCourses: () => classroomFunction("list-courses"),
+    onAddClassroomClass: async (courseId) => {
+      const result = await classroomFunction("add-class", { courseId });
+      const servers = await loadTeacherClassServers();
+      dashboardClassServers.splice(0, dashboardClassServers.length, ...servers);
       latestClassroomStatus = { ...latestClassroomStatus, configured: true, connected: true };
       return result;
     },
+    onLoadClassDetails: async () => { const { data, error } = await supabase.rpc("e3_teacher_class_details"); if (error) throw error; return { classes: (data || []).map((entry) => ({ id: entry.id, code: entry.code, name: entry.name, curriculumId: entry.curriculum_id, curriculumName: entry.curriculum_name })) }; },
+    onLoadCurricula: async () => { const { data, error } = await supabase.rpc("e3_curriculum_options"); if (error) throw error; return { curricula: (data || []).map((entry) => ({ id: entry.id, name: entry.name, gradeLevel: entry.grade_level, subject: entry.subject, isTemplate: entry.is_template, owned: entry.owned })) }; },
+    onSetClassCurriculum: async (classId, curriculumId) => { const { error } = await supabase.rpc("e3_set_class_curriculum", { requested_class_id: classId, requested_curriculum_id: curriculumId }); if (error) throw error; },
+    onCopyClassCurriculum: async (classId, curriculumId, name) => { const { error } = await supabase.rpc("e3_copy_class_curriculum", { requested_class_id: classId, source_curriculum_id: curriculumId, new_name: name }); if (error) throw error; },
+    onCreateClassCurriculum: async (classId, name) => { const { error } = await supabase.rpc("e3_new_class_curriculum", { requested_class_id: classId, curriculum_name: name, requested_grade_level: "" }); if (error) throw error; },
     onLoadClassRoster: (classId) => dashboardRpc("e3_class_roster", { requested_class_id: classId }),
     onAddClassStudent: (classId, student) => dashboardRpc("e3_authorize_student", { requested_class_id: classId, student_email: student.email, student_display_name: student.displayName || "" }),
     onRemoveClassStudent: (classId, student) => dashboardRpc("e3_remove_student_access", { requested_class_id: classId, requested_user_id: student?.userId || null, student_email: student?.email || null }),
