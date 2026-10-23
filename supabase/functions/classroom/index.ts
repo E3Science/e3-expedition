@@ -103,7 +103,7 @@ async function teacherFromRequest(request: Request) {
   const { data, error } = await admin.auth.getUser(token);
   const user = data.user;
   if (error || !user) throw new Error("Your sign-in session is no longer valid.");
-  if (user.email?.toLowerCase() !== "mnelsen@susd.net" && user.app_metadata?.e3_role !== "teacher") throw new Error("Teacher access required.");
+  if (!["mnelsen@susd.net", "mnelsen79@gmail.com"].includes(user.email?.toLowerCase() || "") && !["teacher", "developer"].includes(user.app_metadata?.e3_role || "")) throw new Error("Teacher access required.");
   return user;
 }
 async function authorizationUrl(request: Request) {

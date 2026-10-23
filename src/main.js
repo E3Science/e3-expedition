@@ -43,7 +43,11 @@ function getConfiguredClassServers() {
 }
 
 function isAdminUser() {
-  return (authUser?.email || "").toLowerCase() === ADMIN_EMAIL.toLowerCase() || authUser?.app_metadata?.e3_role === "teacher";
+  return isDeveloperUser() || (authUser?.email || "").toLowerCase() === ADMIN_EMAIL.toLowerCase() || authUser?.app_metadata?.e3_role === "teacher";
+}
+
+function isDeveloperUser() {
+  return (authUser?.email || "").toLowerCase() === "mnelsen79@gmail.com" || authUser?.app_metadata?.e3_role === "developer";
 }
 
 function getGameServerUrl() {
@@ -752,6 +756,8 @@ async function openStudentDashboard() {
   studentDashboard = createStudentDashboardFactory({
     root: uiRoot,
     isAdmin: isAdminUser(),
+    isDeveloper: isDeveloperUser(),
+    lessonRecordOnly: new URLSearchParams(window.location.search).get("e3View") === "lesson-record",
     classServers: dashboardClassServers,
     missionPosition: latestMissionPosition,
     classroomStatus: latestClassroomStatus,
@@ -906,10 +912,18 @@ async function openStudentDashboard() {
       return result;
     },
     onLoadClassDetails: async () => { const { data, error } = await supabase.rpc("e3_teacher_class_details"); if (error) throw error; return { classes: (data || []).map((entry) => ({ id: entry.id, code: entry.code, name: entry.name, curriculumId: entry.curriculum_id, curriculumName: entry.curriculum_name })) }; },
-    onLoadCurricula: async () => { const { data, error } = await supabase.rpc("e3_curriculum_options"); if (error) throw error; return { curricula: (data || []).map((entry) => ({ id: entry.id, name: entry.name, gradeLevel: entry.grade_level, subject: entry.subject, isTemplate: entry.is_template, owned: entry.owned })) }; },
+    onLoadCurricula: async () => { const { data, error } = await supabase.rpc("e3_curriculum_options"); if (error) throw error; return { curricula: (data || []).map((entry) => ({ id: entry.id, name: entry.name, gradeLevel: entry.grade_level, subject: entry.subject, isTemplate: entry.is_template, owned: entry.owned, isPublic: entry.is_public, copyCount: Number(entry.copy_count) || 0 })) }; },
     onSetClassCurriculum: async (classId, curriculumId) => { const { error } = await supabase.rpc("e3_set_class_curriculum", { requested_class_id: classId, requested_curriculum_id: curriculumId }); if (error) throw error; },
     onCopyClassCurriculum: async (classId, curriculumId, name) => { const { error } = await supabase.rpc("e3_copy_class_curriculum", { requested_class_id: classId, source_curriculum_id: curriculumId, new_name: name }); if (error) throw error; },
     onCreateClassCurriculum: async (classId, name) => { const { error } = await supabase.rpc("e3_new_class_curriculum", { requested_class_id: classId, curriculum_name: name, requested_grade_level: "" }); if (error) throw error; },
+    onDeleteClass: async (classId) => { const { error } = await supabase.rpc("e3_delete_class", { requested_class_id: classId }); if (error) throw error; const servers=await loadTeacherClassServers(); dashboardClassServers.splice(0,dashboardClassServers.length,...servers); if(resolvedClassId===classId){const next=servers[0]||null;resolvedClassId=next?.id||"";resolvedClassCode=next?.code||"";resolvedClassName=next?.name||"";} },
+    onOpenLessonRecord: () => { const url=new URL(window.location.href);url.searchParams.set("e3View","lesson-record");window.open(url.toString(),"e3-lesson-record","popup,width=1280,height=900,resizable=yes,scrollbars=yes"); },
+    onSetCurriculumVisibility: async (curriculumId,isPublic) => { const { error }=await supabase.rpc("e3_set_curriculum_visibility",{requested_curriculum_id:curriculumId,requested_public:isPublic});if(error)throw error; },
+    onLoadTeacherSkills: async () => { const { data,error }=await supabase.rpc("e3_teacher_skill_options");if(error)throw error;return{skills:(data||[]).map((entry)=>({id:entry.id,category:entry.category,title:entry.title,description:entry.description,selected:entry.selected,sourceUrl:entry.source_url}))}; },
+    onSetTeacherSkill: async (skillId,selected) => { const { error }=await supabase.rpc("e3_set_teacher_skill",{requested_skill_id:skillId,requested_selected:selected});if(error)throw error; },
+    onLoadTeacherAchievements: async () => { const { data,error }=await supabase.rpc("e3_teacher_achievements");if(error)throw error;return data||[]; },
+    onLoadDeveloperAccounts: async () => { const { data,error }=await supabase.rpc("e3_developer_accounts");if(error)throw error;return{accounts:(data||[]).map((entry)=>({id:entry.id,email:entry.email,displayName:entry.display_name,role:entry.role,lastSignInAt:entry.last_sign_in_at,classes:entry.classes||[]}))}; },
+    onLoadDeveloperSnapshot: async (userId) => { const { data,error }=await supabase.rpc("e3_developer_user_snapshot",{requested_user_id:userId});if(error)throw error;return data||{}; },
     onLoadClassRoster: (classId) => dashboardRpc("e3_class_roster", { requested_class_id: classId }),
     onAddClassStudent: (classId, student) => dashboardRpc("e3_authorize_student", { requested_class_id: classId, student_email: student.email, student_display_name: student.displayName || "" }),
     onRemoveClassStudent: (classId, student) => dashboardRpc("e3_remove_student_access", { requested_class_id: classId, requested_user_id: student?.userId || null, student_email: student?.email || null }),
