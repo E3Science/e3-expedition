@@ -796,6 +796,7 @@ async function openStudentDashboard() {
     onRequestQuest: () => requestDashboardQuest(),
     onNextStudyQuestion: (positions = []) => dashboardRpc("e3_next_study_question_for_chapters", { requested_class_id: resolvedClassId, requested_mission_positions: positions }),
     onLoadStudyCards: (positions = []) => dashboardRpc("e3_study_flashcards", { requested_class_id: resolvedClassId, requested_mission_positions: positions }),
+    onCompleteFlashcardSet: async () => { const result=await dashboardRpc("e3_complete_flashcard_set",{requested_class_id:resolvedClassId});await loadDashboardInventory();studentDashboard?.refreshGameOverview?.();return result; },
     onAnswerStudyQuestion: async ({ questionId, selectedIndex, sphere }) => {
       const result = await dashboardRpc("e3_answer_study_question", { requested_class_id: resolvedClassId, requested_question_id: questionId, selected_index: selectedIndex, selected_sphere: sphere });
       if (result?.reward) {
@@ -836,6 +837,11 @@ async function openStudentDashboard() {
       return { success: true };
     },
     onDeleteQuestionSet: async (setId) => { const { error } = await supabase.from("question_sets").delete().eq("set_id", setId); if (error) throw error; },
+    onDeleteQuestion: async (questionId) => { const { error }=await supabase.from("study_questions").delete().eq("question_id",questionId);if(error)throw error; },
+    onLoadVideoLabs: async()=>{const{data,error}=await supabase.from("video_labs").select("lab_id,title,video_url,active,video_lab_questions(question_id,stop_seconds,prompt,answers,correct_index,time_limit)").eq("class_id",resolvedClassId).eq("active",true).order("created_at");if(error)throw error;return(data||[]).map((lab)=>({id:lab.lab_id,title:lab.title,videoUrl:lab.video_url,questions:(lab.video_lab_questions||[]).map((q)=>({id:q.question_id,stopSeconds:q.stop_seconds,prompt:q.prompt,answers:q.answers||[],correctIndex:q.correct_index,timeLimit:q.time_limit}))}));},
+    onSaveVideoLab:async(entry)=>{let labId=entry.id;if(labId){const{error}=await supabase.from("video_labs").update({title:entry.title,video_url:entry.videoUrl,updated_at:new Date().toISOString()}).eq("lab_id",labId);if(error)throw error;const{error:deleteError}=await supabase.from("video_lab_questions").delete().eq("lab_id",labId);if(deleteError)throw deleteError;}else{const{data,error}=await supabase.from("video_labs").insert({class_id:resolvedClassId,owner_user_id:authUser.id,title:entry.title,video_url:entry.videoUrl}).select("lab_id").single();if(error)throw error;labId=data.lab_id;}if(entry.questions.length){const{error}=await supabase.from("video_lab_questions").insert(entry.questions.map((q)=>({lab_id:labId,stop_seconds:q.stopSeconds,prompt:q.prompt,answers:q.answers,correct_index:q.correctIndex,time_limit:q.timeLimit})));if(error)throw error;}return{success:true};},
+    onDeleteVideoLab:async(labId)=>{const{error}=await supabase.from("video_labs").delete().eq("lab_id",labId);if(error)throw error;},
+    onCompleteVideoLab:async(labId,score,questionCount)=>{const result=await dashboardRpc("e3_complete_video_lab",{requested_class_id:resolvedClassId,requested_lab_id:labId,requested_score:score,requested_question_count:questionCount});await loadDashboardInventory();studentDashboard?.refreshGameOverview?.();return result;},
     onLoadLessonWorkspace: async () => {
       if (!resolvedClassId) return { lessons: [], progress: null, curriculumId: null };
       const { data: curriculumId, error: curriculumError } = await supabase.rpc("e3_class_curriculum", { requested_class_id: resolvedClassId });
