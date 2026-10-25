@@ -794,7 +794,8 @@ async function openStudentDashboard() {
     onDeleteChatMessage: (messageId) => dashboardRpc("e3_delete_chat_message", { requested_message_id: Number(messageId) }),
     onMuteChatUser: (userId, minutes = 15) => dashboardRpc("e3_set_chat_mute", { requested_class_id: resolvedClassId, requested_user_id: userId, mute_minutes: minutes }),
     onRequestQuest: () => requestDashboardQuest(),
-    onNextStudyQuestion: (unit = null) => dashboardRpc("e3_next_study_question", { requested_class_id: resolvedClassId, requested_unit: unit || null }),
+    onNextStudyQuestion: (positions = []) => dashboardRpc("e3_next_study_question_for_chapters", { requested_class_id: resolvedClassId, requested_mission_positions: positions }),
+    onLoadStudyCards: (positions = []) => dashboardRpc("e3_study_flashcards", { requested_class_id: resolvedClassId, requested_mission_positions: positions }),
     onAnswerStudyQuestion: async ({ questionId, selectedIndex, sphere }) => {
       const result = await dashboardRpc("e3_answer_study_question", { requested_class_id: resolvedClassId, requested_question_id: questionId, selected_index: selectedIndex, selected_sphere: sphere });
       if (result?.reward) {
