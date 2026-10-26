@@ -864,6 +864,8 @@ async function openStudentDashboard(initialView = "overview") {
     onCompleteVideoLab:preview?previewReadOnly:async(labId,score,questionCount)=>{const result=await dashboardRpc("e3_complete_video_lab",{requested_class_id:resolvedClassId,requested_lab_id:labId,requested_score:score,requested_question_count:questionCount});await loadDashboardInventory();studentDashboard?.refreshGameOverview?.();return result;},
     onLoadLabAccess:()=>dashboardRpc("e3_learning_lab_access",{requested_class_id:resolvedClassId}),
     onSetLabAccess:(labKey,enabled,scope)=>dashboardRpc("e3_set_learning_lab_access",{requested_class_id:resolvedClassId,requested_lab_key:labKey,requested_enabled:enabled,requested_scope:scope}),
+    onLoadTeacherLabAccess:(teacherUserId)=>dashboardRpc("e3_teacher_learning_lab_access",{requested_teacher_user_id:teacherUserId}),
+    onSetTeacherLabAccess:(teacherUserId,labKey,enabled)=>dashboardRpc("e3_set_teacher_learning_lab_access",{requested_teacher_user_id:teacherUserId,requested_lab_key:labKey,requested_enabled:enabled}),
     onLoadLessonWorkspace: async () => {
       if (!resolvedClassId) return { lessons: [], progress: null, curriculumId: null };
       const { data: curriculumId, error: curriculumError } = await supabase.rpc("e3_class_curriculum", { requested_class_id: resolvedClassId });
