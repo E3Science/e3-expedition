@@ -244,6 +244,10 @@ let resolvedClassCode = "";
 let resolvedClassName = "";
 let resolvedClassId = "";
 let resolvedCurriculumId = "";
+let developerPreviewContext = null;
+let developerPreviewSelectionUserId = "";
+let developerPreviewClickAbort = null;
+let developerHomeClass = null;
 let activeMatchClassCode = "";
 let isNormalizingClassRoom = false;
 let classChatChannel = null;
@@ -741,40 +745,49 @@ async function startGameRuntime() {
   return gameRuntimePromise;
 }
 
-async function openStudentDashboard() {
+async function openStudentDashboard(initialView = "overview") {
   if (!uiRoot) return;
+  const preview = developerPreviewContext;
+  if (preview) {
+    latestInventoryCounts = { ...(preview.inventory || {}) };
+    latestQuestSnapshot = preview.quests || { maxQuests: 5, quests: [] };
+  }
   if (resolvedClassId) {
     try { latestMissionPosition = Number(await dashboardRpc("e3_mission_position", { requested_class_id: resolvedClassId })) || 0; }
     catch (error) { console.warn("Could not load saved mission position.", error); }
   }
-  await Promise.all([loadDashboardInventory(), loadDashboardQuests()]);
+  if (!preview) await Promise.all([loadDashboardInventory(), loadDashboardQuests()]);
   if (!createStudentDashboardFactory) {
     createStudentDashboardFactory = (await import("./ui/studentDashboard")).createStudentDashboard;
   }
   studentDashboard?.destroy?.();
-  const dashboardClassServers = getConfiguredClassServers();
+  const dashboardClassServers = preview ? (preview.classes || []) : getConfiguredClassServers();
+  const previewClass = preview?.classes?.find((entry) => String(entry.id) === String(preview.selectedClassId)) || preview?.classes?.[0] || null;
+  const previewReadOnly = () => { throw new Error("Developer account preview is read-only. Exit the account to make changes."); };
   studentDashboard = createStudentDashboardFactory({
     root: uiRoot,
-    isAdmin: isAdminUser(),
+    isAdmin: preview ? preview.role !== "student" : isAdminUser(),
     isDeveloper: isDeveloperUser(),
+    initialView,
+    developerAccess: preview ? { name: preview.displayName, email: preview.email, role: preview.role } : null,
     lessonRecordOnly: new URLSearchParams(window.location.search).get("e3View") === "lesson-record",
     classServers: dashboardClassServers,
     missionPosition: latestMissionPosition,
     classroomStatus: latestClassroomStatus,
     getStudent: () => ({
-      userId: authUser?.id || "",
-      name: authUser?.user_metadata?.display_name || authUser?.email?.split("@")?.[0] || "Student",
-      className: resolvedClassName || resolvedClassCode || "Class connected",
-      classCode: resolvedClassCode || activeMatchClassCode || sessionStorage.getItem("classCode") || "",
-      currentChapter: sessionStorage.getItem("e3CurrentChapter") || "Scientific Thinking",
+      userId: preview?.userId || authUser?.id || "",
+      name: preview?.displayName || authUser?.user_metadata?.display_name || authUser?.email?.split("@")?.[0] || "Student",
+      className: previewClass?.name || resolvedClassName || resolvedClassCode || "Class connected",
+      classCode: previewClass?.code || resolvedClassCode || activeMatchClassCode || sessionStorage.getItem("classCode") || "",
+      currentChapter: preview ? (previewClass?.missionPosition ? `Mission ${previewClass.missionPosition}` : "Not assigned") : sessionStorage.getItem("e3CurrentChapter") || "Scientific Thinking",
       googleClassroomPercent: Number(sessionStorage.getItem("e3GoogleClassroomPercent")) || 92
     }),
     getProgression: () => latestProgressionSnapshot,
     getInventory: () => latestInventoryCounts,
     getQuests: () => latestQuestSnapshot,
     getItemDefinition: getInventoryItemDefByKey,
-    onOpenQuest: (questId) => openQuestTurnInUI(questId),
-    onDeleteInventoryItem: (itemId) => deleteDashboardInventoryItem(itemId),
+    onOpenQuest: preview ? previewReadOnly : (questId) => openQuestTurnInUI(questId),
+    onDeleteInventoryItem: preview ? previewReadOnly : (itemId) => deleteDashboardInventoryItem(itemId),
     onOpenSkills: () => openSkillsWindow(),
     onEnterSimulation: async (kind, context = {}) => {
       if (kind === "original") {
@@ -790,13 +803,13 @@ async function openStudentDashboard() {
       sendRoomMessage("set_learning_lab_context", context);
     },
     onOpenSettings: openSettingsWindow,
-    onSendChat: (text) => sendClassChatMessage(text),
+    onSendChat: preview ? previewReadOnly : (text) => sendClassChatMessage(text),
     onDeleteChatMessage: (messageId) => dashboardRpc("e3_delete_chat_message", { requested_message_id: Number(messageId) }),
     onMuteChatUser: (userId, minutes = 15) => dashboardRpc("e3_set_chat_mute", { requested_class_id: resolvedClassId, requested_user_id: userId, mute_minutes: minutes }),
-    onRequestQuest: () => requestDashboardQuest(),
+    onRequestQuest: preview ? previewReadOnly : () => requestDashboardQuest(),
     onNextStudyQuestion: (positions = []) => dashboardRpc("e3_next_study_question_for_chapters", { requested_class_id: resolvedClassId, requested_mission_positions: positions }),
     onLoadStudyCards: (positions = []) => dashboardRpc("e3_study_flashcards", { requested_class_id: resolvedClassId, requested_mission_positions: positions }),
-    onCompleteFlashcardSet: async () => { const result=await dashboardRpc("e3_complete_flashcard_set",{requested_class_id:resolvedClassId});await loadDashboardInventory();studentDashboard?.refreshGameOverview?.();return result; },
+    onCompleteFlashcardSet: preview ? previewReadOnly : async () => { const result=await dashboardRpc("e3_complete_flashcard_set",{requested_class_id:resolvedClassId});await loadDashboardInventory();studentDashboard?.refreshGameOverview?.();return result; },
     onAnswerStudyQuestion: async ({ questionId, selectedIndex, sphere }) => {
       const result = await dashboardRpc("e3_answer_study_question", { requested_class_id: resolvedClassId, requested_question_id: questionId, selected_index: selectedIndex, selected_sphere: sphere });
       if (result?.reward) {
@@ -811,9 +824,9 @@ async function openStudentDashboard() {
       }
       return result;
     },
-    onCompletePlateMotion: async () => dashboardRpc("e3_complete_plate_motion_run", { requested_class_id: resolvedClassId }),
-    onClaimDailyLogin: () => dashboardRpc("e3_claim_daily_login", { requested_class_id: resolvedClassId }),
-    onLoadGameOverview: () => loadDashboardGameOverview(),
+    onCompletePlateMotion: preview ? previewReadOnly : async () => dashboardRpc("e3_complete_plate_motion_run", { requested_class_id: resolvedClassId }),
+    onClaimDailyLogin: preview ? async()=>null : () => dashboardRpc("e3_claim_daily_login", { requested_class_id: resolvedClassId }),
+    onLoadGameOverview: () => preview?.overview || loadDashboardGameOverview(),
     onLoadQuestionSets: async () => {
       const { data, error } = await supabase.from("question_sets").select("set_id,unit_name,chapter_name,mission_position,active,study_questions(question_id,prompt,answers,correct_index,active)").order("mission_position");
       if (error) throw error;
@@ -841,7 +854,7 @@ async function openStudentDashboard() {
     onLoadVideoLabs: async()=>{const{data,error}=await supabase.from("video_labs").select("lab_id,title,video_url,active,start_seconds,end_seconds,cuts,video_lab_questions(question_id,stop_seconds,prompt,answers,correct_index,time_limit)").eq("class_id",resolvedClassId).eq("active",true).order("created_at");if(error)throw error;return(data||[]).map((lab)=>({id:lab.lab_id,title:lab.title,videoUrl:lab.video_url,startSeconds:lab.start_seconds||0,endSeconds:lab.end_seconds||null,cuts:lab.cuts||[],questions:(lab.video_lab_questions||[]).map((q)=>({id:q.question_id,stopSeconds:q.stop_seconds,prompt:q.prompt,answers:q.answers||[],correctIndex:q.correct_index,timeLimit:q.time_limit}))}));},
     onSaveVideoLab:async(entry)=>{let labId=entry.id;const videoRecord={title:entry.title,video_url:entry.videoUrl,start_seconds:entry.startSeconds||0,end_seconds:entry.endSeconds||null,cuts:entry.cuts||[],updated_at:new Date().toISOString()};if(labId){const{error}=await supabase.from("video_labs").update(videoRecord).eq("lab_id",labId);if(error)throw error;const{error:deleteError}=await supabase.from("video_lab_questions").delete().eq("lab_id",labId);if(deleteError)throw deleteError;}else{const{data,error}=await supabase.from("video_labs").insert({...videoRecord,class_id:resolvedClassId,owner_user_id:authUser.id}).select("lab_id").single();if(error)throw error;labId=data.lab_id;}if(entry.questions.length){const{error}=await supabase.from("video_lab_questions").insert(entry.questions.map((q)=>({lab_id:labId,stop_seconds:q.stopSeconds,prompt:q.prompt,answers:q.answers,correct_index:q.correctIndex,time_limit:q.timeLimit})));if(error)throw error;}return{success:true};},
     onDeleteVideoLab:async(labId)=>{const{error}=await supabase.from("video_labs").delete().eq("lab_id",labId);if(error)throw error;},
-    onCompleteVideoLab:async(labId,score,questionCount)=>{const result=await dashboardRpc("e3_complete_video_lab",{requested_class_id:resolvedClassId,requested_lab_id:labId,requested_score:score,requested_question_count:questionCount});await loadDashboardInventory();studentDashboard?.refreshGameOverview?.();return result;},
+    onCompleteVideoLab:preview?previewReadOnly:async(labId,score,questionCount)=>{const result=await dashboardRpc("e3_complete_video_lab",{requested_class_id:resolvedClassId,requested_lab_id:labId,requested_score:score,requested_question_count:questionCount});await loadDashboardInventory();studentDashboard?.refreshGameOverview?.();return result;},
     onLoadLabAccess:()=>dashboardRpc("e3_learning_lab_access",{requested_class_id:resolvedClassId}),
     onSetLabAccess:(labKey,enabled,scope)=>dashboardRpc("e3_set_learning_lab_access",{requested_class_id:resolvedClassId,requested_lab_key:labKey,requested_enabled:enabled,requested_scope:scope}),
     onLoadLessonWorkspace: async () => {
@@ -883,15 +896,16 @@ async function openStudentDashboard() {
     onPostClassroomAssignment: (assignment) => classroomFunction("post-assignment", { classId: resolvedClassId, assignment }),
     onLoadReusableClasses: () => classroomFunction("list-assignment-source-courses"),
     onLoadReusableAssignments: (sourceCourseId) => classroomFunction("list-reusable-assignments", { sourceCourseId }),
-    onLoadMarket: () => dashboardRpc("e3_market_snapshot", { requested_class_id: resolvedClassId }),
+    onLoadMarket: async () => { const market=await dashboardRpc("e3_market_snapshot",{requested_class_id:resolvedClassId});return preview?{...market,credits:Number(preview.overview?.novaCredits)||0}:market; },
     onSellMarketItem: async (itemId) => { const result = await dashboardRpc("e3_sell_inventory_item", { requested_class_id: resolvedClassId, requested_item_id: itemId }); await loadDashboardInventory(); studentDashboard?.refreshGameOverview?.(); const sold = Number(result?.itemsSold) || 0; if ([1,10,100,1000].includes(sold)) studentDashboard?.enqueueAchievement?.({ title: sold === 1 ? "First Market Sale" : `${sold} Items Sold`, detail: "Nova Trading Post milestone", glyph: "◆", metal: sold >= 100 ? "gold" : "silver" }); return result; },
     onBuyMarketItem: async (itemId, quantity) => { const result = await dashboardRpc("e3_buy_market_stack", { requested_class_id: resolvedClassId, requested_item_id: itemId, requested_quantity: quantity }); await loadDashboardInventory(); studentDashboard?.refreshGameOverview?.(); return result; },
     onBuySystemMarketItem: async (itemId, rotationBucket) => { const result = await dashboardRpc("e3_buy_system_market_item", { requested_class_id: resolvedClassId, requested_item_id: itemId, requested_rotation_bucket: rotationBucket }); await loadDashboardInventory(); studentDashboard?.refreshGameOverview?.(); return result; },
     onUpgradeMarketSkill: async () => { const result=await dashboardRpc("e3_upgrade_market_skill",{requested_class_id:resolvedClassId});studentDashboard?.refreshGameOverview?.();return result; },
     onUpgradeInventoryCapacity: async () => { const result=await dashboardRpc("e3_upgrade_inventory_capacity",{requested_class_id:resolvedClassId});studentDashboard?.refreshGameOverview?.();return result; },
-    onLoadLocker: () => dashboardRpc("e3_locker_snapshot", { requested_class_id: resolvedClassId }),
-    onEquipLockerItem: (slot, itemKey) => dashboardRpc("e3_equip_locker_item", { requested_class_id: resolvedClassId, requested_slot: slot, requested_item_key: itemKey }),
+    onLoadLocker: () => preview?.locker || dashboardRpc("e3_locker_snapshot", { requested_class_id: resolvedClassId }),
+    onEquipLockerItem: preview ? previewReadOnly : (slot, itemKey) => dashboardRpc("e3_equip_locker_item", { requested_class_id: resolvedClassId, requested_slot: slot, requested_item_key: itemKey }),
     onSwitchClass: async (classCode) => {
+      if (preview) { const selected=preview.classes?.find((entry)=>entry.code===classCode);if(selected){const{data,error}=await supabase.rpc("e3_developer_account_context",{requested_user_id:preview.userId,requested_class_id:selected.id});if(error)throw error;developerPreviewContext=data;resolvedClassId=data.selectedClassId||"";resolvedClassCode=selected.code||"";resolvedClassName=selected.name||"";await subscribeToClassChat(resolvedClassId);await openStudentDashboard("overview");}return; }
       if (!isAdminUser() || !classCode) return;
       const selectedClass = getConfiguredClassServers().find((entry) => entry.code === classCode);
       resolvedClassId = selectedClass?.id || "";
@@ -920,7 +934,7 @@ async function openStudentDashboard() {
       latestClassroomStatus = { ...latestClassroomStatus, configured: true, connected: true };
       return result;
     },
-    onLoadClassDetails: async () => { const { data, error } = await supabase.rpc("e3_teacher_class_details"); if (error) throw error; return { classes: (data || []).map((entry) => ({ id: entry.id, code: entry.code, name: entry.name, curriculumId: entry.curriculum_id, curriculumName: entry.curriculum_name })) }; },
+    onLoadClassDetails: async () => { if(preview)return{classes:(preview.classes||[]).map((entry)=>({id:entry.id,code:entry.code,name:entry.name,curriculumId:null,curriculumName:"Account preview"}))};const { data, error } = await supabase.rpc("e3_teacher_class_details"); if (error) throw error; return { classes: (data || []).map((entry) => ({ id: entry.id, code: entry.code, name: entry.name, curriculumId: entry.curriculum_id, curriculumName: entry.curriculum_name })) }; },
     onLoadCurricula: async () => { const { data, error } = await supabase.rpc("e3_curriculum_options"); if (error) throw error; return { curricula: (data || []).map((entry) => ({ id: entry.id, name: entry.name, gradeLevel: entry.grade_level, subject: entry.subject, isTemplate: entry.is_template, owned: entry.owned, isPublic: entry.is_public, copyCount: Number(entry.copy_count) || 0 })) }; },
     onSetClassCurriculum: async (classId, curriculumId) => { const { error } = await supabase.rpc("e3_set_class_curriculum", { requested_class_id: classId, requested_curriculum_id: curriculumId }); if (error) throw error; },
     onCopyClassCurriculum: async (classId, curriculumId, name) => { const { error } = await supabase.rpc("e3_copy_class_curriculum", { requested_class_id: classId, source_curriculum_id: curriculumId, new_name: name }); if (error) throw error; },
@@ -930,9 +944,11 @@ async function openStudentDashboard() {
     onSetCurriculumVisibility: async (curriculumId,isPublic) => { const { error }=await supabase.rpc("e3_set_curriculum_visibility",{requested_curriculum_id:curriculumId,requested_public:isPublic});if(error)throw error; },
     onLoadTeacherSkills: async () => { const { data,error }=await supabase.rpc("e3_teacher_skill_options");if(error)throw error;return{skills:(data||[]).map((entry)=>({id:entry.id,category:entry.category,title:entry.title,description:entry.description,selected:entry.selected,sourceUrl:entry.source_url}))}; },
     onSetTeacherSkill: async (skillId,selected) => { const { error }=await supabase.rpc("e3_set_teacher_skill",{requested_skill_id:skillId,requested_selected:selected});if(error)throw error; },
-    onLoadTeacherAchievements: async () => { const { data,error }=await supabase.rpc("e3_teacher_achievements");if(error)throw error;return data||[]; },
+    onLoadTeacherAchievements: async () => { if(preview){const{data,error}=await supabase.from("teacher_achievements").select("achievement_key,title,detail,metal,earned_at").eq("user_id",preview.userId).order("earned_at",{ascending:false});if(error)throw error;return(data||[]).map((entry)=>({key:entry.achievement_key,title:entry.title,detail:entry.detail,metal:entry.metal,earned_at:entry.earned_at}));}const { data,error }=await supabase.rpc("e3_teacher_achievements");if(error)throw error;return data||[]; },
     onLoadDeveloperAccounts: async () => { const { data,error }=await supabase.rpc("e3_developer_accounts");if(error)throw error;return{accounts:(data||[]).map((entry)=>({id:entry.id,email:entry.email,displayName:entry.display_name,role:entry.role,lastSignInAt:entry.last_sign_in_at,classes:entry.classes||[]}))}; },
-    onLoadDeveloperSnapshot: async (userId) => { const { data,error }=await supabase.rpc("e3_developer_user_snapshot",{requested_user_id:userId});if(error)throw error;return data||{}; },
+    onLoadDeveloperSnapshot: async (userId) => { developerPreviewSelectionUserId=userId;const { data,error }=await supabase.rpc("e3_developer_user_snapshot",{requested_user_id:userId});if(error)throw error;return data||{}; },
+    onEnterDeveloperAccount: async (userId,classId) => { const {data,error}=await supabase.rpc("e3_developer_account_context",{requested_user_id:userId,requested_class_id:classId});if(error)throw error;if(!developerHomeClass)developerHomeClass={id:resolvedClassId,code:resolvedClassCode,name:resolvedClassName};developerPreviewContext=data;const selected=data.classes?.find((entry)=>String(entry.id)===String(data.selectedClassId))||data.classes?.[0];resolvedClassId=data.selectedClassId||selected?.id||"";resolvedClassCode=selected?.code||"";resolvedClassName=selected?.name||"";if(resolvedClassId)await subscribeToClassChat(resolvedClassId);await openStudentDashboard("overview"); },
+    onExitDeveloperAccount: async () => { developerPreviewContext=null;if(developerHomeClass){resolvedClassId=developerHomeClass.id;resolvedClassCode=developerHomeClass.code;resolvedClassName=developerHomeClass.name;developerHomeClass=null;}await Promise.all([loadDashboardInventory(),loadDashboardQuests()]);if(resolvedClassId)await subscribeToClassChat(resolvedClassId);await openStudentDashboard("developer"); },
     onLoadClassRoster: (classId) => dashboardRpc("e3_class_roster", { requested_class_id: classId }),
     onAddClassStudent: (classId, student) => dashboardRpc("e3_authorize_student", { requested_class_id: classId, student_email: student.email, student_display_name: student.displayName || "" }),
     onRemoveClassStudent: (classId, student) => dashboardRpc("e3_remove_student_access", { requested_class_id: classId, requested_user_id: student?.userId || null, student_email: student?.email || null }),
@@ -940,6 +956,31 @@ async function openStudentDashboard() {
     onLoadAccounts: () => dashboardRpc("e3_teacher_people"),
     onUpdateAccount: (userId, changes) => dashboardRpc("e3_update_person", { requested_user_id: userId, requested_role: changes.role, requested_class_id: changes.classId || null })
   });
+  developerPreviewClickAbort?.abort();
+  developerPreviewClickAbort = new AbortController();
+  uiRoot.addEventListener("click", async (event) => {
+    const enterButton = event.target.closest?.(".developer-enter-account");
+    if (!enterButton || !developerPreviewSelectionUserId) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    enterButton.disabled = true;
+    enterButton.textContent = "Opening account…";
+    try {
+      const { data, error } = await supabase.rpc("e3_developer_account_context", { requested_user_id: developerPreviewSelectionUserId, requested_class_id: null });
+      if (error) throw error;
+      if (!developerHomeClass) developerHomeClass = { id: resolvedClassId, code: resolvedClassCode, name: resolvedClassName };
+      developerPreviewContext = data;
+      const selected = data.classes?.find((entry) => String(entry.id) === String(data.selectedClassId)) || data.classes?.[0];
+      resolvedClassId = data.selectedClassId || selected?.id || "";
+      resolvedClassCode = selected?.code || "";
+      resolvedClassName = selected?.name || "";
+      if (resolvedClassId) await subscribeToClassChat(resolvedClassId);
+      await openStudentDashboard("overview");
+    } catch (error) {
+      enterButton.disabled = false;
+      enterButton.textContent = error?.message || "Could not open account";
+    }
+  }, { capture: true, signal: developerPreviewClickAbort.signal });
   classChatHistory.forEach((message) => studentDashboard?.appendChat(message));
   if (resolvedClassId) subscribeToClassChat(resolvedClassId);
   setSimulationMode(false);

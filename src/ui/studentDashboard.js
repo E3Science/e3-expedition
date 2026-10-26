@@ -51,6 +51,10 @@ export function createStudentDashboard({ root, isAdmin = false, isDeveloper = fa
   if (!root) return null;
   const onLoadLabAccess=arguments[0]?.onLoadLabAccess||(async()=>({global:{},class:{}}));
   const onSetLabAccess=arguments[0]?.onSetLabAccess||(async()=>({global:{},class:{}}));
+  const initialView=arguments[0]?.initialView||"overview";
+  const onEnterDeveloperAccount=arguments[0]?.onEnterDeveloperAccount||(async()=>{});
+  const onExitDeveloperAccount=arguments[0]?.onExitDeveloperAccount||(async()=>{});
+  const initialDeveloperAccess=arguments[0]?.developerAccess||null;
   root.querySelector("#student-dashboard")?.remove();
   const shell = el("main", "student-dashboard"); shell.id = "student-dashboard"; shell.setAttribute("aria-label", "Student learning dashboard");
   const sidebar = el("aside", "dashboard-sidebar");
@@ -67,8 +71,9 @@ export function createStudentDashboard({ root, isAdmin = false, isDeveloper = fa
   const ensureFieldIdentifiers = (container) => container.querySelectorAll?.("input,select,textarea").forEach((field) => { if (field.id || field.name) return; generatedFieldId += 1; field.id = `e3-field-${generatedFieldId}`; field.name = field.id; });
   const fieldObserver = new MutationObserver((records) => records.forEach((record) => record.addedNodes.forEach((node) => { if (node.nodeType === Node.ELEMENT_NODE) { if (node.matches?.("input,select,textarea") && !node.id && !node.name) { generatedFieldId += 1; node.id = `e3-field-${generatedFieldId}`; node.name = node.id; } ensureFieldIdentifiers(node); } })));
   ensureFieldIdentifiers(shell); fieldObserver.observe(shell, { childList: true, subtree: true });
-  let activeView = lessonRecordOnly ? "lessons" : "overview"; let avatarPreview = null; let marketCountdownTimer = null; let videoTimer = null; let dailyRewardTimer = null; let dailyClaimPending = false; let portalEnabled = true; let chatMessages = []; let achievementQueue = []; let activeAchievement = null; let studyContext = null; let studyQuestion = null; let studyLoading = false; let studyProgress = 0; let flashcardQueue = []; let flashcardLoading = false; let flashcardFlipped = false; let flashcardReverse = false; let flashcardsReviewed = 0; let flashcardCompletion = null; let developerAccess = null; let gameOverview = null; let gameOverviewLoading = false; let selectedInventoryKey = null; let selectedLockerItem = null; let lockerState = { equipped: {} }; let currentMissionPosition = Math.max(0, Math.min(MISSION_STOPS.length - 1, Number(missionPosition) || 0));
-  developerBar.querySelector("button").addEventListener("click",()=>{developerAccess=null;developerBar.hidden=true;Object.values(navButtons).forEach((button)=>button.hidden=false);render("developer");});
+  let activeView = lessonRecordOnly ? "lessons" : initialView; let avatarPreview = null; let marketCountdownTimer = null; let videoTimer = null; let dailyRewardTimer = null; let dailyClaimPending = false; let portalEnabled = true; let chatMessages = []; let achievementQueue = []; let activeAchievement = null; let studyContext = null; let studyQuestion = null; let studyLoading = false; let studyProgress = 0; let flashcardQueue = []; let flashcardLoading = false; let flashcardFlipped = false; let flashcardReverse = false; let flashcardsReviewed = 0; let flashcardCompletion = null; let developerAccess = initialDeveloperAccess; let gameOverview = null; let gameOverviewLoading = false; let selectedInventoryKey = null; let selectedLockerItem = null; let lockerState = { equipped: {} }; let currentMissionPosition = Math.max(0, Math.min(MISSION_STOPS.length - 1, Number(missionPosition) || 0));
+  if(developerAccess){developerBar.hidden=false;developerBar.querySelector("span").textContent=`Viewing ${developerAccess.name} · ${developerAccess.role}`;}
+  developerBar.querySelector("button").addEventListener("click",async()=>{developerBar.querySelector("button").disabled=true;await onExitDeveloperAccount();});
   let labAccess=null;let labAccessLoading=false;
   const achievementOverlay = el("div", "achievement-reveal");
   achievementOverlay.hidden = true;
