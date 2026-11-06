@@ -866,6 +866,10 @@ async function openStudentDashboard(initialView = "overview") {
     onSetLabAccess:(labKey,enabled,scope)=>dashboardRpc("e3_set_learning_lab_access",{requested_class_id:resolvedClassId,requested_lab_key:labKey,requested_enabled:enabled,requested_scope:scope}),
     onLoadTeacherLabAccess:(teacherUserId)=>dashboardRpc("e3_teacher_learning_lab_access",{requested_teacher_user_id:teacherUserId}),
     onSetTeacherLabAccess:(teacherUserId,labKey,enabled)=>dashboardRpc("e3_set_teacher_learning_lab_access",{requested_teacher_user_id:teacherUserId,requested_lab_key:labKey,requested_enabled:enabled}),
+    onLoadMinecraftLab:()=>dashboardRpc("e3_minecraft_lab_config",{requested_class_id:resolvedClassId}),
+    onSaveMinecraftLab:(entry)=>dashboardRpc("e3_save_minecraft_lab_config",{requested_class_id:resolvedClassId,requested_launch_url:entry.launchUrl,requested_mission_title:entry.missionTitle,requested_mission_instructions:entry.missionInstructions,requested_enabled:entry.enabled}),
+    onStartMinecraftLab:()=>dashboardRpc("e3_start_minecraft_lab_session",{requested_class_id:resolvedClassId}),
+    onCompleteMinecraftLab:(sessionId)=>dashboardRpc("e3_complete_minecraft_lab_session",{requested_session_id:sessionId}),
     onLoadLessonWorkspace: async () => {
       if (!resolvedClassId) return { lessons: [], progress: null, curriculumId: null };
       const { data: curriculumId, error: curriculumError } = await supabase.rpc("e3_class_curriculum", { requested_class_id: resolvedClassId });
