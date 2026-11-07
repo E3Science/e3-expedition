@@ -153,7 +153,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       let entry = playerEntries.get(player.id);
       if (!entry) {
         const root = new THREE.Group();
-        root.position.set(player.x ?? 0, -(player.y ?? 0) + 2.14 * 10.5, 12);
+        root.position.set(player.x ?? 0, -(player.y ?? 0) + 2.14 * 12.5, 12);
         playerRoot.add(root);
         entry = { root, model: null, x: player.x, y: player.y, direction: player.direction || "down", moving: false, actionActive: false };
         playerEntries.set(player.id, entry);
@@ -180,12 +180,12 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
 
   function updatePlayers(elapsed) {
     playerEntries.forEach((entry) => {
-      const scale = 10.5;
+      const scale = 12.5;
       const modelBottom = -2.14;
       entry.root.position.x = entry.x;
       entry.root.position.y = -entry.y - modelBottom * scale;
       entry.root.position.z = ISOMETRIC_DEPTH_BASE + (entry.sortY || entry.y) * ISOMETRIC_DEPTH_STEP + 0.45;
-      entry.root.scale.set(scale, scale, 0.05);
+      entry.root.scale.set(scale, scale, 0.5);
 
       const directionRotations = {
         down: 0,
