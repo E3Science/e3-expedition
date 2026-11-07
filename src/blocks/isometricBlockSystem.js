@@ -1,9 +1,10 @@
 const BLOCK_SIZE = 64;
 const BLOCK_RISE = 32;
 const MAX_BUILD_LAYER = 4;
-const JUMP_DURATION_MS = 600;
+const JUMP_DURATION_MS = 700;
 const JUMP_HEIGHT = BLOCK_RISE;
-const MAX_JUMP_TILE_DISTANCE = 2;
+const PLAYER_COLLISION_RADIUS = 12;
+const FALL_ACCELERATION = 420;
 
 export const BLOCK_MATERIALS = [
   ["bedrock", "Bedrock", 0, true], ["dirt", "Dirt", 1, true],
@@ -85,8 +86,9 @@ export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGrid
   let active = false;
   let selectedMaterial = "dirt";
   let jumpStartedAt = 0;
-  let jumpStartTile = null;
-  let playerFloor = 0;
+  let visualFloorOffset = 0;
+  let fallVelocity = 0;
+  let lastVerticalUpdateAt = performance.now();
   const toolbar = document.createElement("aside");
   toolbar.className = "block-builder-panel";
   toolbar.hidden = true;
@@ -140,9 +142,10 @@ export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGrid
   function handlePointer(pointer) { if(!active||!enabled())return false;if(pointer.event?.target?.closest?.(".block-builder-panel"))return true;const hit=getClickedFace(pointer);const tile=hit?.block||pointerToTilePosition(pointer.worldX,pointer.worldY);if(!tile)return true;const tileX=hit?.block.x??tile.tileX;const tileY=hit?.block.y??tile.tileY;if(pointer.rightButtonDown())destroy(tileX,tileY,hit?.block.z);else if(pointer.middleButtonDown())pick(tileX,tileY,hit?.block.z);else if(pointer.leftButtonDown()){if(!hit)place(tileX,tileY,1);else if(hit.face==="top")place(tileX,tileY,hit.block.z+1);else if(hit.face==="left")place(tileX,tileY+1,hit.block.z);else place(tileX+1,tileY,hit.block.z);}return true; }
   function terrainHeight(tileX,tileY) { let height=0;for(let z=1;z<=MAX_BUILD_LAYER;z+=1){const block=blocks.get(blockKey(tileX,tileY,z));if(!block||!materialByKey.get(block.material)?.solid)break;height=z;}return height; }
   function hasClearance(tileX,tileY,floor) { for(let z=floor+1;z<=Math.min(MAX_BUILD_LAYER,floor+2);z+=1){const block=blocks.get(blockKey(tileX,tileY,z));if(block&&materialByKey.get(block.material)?.solid)return false;}return true; }
-  function canMoveTo(worldX,worldY,jumping=false) { const tile=logicalWorldToTilePosition(worldX,worldY);if(!tile)return false;if(jumping&&jumpStartTile&&Math.hypot(tile.tileX-jumpStartTile.tileX,tile.tileY-jumpStartTile.tileY)>MAX_JUMP_TILE_DISTANCE)return false;const targetFloor=terrainHeight(tile.tileX,tile.tileY);return targetFloor-playerFloor<=(jumping?1:.15)&&hasClearance(tile.tileX,tile.tileY,targetFloor); }
-  function requestJump() { const player=getPlayer();if(jumpStartedAt||!player)return;jumpStartTile=logicalWorldToTilePosition(player.x,player.y);jumpStartedAt=performance.now(); }
-  function getPlayerOffsets(worldX,worldY) { const tile=logicalWorldToTilePosition(worldX,worldY);playerFloor=tile?terrainHeight(tile.tileX,tile.tileY):0;let jump=0;if(jumpStartedAt){const elapsed=(performance.now()-jumpStartedAt)/JUMP_DURATION_MS;if(elapsed>=1){jumpStartedAt=0;jumpStartTile=null;}else jump=Math.sin(elapsed*Math.PI)*JUMP_HEIGHT;}return {floor:playerFloor*BLOCK_RISE,jump}; }
+  function getFootprintTiles(worldX,worldY) { const samples=[[0,0],[-PLAYER_COLLISION_RADIUS,0],[PLAYER_COLLISION_RADIUS,0],[0,-PLAYER_COLLISION_RADIUS],[0,PLAYER_COLLISION_RADIUS]];const unique=new Map();samples.forEach(([dx,dy])=>{const tile=logicalWorldToTilePosition(worldX+dx,worldY+dy);if(tile)unique.set(`${tile.tileX}:${tile.tileY}`,tile);});return [...unique.values()]; }
+  function canMoveTo(worldX,worldY,jumping=false) { const player=getPlayer();if(!player)return false;const currentTile=logicalWorldToTilePosition(player.x,player.y);const targetTiles=getFootprintTiles(worldX,worldY);if(!currentTile||!targetTiles.length)return false;const currentFloor=terrainHeight(currentTile.tileX,currentTile.tileY);const targetFloor=Math.max(0,...targetTiles.map((tile)=>terrainHeight(tile.tileX,tile.tileY)));if(targetFloor-currentFloor>(jumping?1:.15))return false;return targetTiles.every((tile)=>hasClearance(tile.tileX,tile.tileY,terrainHeight(tile.tileX,tile.tileY))); }
+  function requestJump() { const player=getPlayer();if(jumpStartedAt||!player)return;jumpStartedAt=performance.now(); }
+  function getPlayerOffsets(worldX,worldY) { const tile=logicalWorldToTilePosition(worldX,worldY);const targetFloorOffset=(tile?terrainHeight(tile.tileX,tile.tileY):0)*BLOCK_RISE;const now=performance.now();const dt=Math.min(.05,Math.max(0,(now-lastVerticalUpdateAt)/1000));lastVerticalUpdateAt=now;if(targetFloorOffset>=visualFloorOffset){visualFloorOffset=targetFloorOffset;fallVelocity=0;}else{fallVelocity+=FALL_ACCELERATION*dt;visualFloorOffset=Math.max(targetFloorOffset,visualFloorOffset-fallVelocity*dt);if(visualFloorOffset===targetFloorOffset)fallVelocity=0;}let jump=0;if(jumpStartedAt){const elapsed=(now-jumpStartedAt)/JUMP_DURATION_MS;if(elapsed>=1)jumpStartedAt=0;else jump=Math.sin(elapsed*Math.PI)*JUMP_HEIGHT;}return {floor:visualFloorOffset,jump}; }
   function toggle(force) { active=typeof force==="boolean"?force:!active;toolbar.hidden=!active;refreshToolbar();return active; }
 
   const handleKey = (event) => {

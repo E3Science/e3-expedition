@@ -8,7 +8,7 @@ The first-pass block builder is available in the Original E3 World:
 - Left click: place the selected block on the clicked ground or block surface
 - Right click: destroy the clicked block
 - Middle click: pick a placed block's material
-- `Space`: jump one block high, climb one elevation step, and travel up to about two ground blocks
+- `Space`: jump one block high and climb no more than one elevation step; travel distance comes from the natural jump duration and movement speed
 
 Layer 0 is the existing unbreakable E3 map. Layers 1–4 hold buildable blocks. Blocks are currently stored in browser local storage per portal map; server-authoritative multiplayer persistence is the next architecture step.
 

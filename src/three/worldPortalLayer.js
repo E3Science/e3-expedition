@@ -184,7 +184,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       const modelBottom = -2.14;
       entry.root.position.x = entry.x;
       entry.root.position.y = -entry.y - modelBottom * scale;
-      entry.root.position.z = ISOMETRIC_DEPTH_BASE + (entry.sortY || entry.y) * ISOMETRIC_DEPTH_STEP + 0.05;
+      entry.root.position.z = ISOMETRIC_DEPTH_BASE + (entry.sortY || entry.y) * ISOMETRIC_DEPTH_STEP + 0.45;
       entry.root.scale.set(scale, scale, 0.05);
 
       const directionRotations = {

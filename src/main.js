@@ -4355,7 +4355,7 @@ function updateStandalonePlayer() {
   if (!horizontal && !vertical) return;
   const deltaSeconds = Math.min(0.05, Math.max(0, Number(sceneRef.game?.loop?.delta) || 16.67) / 1000);
   const diagonalScale = horizontal && vertical ? Math.SQRT1_2 : 1;
-  const distance = 175 * deltaSeconds * diagonalScale * (Number(standaloneInput.speedScale) || 1);
+  const distance = 125 * deltaSeconds * diagonalScale * (Number(standaloneInput.speedScale) || 1);
   const nextX = Math.min(ROOM_OFFSET_X + getCurrentRoomWorldWidth(), Math.max(ROOM_OFFSET_X, player.x + horizontal * distance));
   const nextY = Math.min(ROOM_OFFSET_Y + getCurrentRoomWorldHeight(), Math.max(ROOM_OFFSET_Y, player.y + vertical * distance));
   if (!blockSystem || blockSystem.canMoveTo(nextX, player.y, blockSystem.isJumping())) player.x = nextX;
