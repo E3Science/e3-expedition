@@ -4343,7 +4343,7 @@ async function startStandaloneWorld(chosenName, mapKey = DEFAULT_MAP_KEY) {
   lastInput = { left: false, right: false, up: false, down: false, editorMode: false, speedScale: 1 };
   createStandalonePlayerDisplay(player, myId);
   appendSystemChatLine("System: Original E3 World opened in local simulation mode.", "#7CFC00");
-  appendSystemChatLine("System: Press V for Expedition Blocks. Space jumps up to 1.5 block heights.", "#72e6d1");
+  appendSystemChatLine("System: Press V for Expedition Blocks. Space jumps one block high and about two blocks forward.", "#72e6d1");
 }
 
 function updateStandalonePlayer() {

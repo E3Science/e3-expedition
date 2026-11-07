@@ -1,6 +1,9 @@
 const BLOCK_SIZE = 64;
 const BLOCK_RISE = 32;
 const MAX_BUILD_LAYER = 4;
+const JUMP_DURATION_MS = 600;
+const JUMP_HEIGHT = BLOCK_RISE;
+const MAX_JUMP_TILE_DISTANCE = 2;
 
 export const BLOCK_MATERIALS = [
   ["bedrock", "Bedrock", 0, true], ["dirt", "Dirt", 1, true],
@@ -82,6 +85,7 @@ export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGrid
   let active = false;
   let selectedMaterial = "dirt";
   let jumpStartedAt = 0;
+  let jumpStartTile = null;
   let playerFloor = 0;
   const toolbar = document.createElement("aside");
   toolbar.className = "block-builder-panel";
@@ -136,9 +140,9 @@ export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGrid
   function handlePointer(pointer) { if(!active||!enabled())return false;if(pointer.event?.target?.closest?.(".block-builder-panel"))return true;const hit=getClickedFace(pointer);const tile=hit?.block||pointerToTilePosition(pointer.worldX,pointer.worldY);if(!tile)return true;const tileX=hit?.block.x??tile.tileX;const tileY=hit?.block.y??tile.tileY;if(pointer.rightButtonDown())destroy(tileX,tileY,hit?.block.z);else if(pointer.middleButtonDown())pick(tileX,tileY,hit?.block.z);else if(pointer.leftButtonDown()){if(!hit)place(tileX,tileY,1);else if(hit.face==="top")place(tileX,tileY,hit.block.z+1);else if(hit.face==="left")place(tileX,tileY+1,hit.block.z);else place(tileX+1,tileY,hit.block.z);}return true; }
   function terrainHeight(tileX,tileY) { let height=0;for(let z=1;z<=MAX_BUILD_LAYER;z+=1){const block=blocks.get(blockKey(tileX,tileY,z));if(!block||!materialByKey.get(block.material)?.solid)break;height=z;}return height; }
   function hasClearance(tileX,tileY,floor) { for(let z=floor+1;z<=Math.min(MAX_BUILD_LAYER,floor+2);z+=1){const block=blocks.get(blockKey(tileX,tileY,z));if(block&&materialByKey.get(block.material)?.solid)return false;}return true; }
-  function canMoveTo(worldX,worldY,jumping=false) { const tile=logicalWorldToTilePosition(worldX,worldY);if(!tile)return false;const targetFloor=terrainHeight(tile.tileX,tile.tileY);return targetFloor-playerFloor<=(jumping?1.5:.15)&&hasClearance(tile.tileX,tile.tileY,targetFloor); }
-  function requestJump() { if(jumpStartedAt||!getPlayer())return;jumpStartedAt=performance.now(); }
-  function getPlayerOffsets(worldX,worldY) { const tile=logicalWorldToTilePosition(worldX,worldY);playerFloor=tile?terrainHeight(tile.tileX,tile.tileY):0;let jump=0;if(jumpStartedAt){const elapsed=(performance.now()-jumpStartedAt)/650;if(elapsed>=1)jumpStartedAt=0;else jump=Math.sin(elapsed*Math.PI)*BLOCK_RISE*1.5;}return {floor:playerFloor*BLOCK_RISE,jump}; }
+  function canMoveTo(worldX,worldY,jumping=false) { const tile=logicalWorldToTilePosition(worldX,worldY);if(!tile)return false;if(jumping&&jumpStartTile&&Math.hypot(tile.tileX-jumpStartTile.tileX,tile.tileY-jumpStartTile.tileY)>MAX_JUMP_TILE_DISTANCE)return false;const targetFloor=terrainHeight(tile.tileX,tile.tileY);return targetFloor-playerFloor<=(jumping?1:.15)&&hasClearance(tile.tileX,tile.tileY,targetFloor); }
+  function requestJump() { const player=getPlayer();if(jumpStartedAt||!player)return;jumpStartTile=logicalWorldToTilePosition(player.x,player.y);jumpStartedAt=performance.now(); }
+  function getPlayerOffsets(worldX,worldY) { const tile=logicalWorldToTilePosition(worldX,worldY);playerFloor=tile?terrainHeight(tile.tileX,tile.tileY):0;let jump=0;if(jumpStartedAt){const elapsed=(performance.now()-jumpStartedAt)/JUMP_DURATION_MS;if(elapsed>=1){jumpStartedAt=0;jumpStartTile=null;}else jump=Math.sin(elapsed*Math.PI)*JUMP_HEIGHT;}return {floor:playerFloor*BLOCK_RISE,jump}; }
   function toggle(force) { active=typeof force==="boolean"?force:!active;toolbar.hidden=!active;refreshToolbar();return active; }
 
   const handleKey = (event) => {

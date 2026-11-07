@@ -4,6 +4,9 @@ import { loadAnimatedAstronaut } from "./models/animatedAstronautModel";
 import { createMobModel } from "./models/mobModels";
 import { createResourceModel } from "./models/resourceModels";
 
+const ISOMETRIC_DEPTH_BASE = -100;
+const ISOMETRIC_DEPTH_STEP = 0.1;
+
 function disposeModel(root) {
   root.traverse((object) => {
     object.geometry?.dispose?.();
@@ -181,8 +184,8 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       const modelBottom = -2.14;
       entry.root.position.x = entry.x;
       entry.root.position.y = -entry.y - modelBottom * scale;
-      entry.root.position.z = 20 + (entry.sortY || entry.y) * 0.001 + 0.0005;
-      entry.root.scale.setScalar(scale);
+      entry.root.position.z = ISOMETRIC_DEPTH_BASE + (entry.sortY || entry.y) * ISOMETRIC_DEPTH_STEP + 0.05;
+      entry.root.scale.set(scale, scale, 0.05);
 
       const directionRotations = {
         down: 0,
@@ -227,7 +230,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       texture.minFilter = THREE.NearestFilter;
       const material = new THREE.SpriteMaterial({ map: texture, transparent: true, alphaTest: 0.02 });
       const sprite = new THREE.Sprite(material);
-      sprite.position.set(block.x, -block.y + 32, 20 + block.sortY * 0.001 + 0.0001);
+      sprite.position.set(block.x, -block.y + 32, ISOMETRIC_DEPTH_BASE + block.sortY * ISOMETRIC_DEPTH_STEP);
       sprite.scale.set(64, 64, 1);
       blockRoot.add(sprite);
       blockEntries.set(block.id, { sprite, material });
