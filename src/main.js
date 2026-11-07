@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { Client, Callbacks } from "@colyseus/sdk";
+import { createIsometricBlockSystem } from "./blocks/isometricBlockSystem";
 
 const ADMIN_EMAIL = "mnelsen@susd.net";
 const DEFAULT_CLASS_SERVERS = [];
@@ -15,6 +16,8 @@ let createWorldPortalLayer;
 let createWorldOverheadLayer;
 let createResourceCollectionSequence;
 let createStudentDashboardFactory = null;
+const BLOCK_MATERIAL_ATLAS_KEY = "e3_block_material_atlas";
+let blockSystem = null;
 
 async function ensureResourcePrizeWheel() {
   if (resourceCollectionSequence) return resourceCollectionSequence;
@@ -866,10 +869,6 @@ async function openStudentDashboard(initialView = "overview") {
     onSetLabAccess:(labKey,enabled,scope)=>dashboardRpc("e3_set_learning_lab_access",{requested_class_id:resolvedClassId,requested_lab_key:labKey,requested_enabled:enabled,requested_scope:scope}),
     onLoadTeacherLabAccess:(teacherUserId)=>dashboardRpc("e3_teacher_learning_lab_access",{requested_teacher_user_id:teacherUserId}),
     onSetTeacherLabAccess:(teacherUserId,labKey,enabled)=>dashboardRpc("e3_set_teacher_learning_lab_access",{requested_teacher_user_id:teacherUserId,requested_lab_key:labKey,requested_enabled:enabled}),
-    onLoadMinecraftLab:()=>dashboardRpc("e3_minecraft_lab_config",{requested_class_id:resolvedClassId}),
-    onSaveMinecraftLab:(entry)=>dashboardRpc("e3_save_minecraft_lab_config",{requested_class_id:resolvedClassId,requested_launch_url:entry.launchUrl,requested_mission_title:entry.missionTitle,requested_mission_instructions:entry.missionInstructions,requested_enabled:entry.enabled}),
-    onStartMinecraftLab:()=>dashboardRpc("e3_start_minecraft_lab_session",{requested_class_id:resolvedClassId}),
-    onCompleteMinecraftLab:(sessionId)=>dashboardRpc("e3_complete_minecraft_lab_session",{requested_session_id:sessionId}),
     onLoadLessonWorkspace: async () => {
       if (!resolvedClassId) return { lessons: [], progress: null, curriculumId: null };
       const { data: curriculumId, error: curriculumError } = await supabase.rpc("e3_class_curriculum", { requested_class_id: resolvedClassId });
@@ -2862,6 +2861,7 @@ function preload() {
     ALIEN_ARTIFACT_TEXTURE_KEY,
     "assets/events/alien-artifact/alien-artifact-event.png"
   );
+  this.load.image(BLOCK_MATERIAL_ATLAS_KEY, "assets/blocks/e3-block-material-atlas-v1.png");
 }
 
 /*
@@ -4343,6 +4343,7 @@ async function startStandaloneWorld(chosenName, mapKey = DEFAULT_MAP_KEY) {
   lastInput = { left: false, right: false, up: false, down: false, editorMode: false, speedScale: 1 };
   createStandalonePlayerDisplay(player, myId);
   appendSystemChatLine("System: Original E3 World opened in local simulation mode.", "#7CFC00");
+  appendSystemChatLine("System: Press V for Expedition Blocks. Space jumps up to 1.5 block heights.", "#72e6d1");
 }
 
 function updateStandalonePlayer() {
@@ -4355,8 +4356,10 @@ function updateStandalonePlayer() {
   const deltaSeconds = Math.min(0.05, Math.max(0, Number(sceneRef.game?.loop?.delta) || 16.67) / 1000);
   const diagonalScale = horizontal && vertical ? Math.SQRT1_2 : 1;
   const distance = 175 * deltaSeconds * diagonalScale * (Number(standaloneInput.speedScale) || 1);
-  player.x = Math.min(ROOM_OFFSET_X + getCurrentRoomWorldWidth(), Math.max(ROOM_OFFSET_X, player.x + horizontal * distance));
-  player.y = Math.min(ROOM_OFFSET_Y + getCurrentRoomWorldHeight(), Math.max(ROOM_OFFSET_Y, player.y + vertical * distance));
+  const nextX = Math.min(ROOM_OFFSET_X + getCurrentRoomWorldWidth(), Math.max(ROOM_OFFSET_X, player.x + horizontal * distance));
+  const nextY = Math.min(ROOM_OFFSET_Y + getCurrentRoomWorldHeight(), Math.max(ROOM_OFFSET_Y, player.y + vertical * distance));
+  if (!blockSystem || blockSystem.canMoveTo(nextX, player.y, blockSystem.isJumping())) player.x = nextX;
+  if (!blockSystem || blockSystem.canMoveTo(player.x, nextY, blockSystem.isJumping())) player.y = nextY;
 }
 
 function updateStandaloneAnimals(elapsedSeconds) {
@@ -4374,10 +4377,10 @@ function updateStandaloneAnimals(elapsedSeconds) {
   });
 }
 
-function setPlayerScreenPosition(entry, x, y) {
+function setPlayerScreenPosition(entry, x, y, useBlockElevation = false) {
   const displayPosition = logicalWorldToDisplay(x, y);
   const displayX = displayPosition.x;
-  const displayY = displayPosition.y;
+  const displayY = displayPosition.y - (useBlockElevation ? (blockSystem?.getPlayerOffset?.(x, y) || 0) : 0);
 
   entry.shadow.setPosition(displayX, displayY + PLAYER_SHADOW_OFFSET_Y);
 
@@ -4563,6 +4566,16 @@ function create() {
   rebuildAnimatedTilesetFrameGroups();
   drawRoom(this);
   syncTileEditorVisibility();
+  blockSystem?.destroy?.();
+  blockSystem = createIsometricBlockSystem({
+    scene: this,
+    atlasKey: BLOCK_MATERIAL_ATLAS_KEY,
+    getMapKey: () => currentMapKey || DEFAULT_MAP_KEY,
+    tileToDisplayPosition,
+    worldToTilePosition,
+    getPlayer: () => room?.state?.players?.get?.(myId) || null,
+    enabled: () => joined && isIsometricMode() && !isGameplayModalActive()
+  });
 
   infoText = this.add.text(20, 20, "E3 Prototype Room", {
     color: "#ffffff",
@@ -5014,7 +5027,7 @@ function update() {
     const entry = players[id];
     if (!entry || !entry.container || !entry.label || !entry.shadow) return;
 
-    setPlayerScreenPosition(entry, player.x ?? 100, player.y ?? 100);
+    setPlayerScreenPosition(entry, player.x ?? 100, player.y ?? 100, id === myId);
     updatePlayerSprite(sceneRef, entry, player, id);
     entry.container.setVisible(!worldPortalLayer);
 
@@ -8492,6 +8505,7 @@ function setCurrentMapKey(mapKey) {
 
   if (sceneRef) {
     refreshTransitionDebugGraphics(sceneRef);
+    blockSystem?.load?.();
   }
 }
 
@@ -9024,6 +9038,7 @@ function pickTileFromPointer(pointer) {
 }
 
 function handleTilePointerDown(pointer) {
+  if (blockSystem?.handlePointer?.(pointer)) return;
   if (!isAdminUser()) return;
 
   if (objectEditorEnabled) {
