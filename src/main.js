@@ -4404,10 +4404,12 @@ function syncWorld3DPlayers() {
     const entry = players[id];
     if (!entry) return;
     const displayPosition = logicalWorldToDisplay(player.x ?? 0, player.y ?? 0);
+    const offsets = id === myId ? (blockSystem?.getPlayerOffsets?.(player.x ?? 0, player.y ?? 0) || { floor: 0, jump: 0 }) : { floor: 0, jump: 0 };
     worldPlayers.push({
       id,
       x: displayPosition.x,
-      y: displayPosition.y,
+      y: displayPosition.y - offsets.floor - offsets.jump,
+      sortY: displayPosition.y,
       direction: entry.lastDirection || "down",
       moving: isPlayerMoving(player),
       actionActive: isServerPlayerActionActive(player) || isPlayerActionActive(entry),
@@ -4578,6 +4580,7 @@ function create() {
     pointerToTilePosition: worldToTilePosition,
     logicalWorldToTilePosition,
     getPlayer: () => room?.state?.players?.get?.(myId) || null,
+    syncWorldBlocks: (blocks) => worldPortalLayer?.setBlocks?.(blocks),
     enabled: () => joined && isIsometricMode() && !isGameplayModalActive()
   });
 

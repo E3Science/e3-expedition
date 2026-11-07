@@ -75,7 +75,7 @@ function createGroundTexture(scene, atlasKey, material) {
   return key;
 }
 
-export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGridSize, tileToDisplayPosition, pointerToTilePosition, logicalWorldToTilePosition, getPlayer, enabled = () => true }) {
+export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGridSize, tileToDisplayPosition, pointerToTilePosition, logicalWorldToTilePosition, getPlayer, syncWorldBlocks, enabled = () => true }) {
   const blocks = new Map();
   const sprites = new Map();
   const groundSprites = [];
@@ -122,16 +122,18 @@ export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGrid
     for(let y=0;y<size.height;y+=1){for(let x=0;x<size.width;x+=1){const display=tileToDisplayPosition(x,y);const ground=scene.add.image(display.x,display.y,groundTexture);ground.setOrigin(.5,1);ground.setDepth(1+(x+y)*.01);groundSprites.push(ground);}}
     [...blocks.values()].sort((a,b)=>(a.x+a.y)-(b.x+b.y)||a.z-b.z).forEach((block) => {
       const material=materialByKey.get(block.material);if(!material)return;const display=tileToDisplayPosition(block.x,block.y);
-      const sprite=scene.add.image(display.x,display.y-(block.z-1)*BLOCK_RISE,createBlockTexture(scene,atlasKey,material));
-      sprite.setOrigin(.5,1);sprite.setDepth(10+display.y*.001+block.z*.0001);sprite.setData("e3Block",block);sprites.set(blockKey(block.x,block.y,block.z),sprite);
+      const textureKey=createBlockTexture(scene,atlasKey,material);const sprite=scene.add.image(display.x,display.y-(block.z-1)*BLOCK_RISE,textureKey);
+      sprite.setOrigin(.5,1);sprite.setDepth(10+display.y*.001+block.z*.0001);sprite.setAlpha(syncWorldBlocks?0.001:1);sprite.setData("e3Block",block);sprites.set(blockKey(block.x,block.y,block.z),sprite);
     });
+    if(syncWorldBlocks){syncWorldBlocks([...sprites.values()].map((sprite)=>({id:blockKey(sprite.getData("e3Block").x,sprite.getData("e3Block").y,sprite.getData("e3Block").z),x:sprite.x,y:sprite.y,sortY:tileToDisplayPosition(sprite.getData("e3Block").x,sprite.getData("e3Block").y).y,canvas:scene.textures.get(sprite.texture.key).getSourceImage()})));}
   }
 
-  function place(tileX,tileY,targetZ=1) { const z=Math.max(1,Math.min(MAX_BUILD_LAYER,targetZ));if(blocks.has(blockKey(tileX,tileY,z)))return;const block={x:tileX,y:tileY,z,material:selectedMaterial};blocks.set(blockKey(tileX,tileY,z),block);settleBlocks();save();render(); }
+  function place(tileX,tileY,targetZ=1) { const size=getGridSize();if(tileX<0||tileY<0||tileX>=size.width||tileY>=size.height)return;const z=Math.max(1,Math.min(MAX_BUILD_LAYER,targetZ));if(blocks.has(blockKey(tileX,tileY,z)))return;const block={x:tileX,y:tileY,z,material:selectedMaterial};blocks.set(blockKey(tileX,tileY,z),block);settleBlocks();save();render(); }
   function destroy(tileX,tileY,z) { const targetZ=z||terrainHeight(tileX,tileY);if(targetZ&&blocks.delete(blockKey(tileX,tileY,targetZ))){settleBlocks();save();render();} }
   function pick(tileX,tileY,z) { const block=blocks.get(blockKey(tileX,tileY,z||terrainHeight(tileX,tileY)));if(block){selectedMaterial=block.material;refreshToolbar();} }
-  function getClickedBlock(pointer){return [...sprites.values()].filter((sprite)=>sprite.getBounds().contains(pointer.worldX,pointer.worldY)).sort((a,b)=>b.depth-a.depth)[0]?.getData("e3Block")||null;}
-  function handlePointer(pointer) { if(!active||!enabled())return false;if(pointer.event?.target?.closest?.(".block-builder-panel"))return true;const clicked=getClickedBlock(pointer);const tile=clicked||pointerToTilePosition(pointer.worldX,pointer.worldY);if(!tile)return true;const tileX=clicked?.x??tile.tileX;const tileY=clicked?.y??tile.tileY;if(pointer.rightButtonDown())destroy(tileX,tileY,clicked?.z);else if(pointer.middleButtonDown())pick(tileX,tileY,clicked?.z);else if(pointer.leftButtonDown())place(tileX,tileY,clicked?clicked.z+1:1);return true; }
+  const pointInPolygon=(x,y,points)=>points.reduce((inside,[xi,yi],index)=>{const [xj,yj]=points[(index+points.length-1)%points.length];return ((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi)?!inside:inside;},false);
+  function getClickedFace(pointer){for(const sprite of [...sprites.values()].sort((a,b)=>b.depth-a.depth)){const left=sprite.x-BLOCK_SIZE/2;const top=sprite.y-BLOCK_SIZE;const x=pointer.worldX-left;const y=pointer.worldY-top;if(x<0||x>BLOCK_SIZE||y<0||y>BLOCK_SIZE)continue;const faces={top:[[0,16],[32,0],[64,16],[32,32]],left:[[0,16],[32,32],[32,64],[0,48]],right:[[32,32],[64,16],[64,48],[32,64]]};for(const face of ["top","left","right"]){if(pointInPolygon(x,y,faces[face]))return {block:sprite.getData("e3Block"),face};}}return null;}
+  function handlePointer(pointer) { if(!active||!enabled())return false;if(pointer.event?.target?.closest?.(".block-builder-panel"))return true;const hit=getClickedFace(pointer);const tile=hit?.block||pointerToTilePosition(pointer.worldX,pointer.worldY);if(!tile)return true;const tileX=hit?.block.x??tile.tileX;const tileY=hit?.block.y??tile.tileY;if(pointer.rightButtonDown())destroy(tileX,tileY,hit?.block.z);else if(pointer.middleButtonDown())pick(tileX,tileY,hit?.block.z);else if(pointer.leftButtonDown()){if(!hit)place(tileX,tileY,1);else if(hit.face==="top")place(tileX,tileY,hit.block.z+1);else if(hit.face==="left")place(tileX,tileY+1,hit.block.z);else place(tileX+1,tileY,hit.block.z);}return true; }
   function terrainHeight(tileX,tileY) { let height=0;for(let z=1;z<=MAX_BUILD_LAYER;z+=1){const block=blocks.get(blockKey(tileX,tileY,z));if(!block||!materialByKey.get(block.material)?.solid)break;height=z;}return height; }
   function hasClearance(tileX,tileY,floor) { for(let z=floor+1;z<=Math.min(MAX_BUILD_LAYER,floor+2);z+=1){const block=blocks.get(blockKey(tileX,tileY,z));if(block&&materialByKey.get(block.material)?.solid)return false;}return true; }
   function canMoveTo(worldX,worldY,jumping=false) { const tile=logicalWorldToTilePosition(worldX,worldY);if(!tile)return false;const targetFloor=terrainHeight(tile.tileX,tile.tileY);return targetFloor-playerFloor<=(jumping?1.5:.15)&&hasClearance(tile.tileX,tile.tileY,targetFloor); }
@@ -149,5 +151,5 @@ export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGrid
 
   toolbar.querySelector("[data-close]").addEventListener("click",()=>toggle(false));toolbar.querySelector("[data-clear]").addEventListener("click",()=>{if(confirm("Remove all placed blocks from this map?")){blocks.clear();save();render();}});
   load();refreshToolbar();
-  return { toggle, isActive:()=>active, isJumping:()=>!!jumpStartedAt, handlePointer, render, load, requestJump, getPlayerOffsets, canMoveTo, terrainHeight, destroy:()=>{window.removeEventListener("keydown",handleKey);toolbar.remove();sprites.forEach((sprite)=>sprite.destroy());sprites.clear();groundSprites.forEach((sprite)=>sprite.destroy());groundSprites.length=0;} };
+  return { toggle, isActive:()=>active, isJumping:()=>!!jumpStartedAt, handlePointer, render, load, requestJump, getPlayerOffsets, canMoveTo, terrainHeight, destroy:()=>{window.removeEventListener("keydown",handleKey);toolbar.remove();syncWorldBlocks?.([]);sprites.forEach((sprite)=>sprite.destroy());sprites.clear();groundSprites.forEach((sprite)=>sprite.destroy());groundSprites.length=0;} };
 }

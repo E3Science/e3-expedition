@@ -52,6 +52,8 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
   scene.add(mobRoot);
   const resourceRoot = new THREE.Group();
   scene.add(resourceRoot);
+  const blockRoot = new THREE.Group();
+  scene.add(blockRoot);
 
   const timer = new THREE.Timer();
   timer.connect(document);
@@ -63,6 +65,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
   const playerEntries = new Map();
   const mobEntries = new Map();
   const resourceEntries = new Map();
+  const blockEntries = new Map();
 
   function releaseEntries() {
     entries.forEach((entry) => {
@@ -168,6 +171,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       entry.direction = player.direction || entry.direction || "down";
       entry.moving = !!player.moving;
       entry.actionActive = !!player.actionActive;
+      entry.sortY = player.sortY ?? entry.y;
     });
   }
 
@@ -177,7 +181,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       const modelBottom = -2.14;
       entry.root.position.x = entry.x;
       entry.root.position.y = -entry.y - modelBottom * scale;
-      entry.root.position.z = 12;
+      entry.root.position.z = 20 + (entry.sortY || entry.y) * 0.001 + 0.0005;
       entry.root.scale.setScalar(scale);
 
       const directionRotations = {
@@ -204,6 +208,29 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       entry.model.root.position.y = entry.moving
         ? Math.abs(Math.sin(elapsed * 8.7)) * 0.045
         : Math.sin(elapsed * 1.8) * 0.018;
+    });
+  }
+
+  function setBlocks(blocks = []) {
+    blockEntries.forEach((entry) => {
+      entry.material.map.dispose();
+      entry.material.dispose();
+      entry.sprite.removeFromParent();
+    });
+    blockEntries.clear();
+    blockRoot.clear();
+    blocks.forEach((block) => {
+      if (!block.canvas) return;
+      const texture = new THREE.CanvasTexture(block.canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.magFilter = THREE.NearestFilter;
+      texture.minFilter = THREE.NearestFilter;
+      const material = new THREE.SpriteMaterial({ map: texture, transparent: true, alphaTest: 0.02 });
+      const sprite = new THREE.Sprite(material);
+      sprite.position.set(block.x, -block.y + 32, 20 + block.sortY * 0.001 + 0.0001);
+      sprite.scale.set(64, 64, 1);
+      blockRoot.add(sprite);
+      blockEntries.set(block.id, { sprite, material });
     });
   }
 
@@ -430,6 +457,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
   return {
     setPortals,
     setPlayers,
+    setBlocks,
     setMobs,
     setResources,
     setInteractionState,
@@ -444,6 +472,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       mobEntries.clear();
       resourceEntries.forEach((entry) => disposeModel(entry.model.root));
       resourceEntries.clear();
+      setBlocks([]);
       timer.dispose();
       renderer.dispose();
       renderer.forceContextLoss();
