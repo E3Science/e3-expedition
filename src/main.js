@@ -4380,18 +4380,20 @@ function updateStandaloneAnimals(elapsedSeconds) {
 function setPlayerScreenPosition(entry, x, y, useBlockElevation = false) {
   const displayPosition = logicalWorldToDisplay(x, y);
   const displayX = displayPosition.x;
-  const displayY = displayPosition.y - (useBlockElevation ? (blockSystem?.getPlayerOffset?.(x, y) || 0) : 0);
+  const offsets = useBlockElevation ? (blockSystem?.getPlayerOffsets?.(x, y) || { floor: 0, jump: 0 }) : { floor: 0, jump: 0 };
+  const surfaceY = displayPosition.y - offsets.floor;
+  const avatarY = surfaceY - offsets.jump;
 
-  entry.shadow.setPosition(displayX, displayY + PLAYER_SHADOW_OFFSET_Y);
+  entry.shadow.setPosition(displayX, surfaceY + PLAYER_SHADOW_OFFSET_Y);
 
   if (entry.ring) {
-    entry.ring.setPosition(displayX, displayY + 4);
+    entry.ring.setPosition(displayX, surfaceY + 4);
   }
 
-  entry.container.setPosition(displayX, displayY);
-  entry.container.setDepth(isIsometricMode() ? 10 + displayY * 0.001 : 10);
-  entry.label.setPosition(displayX, displayY - PLAYER_LABEL_OFFSET_Y);
-  entry.label.setDepth(isIsometricMode() ? 11 + displayY * 0.001 : 11);
+  entry.container.setPosition(displayX, avatarY);
+  entry.container.setDepth(isIsometricMode() ? 10 + surfaceY * 0.001 : 10);
+  entry.label.setPosition(displayX, avatarY - PLAYER_LABEL_OFFSET_Y);
+  entry.label.setDepth(isIsometricMode() ? 11 + surfaceY * 0.001 : 11);
 }
 
 function syncWorld3DPlayers() {
@@ -4571,8 +4573,10 @@ function create() {
     scene: this,
     atlasKey: BLOCK_MATERIAL_ATLAS_KEY,
     getMapKey: () => currentMapKey || DEFAULT_MAP_KEY,
+    getGridSize: () => ({ width: getCurrentRoomTileWidth(), height: getCurrentRoomTileHeight() }),
     tileToDisplayPosition,
-    worldToTilePosition,
+    pointerToTilePosition: worldToTilePosition,
+    logicalWorldToTilePosition,
     getPlayer: () => room?.state?.players?.get?.(myId) || null,
     enabled: () => joined && isIsometricMode() && !isGameplayModalActive()
   });
