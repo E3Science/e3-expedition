@@ -15,6 +15,35 @@ function disposeModel(root) {
   });
 }
 
+function createOverlaySprite(canvas, width, height, renderOrder) {
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.magFilter = THREE.NearestFilter;
+  texture.minFilter = THREE.LinearFilter;
+  const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false });
+  const sprite = new THREE.Sprite(material);
+  sprite.scale.set(width, height, 1);
+  sprite.renderOrder = renderOrder;
+  return { sprite, material, texture };
+}
+
+function createPlayerShadow() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 96;canvas.height = 40;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "rgba(0,0,0,.34)";
+  ctx.beginPath();ctx.ellipse(48,20,34,11,0,0,Math.PI*2);ctx.fill();
+  return createOverlaySprite(canvas, 42, 18, 3000);
+}
+
+function createPlayerNameplate(name) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;canvas.height = 48;
+  const overlay=createOverlaySprite(canvas,128,24,3001);
+  const draw=(value)=>{const ctx=canvas.getContext("2d");ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle="rgba(10,16,24,.82)";ctx.fillRect(4,4,248,40);ctx.strokeStyle="rgba(114,230,209,.75)";ctx.lineWidth=2;ctx.strokeRect(4,4,248,40);ctx.fillStyle="#fff";ctx.font="bold 24px sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(String(value||"Player").slice(0,20),128,24);overlay.texture.needsUpdate=true;};
+  draw(name);return {...overlay,draw};
+}
+
 /**
  * Transparent Three.js layer aligned to a Phaser canvas and camera.
  * Phaser keeps gameplay authority; this layer only renders portal visuals.
@@ -23,8 +52,8 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
   if (!container || !phaserCanvas || !modelUrl) return null;
 
   const scene = new THREE.Scene();
-  const camera = new THREE.OrthographicCamera(0, 1, 0, 1, 0.1, 500);
-  camera.position.z = 100;
+  const camera = new THREE.OrthographicCamera(0, 1, 0, 1, 0.1, 4000);
+  camera.position.z = 2000;
 
   const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -57,6 +86,8 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
   scene.add(resourceRoot);
   const blockRoot = new THREE.Group();
   scene.add(blockRoot);
+  const overlayRoot = new THREE.Group();
+  scene.add(overlayRoot);
 
   const timer = new THREE.Timer();
   timer.connect(document);
@@ -145,6 +176,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
     playerEntries.forEach((entry, id) => {
       if (nextIds.has(id)) return;
       entry.model?.dispose();
+      [entry.shadow,entry.nameplate].forEach((overlay)=>{overlay?.sprite.removeFromParent();overlay?.texture.dispose();overlay?.material.dispose();});
       entry.root.removeFromParent();
       playerEntries.delete(id);
     });
@@ -155,7 +187,9 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
         const root = new THREE.Group();
         root.position.set(player.x ?? 0, -(player.y ?? 0) + 2.14 * 12.5, 12);
         playerRoot.add(root);
-        entry = { root, model: null, x: player.x, y: player.y, direction: player.direction || "down", moving: false, actionActive: false };
+        const shadow=createPlayerShadow();const nameplate=createPlayerNameplate(player.name);
+        overlayRoot.add(shadow.sprite,nameplate.sprite);
+        entry = { root, model: null, shadow, nameplate, name: player.name, x: player.x, y: player.y, surfaceY:player.surfaceY??player.y, direction: player.direction || "down", moving: false, actionActive: false };
         playerEntries.set(player.id, entry);
         loadAnimatedAstronaut({ isLocalPlayer: !!player.isLocalPlayer }).then((model) => {
           if (disposed || playerEntries.get(player.id) !== entry) {
@@ -175,6 +209,8 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       entry.moving = !!player.moving;
       entry.actionActive = !!player.actionActive;
       entry.sortY = player.sortY ?? entry.y;
+      entry.surfaceY = player.surfaceY ?? entry.y;
+      if(entry.name!==player.name){entry.name=player.name;entry.nameplate.draw(player.name);}
     });
   }
 
@@ -186,6 +222,8 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       entry.root.position.y = -entry.y - modelBottom * scale;
       entry.root.position.z = ISOMETRIC_DEPTH_BASE + (entry.sortY || entry.y) * ISOMETRIC_DEPTH_STEP + 0.45;
       entry.root.scale.set(scale, scale, 0.5);
+      entry.shadow.sprite.position.set(entry.x,-entry.surfaceY-4,1900);
+      entry.nameplate.sprite.position.set(entry.x,-entry.y+48,1901);
 
       const directionRotations = {
         down: 0,
@@ -208,9 +246,6 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
         moving: entry.moving,
         actionActive: entry.actionActive
       });
-      entry.model.root.position.y = entry.moving
-        ? Math.abs(Math.sin(elapsed * 8.7)) * 0.045
-        : Math.sin(elapsed * 1.8) * 0.018;
     });
   }
 
@@ -230,12 +265,15 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       texture.minFilter = THREE.NearestFilter;
       const material = new THREE.SpriteMaterial({ map: texture, transparent: true, alphaTest: 0.02 });
       const sprite = new THREE.Sprite(material);
-      sprite.position.set(block.x, -block.y + 32, ISOMETRIC_DEPTH_BASE + block.sortY * ISOMETRIC_DEPTH_STEP);
+      const startY=Number.isFinite(block.startY)?block.startY:block.y;
+      sprite.position.set(block.x, -startY + 32, ISOMETRIC_DEPTH_BASE + block.sortY * ISOMETRIC_DEPTH_STEP);
       sprite.scale.set(64, 64, 1);
       blockRoot.add(sprite);
-      blockEntries.set(block.id, { sprite, material });
+      blockEntries.set(block.id, { sprite, material, startY, targetY:block.y, fallStartedAt:performance.now(), duration:Math.min(850,300+Math.abs(block.y-startY)*7) });
     });
   }
+
+  function updateBlocks(){const now=performance.now();blockEntries.forEach((entry)=>{if(entry.startY===entry.targetY)return;const progress=Math.min(1,(now-entry.fallStartedAt)/entry.duration);const eased=progress*progress;const screenY=THREE.MathUtils.lerp(entry.startY,entry.targetY,eased);entry.sprite.position.y=-screenY+32;if(progress===1)entry.startY=entry.targetY;});}
 
   function setMobs(mobs = [], selectedMobId = null) {
     const nextIds = new Set(mobs.map((mob) => mob.id));
@@ -448,6 +486,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
     const delta = timer.getDelta();
     const elapsed = timer.getElapsed();
     updatePlayers(elapsed);
+    updateBlocks();
     updateMobs(elapsed);
     updateResources(elapsed);
     entries.forEach((entry) => {
@@ -469,7 +508,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       disposed = true;
       generation += 1;
       releaseEntries();
-      playerEntries.forEach((entry) => entry.model?.dispose());
+      playerEntries.forEach((entry) => {entry.model?.dispose();[entry.shadow,entry.nameplate].forEach((overlay)=>{overlay?.texture.dispose();overlay?.material.dispose();});});
       playerEntries.clear();
       mobEntries.forEach((entry) => disposeModel(entry.model.root));
       mobEntries.clear();

@@ -6,6 +6,7 @@
     "license": "MIT",
     "scripts": {
         "dev": "vite --config vite/config.dev.mjs",
+        "class-host": "powershell -ExecutionPolicy Bypass -File tools/start-local-class-game.ps1",
         "build": "vite build --config vite/config.prod.mjs",
         "dev-nolog": "vite --config vite/config.dev.mjs",
         "build-nolog": "vite build --config vite/config.prod.mjs"

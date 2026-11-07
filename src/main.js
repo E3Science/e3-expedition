@@ -4260,6 +4260,17 @@ function createStandaloneAnimalsFromMap() {
       ecosystemState: "local simulation"
     });
   }));
+  if (!mobs.length) {
+    [
+      [9,10,"herbivore","herbivore_a",1],
+      [15,13,"herbivore","herbivore_b",1],
+      [22,17,"herbivore","herbivore_d",2],
+      [29,20,"carnivore","carnivore_c",2]
+    ].forEach(([tileX,tileY,kind,speciesKey,tier],index)=>{
+      const homeX=tileToWorldX(tileX)+TILE_SIZE/2;const homeY=tileToWorldY(tileY)+TILE_SIZE/2;
+      mobs.push({id:`local-box-animal-${index}`,mapKey:currentMapKey,kind,tier,speciesKey,x:homeX,y:homeY,homeX,homeY,facing:index%2?"left":"right",state:"walk",phase:index*1.37,esm:20,maxEsm:20,ecosystemState:"local simulation"});
+    });
+  }
   applyRuntimeMobSnapshot({ mapKey: currentMapKey, mobs });
 }
 
@@ -4354,8 +4365,8 @@ function updateStandalonePlayer() {
   const vertical = Number(!!standaloneInput.down) - Number(!!standaloneInput.up);
   if (!horizontal && !vertical) return;
   const deltaSeconds = Math.min(0.05, Math.max(0, Number(sceneRef.game?.loop?.delta) || 16.67) / 1000);
-  const diagonalScale = horizontal && vertical ? Math.SQRT1_2 : 1;
-  const distance = 125 * deltaSeconds * diagonalScale * (Number(standaloneInput.speedScale) || 1);
+  const projectedMagnitude = Math.hypot((horizontal-vertical)*0.5,(horizontal+vertical)*0.25);
+  const distance = projectedMagnitude ? 70 * deltaSeconds * (Number(standaloneInput.speedScale) || 1) / projectedMagnitude : 0;
   const nextX = Math.min(ROOM_OFFSET_X + getCurrentRoomWorldWidth(), Math.max(ROOM_OFFSET_X, player.x + horizontal * distance));
   const nextY = Math.min(ROOM_OFFSET_Y + getCurrentRoomWorldHeight(), Math.max(ROOM_OFFSET_Y, player.y + vertical * distance));
   if (!blockSystem || blockSystem.canMoveTo(nextX, player.y, blockSystem.isJumping())) player.x = nextX;
@@ -4409,6 +4420,8 @@ function syncWorld3DPlayers() {
       id,
       x: displayPosition.x,
       y: displayPosition.y - offsets.floor - offsets.jump,
+      surfaceY: displayPosition.y - offsets.floor,
+      name: player.name || "Player",
       sortY: displayPosition.y,
       direction: entry.lastDirection || "down",
       moving: isPlayerMoving(player),
@@ -5037,6 +5050,9 @@ function update() {
     setPlayerScreenPosition(entry, player.x ?? 100, player.y ?? 100, id === myId);
     updatePlayerSprite(sceneRef, entry, player, id);
     entry.container.setVisible(!worldPortalLayer);
+    entry.shadow.setVisible(!worldPortalLayer);
+    entry.ring?.setVisible(!worldPortalLayer);
+    entry.label.setVisible(!worldPortalLayer);
 
     entry.label.setText(player.name || "Player");
   });

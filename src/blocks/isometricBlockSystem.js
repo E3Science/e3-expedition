@@ -86,6 +86,7 @@ export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGrid
   let active = false;
   let selectedMaterial = "dirt";
   let jumpStartedAt = 0;
+  let jumpStartFloorOffset = 0;
   let visualFloorOffset = 0;
   let fallVelocity = 0;
   let lastVerticalUpdateAt = performance.now();
@@ -103,7 +104,7 @@ export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGrid
   });
 
   const storageKey = () => `e3:block-world:v1:${getMapKey() || "default"}`;
-  const save = () => localStorage.setItem(storageKey(), JSON.stringify([...blocks.values()]));
+  const save = () => localStorage.setItem(storageKey(), JSON.stringify([...blocks.values()].map(({fallFromZ,...block})=>block)));
   const settleBlocks = () => {
     const columns = new Map();
     [...blocks.values()].sort((a,b)=>a.z-b.z).forEach((block) => {
@@ -113,7 +114,9 @@ export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGrid
     });
     blocks.clear();
     columns.forEach((column) => column.forEach((block, index) => {
+      const previousZ=block.z;
       block.z = index + 1;
+      if(previousZ>block.z)block.fallFromZ=Math.max(block.fallFromZ||0,previousZ);
       delete block.rotation;
       if (block.z <= MAX_BUILD_LAYER) blocks.set(blockKey(block.x, block.y, block.z), block);
     }));
@@ -131,10 +134,10 @@ export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGrid
       const textureKey=createBlockTexture(scene,atlasKey,material);const sprite=scene.add.image(display.x,display.y-(block.z-1)*BLOCK_RISE,textureKey);
       sprite.setOrigin(.5,1);sprite.setDepth(10+display.y*.001+block.z*.0001);sprite.setAlpha(syncWorldBlocks?0.001:1);sprite.setData("e3Block",block);sprites.set(blockKey(block.x,block.y,block.z),sprite);
     });
-    if(syncWorldBlocks){syncWorldBlocks([...sprites.values()].map((sprite)=>({id:blockKey(sprite.getData("e3Block").x,sprite.getData("e3Block").y,sprite.getData("e3Block").z),x:sprite.x,y:sprite.y,sortY:tileToDisplayPosition(sprite.getData("e3Block").x,sprite.getData("e3Block").y).y,canvas:scene.textures.get(sprite.texture.key).getSourceImage()})));}
+    if(syncWorldBlocks){syncWorldBlocks([...sprites.values()].map((sprite)=>{const block=sprite.getData("e3Block");const display=tileToDisplayPosition(block.x,block.y);return {id:blockKey(block.x,block.y,block.z),x:sprite.x,y:sprite.y,startY:display.y-((block.fallFromZ||block.z)-1)*BLOCK_RISE,sortY:display.y,canvas:scene.textures.get(sprite.texture.key).getSourceImage()};}));blocks.forEach((block)=>delete block.fallFromZ);}
   }
 
-  function place(tileX,tileY,targetZ=1) { const size=getGridSize();if(tileX<0||tileY<0||tileX>=size.width||tileY>=size.height)return;const z=Math.max(1,Math.min(MAX_BUILD_LAYER,targetZ));if(blocks.has(blockKey(tileX,tileY,z)))return;const block={x:tileX,y:tileY,z,material:selectedMaterial};blocks.set(blockKey(tileX,tileY,z),block);settleBlocks();save();render(); }
+  function place(tileX,tileY,targetZ=1) { const size=getGridSize();if(tileX<0||tileY<0||tileX>=size.width||tileY>=size.height)return;const z=Math.max(1,Math.min(MAX_BUILD_LAYER,targetZ));if(blocks.has(blockKey(tileX,tileY,z)))return;const block={x:tileX,y:tileY,z,material:selectedMaterial,fallFromZ:Math.min(MAX_BUILD_LAYER+1,z+1)};blocks.set(blockKey(tileX,tileY,z),block);settleBlocks();save();render(); }
   function destroy(tileX,tileY,z) { const targetZ=z||terrainHeight(tileX,tileY);if(targetZ&&blocks.delete(blockKey(tileX,tileY,targetZ))){settleBlocks();save();render();} }
   function pick(tileX,tileY,z) { const block=blocks.get(blockKey(tileX,tileY,z||terrainHeight(tileX,tileY)));if(block){selectedMaterial=block.material;refreshToolbar();} }
   const pointInPolygon=(x,y,points)=>points.reduce((inside,[xi,yi],index)=>{const [xj,yj]=points[(index+points.length-1)%points.length];return ((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi)?!inside:inside;},false);
@@ -143,9 +146,10 @@ export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGrid
   function terrainHeight(tileX,tileY) { let height=0;for(let z=1;z<=MAX_BUILD_LAYER;z+=1){const block=blocks.get(blockKey(tileX,tileY,z));if(!block||!materialByKey.get(block.material)?.solid)break;height=z;}return height; }
   function hasClearance(tileX,tileY,floor) { for(let z=floor+1;z<=Math.min(MAX_BUILD_LAYER,floor+2);z+=1){const block=blocks.get(blockKey(tileX,tileY,z));if(block&&materialByKey.get(block.material)?.solid)return false;}return true; }
   function getFootprintTiles(worldX,worldY) { const samples=[[0,0],[-PLAYER_COLLISION_RADIUS,0],[PLAYER_COLLISION_RADIUS,0],[0,-PLAYER_COLLISION_RADIUS],[0,PLAYER_COLLISION_RADIUS]];const unique=new Map();samples.forEach(([dx,dy])=>{const tile=logicalWorldToTilePosition(worldX+dx,worldY+dy);if(tile)unique.set(`${tile.tileX}:${tile.tileY}`,tile);});return [...unique.values()]; }
+  function getSupportFloorOffset(worldX,worldY){const tiles=getFootprintTiles(worldX,worldY);return Math.max(0,...tiles.map((tile)=>terrainHeight(tile.tileX,tile.tileY)))*BLOCK_RISE;}
   function canMoveTo(worldX,worldY,jumping=false) { const player=getPlayer();if(!player)return false;const currentTile=logicalWorldToTilePosition(player.x,player.y);const targetTiles=getFootprintTiles(worldX,worldY);if(!currentTile||!targetTiles.length)return false;const currentFloor=terrainHeight(currentTile.tileX,currentTile.tileY);const targetFloor=Math.max(0,...targetTiles.map((tile)=>terrainHeight(tile.tileX,tile.tileY)));if(targetFloor-currentFloor>(jumping?1:.15))return false;return targetTiles.every((tile)=>hasClearance(tile.tileX,tile.tileY,terrainHeight(tile.tileX,tile.tileY))); }
-  function requestJump() { const player=getPlayer();if(jumpStartedAt||!player)return;jumpStartedAt=performance.now(); }
-  function getPlayerOffsets(worldX,worldY) { const tile=logicalWorldToTilePosition(worldX,worldY);const targetFloorOffset=(tile?terrainHeight(tile.tileX,tile.tileY):0)*BLOCK_RISE;const now=performance.now();const dt=Math.min(.05,Math.max(0,(now-lastVerticalUpdateAt)/1000));lastVerticalUpdateAt=now;if(targetFloorOffset>=visualFloorOffset){visualFloorOffset=targetFloorOffset;fallVelocity=0;}else{fallVelocity+=FALL_ACCELERATION*dt;visualFloorOffset=Math.max(targetFloorOffset,visualFloorOffset-fallVelocity*dt);if(visualFloorOffset===targetFloorOffset)fallVelocity=0;}let jump=0;if(jumpStartedAt){const elapsed=(now-jumpStartedAt)/JUMP_DURATION_MS;if(elapsed>=1)jumpStartedAt=0;else jump=Math.sin(elapsed*Math.PI)*JUMP_HEIGHT;}return {floor:visualFloorOffset,jump}; }
+  function requestJump() { const player=getPlayer();if(jumpStartedAt||!player)return;jumpStartFloorOffset=getSupportFloorOffset(player.x,player.y);visualFloorOffset=jumpStartFloorOffset;fallVelocity=0;jumpStartedAt=performance.now(); }
+  function getPlayerOffsets(worldX,worldY) { const targetFloorOffset=getSupportFloorOffset(worldX,worldY);const now=performance.now();const dt=Math.min(.05,Math.max(0,(now-lastVerticalUpdateAt)/1000));lastVerticalUpdateAt=now;if(jumpStartedAt){const elapsed=(now-jumpStartedAt)/JUMP_DURATION_MS;if(elapsed<1){const delta=targetFloorOffset-jumpStartFloorOffset;const desiredElevation=jumpStartFloorOffset+delta*elapsed+Math.sin(elapsed*Math.PI)*Math.max(0,JUMP_HEIGHT-delta/2);visualFloorOffset=targetFloorOffset;return {floor:targetFloorOffset,jump:desiredElevation-targetFloorOffset};}jumpStartedAt=0;visualFloorOffset=targetFloorOffset;fallVelocity=0;}if(targetFloorOffset>=visualFloorOffset){visualFloorOffset=targetFloorOffset;fallVelocity=0;}else{fallVelocity+=FALL_ACCELERATION*dt;visualFloorOffset=Math.max(targetFloorOffset,visualFloorOffset-fallVelocity*dt);if(visualFloorOffset===targetFloorOffset)fallVelocity=0;}return {floor:visualFloorOffset,jump:0}; }
   function toggle(force) { active=typeof force==="boolean"?force:!active;toolbar.hidden=!active;refreshToolbar();return active; }
 
   const handleKey = (event) => {

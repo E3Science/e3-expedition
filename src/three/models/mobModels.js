@@ -288,17 +288,31 @@ function createBlueCat() {
   return { root, legs };
 }
 
-const BUILDERS = {
-  herbivore_a: createTardigradeSlug,
-  herbivore_b: createBunnyElephant,
-  herbivore_c: createBumbleCreature,
-  herbivore_d: createDuckCat,
-  carnivore_a: createTentacledShell,
-  carnivore_b: createMosquitoCreature,
-  carnivore_c: createColorLizard,
-  apex_predator_a: createFrogRaccoon,
-  apex_predator_b: createBlueCat
+const BOXY_PALETTES = {
+  herbivore_a:[0x76d2a4,0xb6f0cd,0x29465a],herbivore_b:[0x9fc8f5,0xf2b7d2,0x3b4965],
+  herbivore_c:[0xf4d565,0x72d8c8,0x30384b],herbivore_d:[0x93d987,0xf6dfa0,0x46526d],
+  carnivore_a:[0xd75a45,0x49b9c8,0x4a1835],carnivore_b:[0xc93655,0x42cbd3,0x192033],
+  carnivore_c:[0x7443c2,0xf17442,0x252b44],apex_predator_a:[0x355d50,0x824d78,0x111724],
+  apex_predator_b:[0x244b7d,0x36a1ba,0x080d18]
 };
+
+function createBoxyCreature(speciesKey) {
+  const root=new THREE.Group();const legs=[];const colors=BOXY_PALETTES[speciesKey]||BOXY_PALETTES.herbivore_a;
+  const body=material(colors[0],{roughness:.78});const accent=material(colors[1],{emissive:colors[1],roughness:.68});const dark=material(colors[2],{roughness:.82});
+  root.add(mesh(new THREE.BoxGeometry(1.85,1.0,.92),body,[0,.86,0]));
+  root.add(mesh(new THREE.BoxGeometry(.92,.9,.88),accent,[1.18,1.08,0]));
+  root.add(mesh(new THREE.BoxGeometry(.46,.34,.72),dark,[1.78,.92,0]));
+  [-1,1].forEach((side)=>{const ear=mesh(new THREE.BoxGeometry(.24,.56,.22),accent,[1.08,1.76,side*.29],[0,0,side*.12]);root.add(ear);});
+  [-.6,.55].forEach((x)=>[-1,1].forEach((side)=>{const pivot=new THREE.Group();pivot.position.set(x,.42,side*.32);pivot.add(mesh(new THREE.BoxGeometry(.36,.88,.36),dark,[0,-.42,0]));root.add(pivot);legs.push(pivot);}));
+  const eyeSurface=material(0xeafcff,{emissive:0x76ffff,roughness:.25});
+  [-1,1].forEach((side)=>root.add(mesh(new THREE.BoxGeometry(.16,.18,.08),eyeSurface,[1.63,1.27,side*.47])));
+  root.add(mesh(new THREE.BoxGeometry(1.0,.22,.24),accent,[-1.35,1.05,0],[0,0,.34]));
+  if(speciesKey.includes("carnivore")||speciesKey.includes("apex"))[-1,1].forEach((side)=>root.add(mesh(new THREE.BoxGeometry(.14,.46,.14),dark,[1.38,1.76,side*.2],[0,0,side*.28])));
+  if(speciesKey==="herbivore_c")root.add(mesh(new THREE.BoxGeometry(.9,.12,1.5),accent,[-.1,1.45,0]));
+  return {root,legs};
+}
+
+const BUILDERS = Object.fromEntries(Object.keys(BOXY_PALETTES).map((key)=>[key,()=>createBoxyCreature(key)]));
 
 /** Canonical editable source for all procedural 3D mob variants. */
 export function createMobModel(kind = "herbivore", tier = 1, speciesKey = "") {
