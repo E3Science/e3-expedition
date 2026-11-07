@@ -4368,8 +4368,10 @@ function updateStandalonePlayer() {
   const projectedMagnitude = Math.hypot((horizontal-vertical)*0.5,(horizontal+vertical)*0.25);
   const distance = projectedMagnitude ? 35 * deltaSeconds * (Number(standaloneInput.speedScale) || 1) / projectedMagnitude : 0;
   const startX=player.x;const startY=player.y;
-  const nextX = Math.min(ROOM_OFFSET_X + getCurrentRoomWorldWidth(), Math.max(ROOM_OFFSET_X, startX + horizontal * distance));
-  const nextY = Math.min(ROOM_OFFSET_Y + getCurrentRoomWorldHeight(), Math.max(ROOM_OFFSET_Y, startY + vertical * distance));
+  const minX=ROOM_OFFSET_X+TILE_SIZE/2;const minY=ROOM_OFFSET_Y+TILE_SIZE/2;
+  const maxX=ROOM_OFFSET_X+getCurrentRoomWorldWidth()-TILE_SIZE/2;const maxY=ROOM_OFFSET_Y+getCurrentRoomWorldHeight()-TILE_SIZE/2;
+  const nextX = Math.min(maxX, Math.max(minX, startX + horizontal * distance));
+  const nextY = Math.min(maxY, Math.max(minY, startY + vertical * distance));
   if(!blockSystem){player.x=nextX;player.y=nextY;}else{const resolved=blockSystem.resolveMovement(startX,startY,nextX-startX,nextY-startY,blockSystem.isJumping());player.x=resolved.x;player.y=resolved.y;}
 }
 
@@ -4377,12 +4379,14 @@ function updateStandaloneAnimals(elapsedSeconds) {
   if (!standaloneWorld) return;
   Object.values(latestRuntimeMobSnapshot).forEach((mob) => {
     if (!mob?.homeX && !mob?.homeY) return;
-    const phase = elapsedSeconds * 0.42 + Number(mob.phase || 0);
-    const radius = TILE_SIZE * (1.3 + Number(mob.tier || 1) * 0.35);
-    const nextX = mob.homeX + Math.cos(phase) * radius;
-    const nextY = mob.homeY + Math.sin(phase * 0.83) * radius * 0.65;
-    mob.facing = nextX < mob.x ? "left" : "right";
-    if(blockSystem){const resolved=blockSystem.resolveEntityMovement(mob.x,mob.y,nextX-mob.x,nextY-mob.y,5);mob.x=resolved.x;mob.y=resolved.y;}else{mob.x=nextX;mob.y=nextY;}
+    const previous=Number(mob.lastMoveAt)||elapsedSeconds;const dt=Math.min(.05,Math.max(0,elapsedSeconds-previous));mob.lastMoveAt=elapsedSeconds;
+    if(!Number.isFinite(mob.heading))mob.heading=Number(mob.phase)||0;
+    const homeDx=mob.homeX-mob.x;const homeDy=mob.homeY-mob.y;const homeDistance=Math.hypot(homeDx,homeDy);const roamRadius=TILE_SIZE*(1.8+Number(mob.tier||1)*.3);
+    if(homeDistance>roamRadius)mob.heading=Math.atan2(homeDy,homeDx);else mob.heading+=Math.sin(elapsedSeconds*.37+Number(mob.phase||0))*.012;
+    const step=24*dt;const dx=Math.cos(mob.heading)*step;const dy=Math.sin(mob.heading)*step;const beforeX=mob.x;const beforeY=mob.y;
+    if(blockSystem){const resolved=blockSystem.resolveEntityMovement(beforeX,beforeY,dx,dy,5);mob.x=resolved.x;mob.y=resolved.y;}else{mob.x=beforeX+dx;mob.y=beforeY+dy;}
+    if(Math.hypot(mob.x-beforeX,mob.y-beforeY)<step*.25)mob.heading+=Math.PI*.55;
+    mob.facing = mob.x < beforeX ? "left" : "right";
     mob.state = "walk";
   });
 }
@@ -4415,13 +4419,14 @@ function syncWorld3DPlayers() {
     if (!entry) return;
     const displayPosition = logicalWorldToDisplay(player.x ?? 0, player.y ?? 0);
     const offsets = id === myId ? (blockSystem?.getPlayerOffsets?.(player.x ?? 0, player.y ?? 0) || { floor: 0, jump: 0 }) : { floor: 0, jump: 0 };
+    const supportDisplay=offsets.supportTile?tileToDisplayPosition(offsets.supportTile.tileX,offsets.supportTile.tileY):displayPosition;
     worldPlayers.push({
       id,
       x: displayPosition.x,
       y: displayPosition.y - offsets.floor - offsets.jump,
       surfaceY: displayPosition.y - offsets.floor,
       name: player.name || "Player",
-      sortY: displayPosition.y,
+      sortY: supportDisplay.y,
       direction: entry.lastDirection || "down",
       moving: isPlayerMoving(player),
       actionActive: isServerPlayerActionActive(player) || isPlayerActionActive(entry),
@@ -10795,12 +10800,14 @@ function refreshRoomFrameGraphics(scene) {
 function refreshCameraBounds(scene) {
   if (!scene?.cameras?.main) return;
 
+  const tileWidth=getCurrentRoomTileWidth();
+  const tileHeight=getCurrentRoomTileHeight();
   const worldLeft = ROOM_OFFSET_X;
   const worldTop = isIsometricMode()
-    ? ROOM_OFFSET_Y - ISO_TILE_HEIGHT / 2
+    ? ROOM_OFFSET_Y - ISO_TILE_HEIGHT
     : ROOM_OFFSET_Y;
-  const worldWidth = getCurrentRoomWorldWidth();
-  const worldHeight = getCurrentRoomWorldHeight();
+  const worldWidth = isIsometricMode()?(tileWidth+tileHeight)*(ISO_TILE_WIDTH/2):getCurrentRoomWorldWidth();
+  const worldHeight = isIsometricMode()?(tileWidth+tileHeight)*(ISO_TILE_HEIGHT/2)+ISO_TILE_HEIGHT:getCurrentRoomWorldHeight();
 
   console.log("CAMERA BOUNDS:", {
     worldLeft,
