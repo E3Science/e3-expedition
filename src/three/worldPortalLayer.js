@@ -40,7 +40,7 @@ function createPlayerNameplate(name) {
   const canvas = document.createElement("canvas");
   canvas.width = 256;canvas.height = 48;
   const overlay=createOverlaySprite(canvas,128,24,3001);
-  const draw=(value)=>{const ctx=canvas.getContext("2d");ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle="rgba(10,16,24,.82)";ctx.fillRect(4,4,248,40);ctx.strokeStyle="rgba(114,230,209,.75)";ctx.lineWidth=2;ctx.strokeRect(4,4,248,40);ctx.fillStyle="#fff";ctx.font="bold 24px sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(String(value||"Player").slice(0,20),128,24);overlay.texture.needsUpdate=true;};
+  const draw=(value)=>{const ctx=canvas.getContext("2d");ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle="rgba(10,16,24,.55)";ctx.fillRect(4,4,248,40);ctx.strokeStyle="rgba(114,230,209,.62)";ctx.lineWidth=2;ctx.strokeRect(4,4,248,40);ctx.fillStyle="#fff";ctx.font="bold 24px sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(String(value||"Player").slice(0,20),128,24);overlay.texture.needsUpdate=true;};
   draw(name);return {...overlay,draw};
 }
 
@@ -223,7 +223,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       entry.root.position.z = ISOMETRIC_DEPTH_BASE + (entry.sortY || entry.y) * ISOMETRIC_DEPTH_STEP + 0.45;
       entry.root.scale.set(scale, scale, 0.5);
       entry.shadow.sprite.position.set(entry.x,-entry.surfaceY-4,1900);
-      entry.nameplate.sprite.position.set(entry.x,-entry.y+48,1901);
+      entry.nameplate.sprite.position.set(entry.x,-entry.y+76,1901);
 
       const directionRotations = {
         down: 0,

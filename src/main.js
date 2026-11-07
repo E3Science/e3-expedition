@@ -4367,10 +4367,12 @@ function updateStandalonePlayer() {
   const deltaSeconds = Math.min(0.05, Math.max(0, Number(sceneRef.game?.loop?.delta) || 16.67) / 1000);
   const projectedMagnitude = Math.hypot((horizontal-vertical)*0.5,(horizontal+vertical)*0.25);
   const distance = projectedMagnitude ? 70 * deltaSeconds * (Number(standaloneInput.speedScale) || 1) / projectedMagnitude : 0;
-  const nextX = Math.min(ROOM_OFFSET_X + getCurrentRoomWorldWidth(), Math.max(ROOM_OFFSET_X, player.x + horizontal * distance));
-  const nextY = Math.min(ROOM_OFFSET_Y + getCurrentRoomWorldHeight(), Math.max(ROOM_OFFSET_Y, player.y + vertical * distance));
-  if (!blockSystem || blockSystem.canMoveTo(nextX, player.y, blockSystem.isJumping())) player.x = nextX;
-  if (!blockSystem || blockSystem.canMoveTo(player.x, nextY, blockSystem.isJumping())) player.y = nextY;
+  const startX=player.x;const startY=player.y;
+  const nextX = Math.min(ROOM_OFFSET_X + getCurrentRoomWorldWidth(), Math.max(ROOM_OFFSET_X, startX + horizontal * distance));
+  const nextY = Math.min(ROOM_OFFSET_Y + getCurrentRoomWorldHeight(), Math.max(ROOM_OFFSET_Y, startY + vertical * distance));
+  if (!blockSystem || blockSystem.canMoveTo(nextX,nextY,blockSystem.isJumping())) {player.x=nextX;player.y=nextY;}
+  else if(blockSystem.canMoveTo(nextX,startY,blockSystem.isJumping()))player.x=nextX;
+  else if(blockSystem.canMoveTo(startX,nextY,blockSystem.isJumping()))player.y=nextY;
 }
 
 function updateStandaloneAnimals(elapsedSeconds) {
@@ -5006,22 +5008,13 @@ function update() {
   const isScreenDiagonal =
     (keyboardInput.left || keyboardInput.right) &&
     (keyboardInput.up || keyboardInput.down);
-  const isScreenHorizontal =
-    isIsometricMode() &&
-    (keyboardInput.left || keyboardInput.right) &&
-    !keyboardInput.up &&
-    !keyboardInput.down;
   const editorMode =
     isAdminUser() &&
     (tileEditorEnabled || metadataEditorEnabled || objectEditorEnabled);
   const inputMessage = {
     ...input,
     editorMode,
-    speedScale: isScreenDiagonal
-      ? Math.SQRT1_2
-      : isScreenHorizontal
-        ? 0.5
-        : 1
+    speedScale: isScreenDiagonal ? Math.SQRT1_2 : 1
   };
 
   if (
