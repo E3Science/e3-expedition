@@ -4366,7 +4366,8 @@ function updateStandalonePlayer() {
   if (!horizontal && !vertical) return;
   const deltaSeconds = Math.min(0.05, Math.max(0, Number(sceneRef.game?.loop?.delta) || 16.67) / 1000);
   const projectedMagnitude = Math.hypot((horizontal-vertical)*0.5,(horizontal+vertical)*0.25);
-  const distance = projectedMagnitude ? 35 * deltaSeconds * (Number(standaloneInput.speedScale) || 1) / projectedMagnitude : 0;
+  const jumpScale = blockSystem?.isJumping?.() ? 0.68 : 1;
+  const distance = projectedMagnitude ? 35 * deltaSeconds * (Number(standaloneInput.speedScale) || 1) * jumpScale / projectedMagnitude : 0;
   const startX=player.x;const startY=player.y;
   const minX=ROOM_OFFSET_X+TILE_SIZE/2;const minY=ROOM_OFFSET_Y+TILE_SIZE/2;
   const maxX=ROOM_OFFSET_X+getCurrentRoomWorldWidth()-TILE_SIZE/2;const maxY=ROOM_OFFSET_Y+getCurrentRoomWorldHeight()-TILE_SIZE/2;
@@ -4427,6 +4428,7 @@ function syncWorld3DPlayers() {
       surfaceY: displayPosition.y - offsets.floor,
       name: player.name || "Player",
       sortY: supportDisplay.y,
+      elevation: offsets.elevation || 0,
       direction: entry.lastDirection || "down",
       moving: isPlayerMoving(player),
       actionActive: isServerPlayerActionActive(player) || isPlayerActionActive(entry),
@@ -5017,7 +5019,7 @@ function update() {
   const inputMessage = {
     ...input,
     editorMode,
-    speedScale: isScreenDiagonal ? Math.SQRT1_2 : 1
+    speedScale: isScreenDiagonal ? 1.12 : 1
   };
 
   if (

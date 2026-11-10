@@ -209,6 +209,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       entry.moving = !!player.moving;
       entry.actionActive = !!player.actionActive;
       entry.sortY = player.sortY ?? entry.y;
+      entry.elevation = player.elevation ?? 0;
       entry.surfaceY = player.surfaceY ?? entry.y;
       if(entry.name!==player.name){entry.name=player.name;entry.nameplate.draw(player.name);}
     });
@@ -220,7 +221,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       const modelBottom = -2.14;
       entry.root.position.x = entry.x;
       entry.root.position.y = -entry.y - modelBottom * scale;
-      entry.root.position.z = ISOMETRIC_DEPTH_BASE + (entry.sortY || entry.y) * ISOMETRIC_DEPTH_STEP + 0.45;
+      entry.root.position.z = ISOMETRIC_DEPTH_BASE + (entry.sortY || entry.y) * ISOMETRIC_DEPTH_STEP + entry.elevation * 0.1 + 0.05;
       entry.root.scale.set(scale, scale, 0.5);
       entry.shadow.sprite.position.set(entry.x,-entry.surfaceY-4,1900);
       entry.nameplate.sprite.position.set(entry.x,-entry.y+76,1901);
@@ -266,7 +267,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       const material = new THREE.SpriteMaterial({ map: texture, transparent: true, alphaTest: 0.02 });
       const sprite = new THREE.Sprite(material);
       const startY=Number.isFinite(block.startY)?block.startY:block.y;
-      sprite.position.set(block.x, -startY + 32, ISOMETRIC_DEPTH_BASE + block.sortY * ISOMETRIC_DEPTH_STEP);
+      sprite.position.set(block.x, -startY + 32, ISOMETRIC_DEPTH_BASE + block.sortY * ISOMETRIC_DEPTH_STEP + (block.z || 1) * 0.1);
       sprite.scale.set(64, 64, 1);
       blockRoot.add(sprite);
       blockEntries.set(block.id, { sprite, material, startY, targetY:block.y, fallStartedAt:performance.now(), duration:Math.min(850,300+Math.abs(block.y-startY)*7) });
