@@ -3930,10 +3930,13 @@ function syncWorld3DEntities() {
   if (!worldPortalLayer) return;
   const projectEntity = (entity) => {
     const displayPosition = logicalWorldToDisplay(entity.x ?? 0, entity.y ?? 0);
+    const supportDisplay=entity.blockSupportTile?tileToDisplayPosition(entity.blockSupportTile.tileX,entity.blockSupportTile.tileY):displayPosition;
     return {
       ...entity,
       x: displayPosition.x,
-      y: displayPosition.y
+      y: displayPosition.y-(entity.blockFloor||0)-(entity.blockJump||0),
+      sortY:supportDisplay.y,
+      elevation:entity.blockElevation||0
     };
   };
   worldPortalLayer.setMobs(
@@ -4387,7 +4390,7 @@ function updateStandaloneAnimals(elapsedSeconds) {
     const homeDx=mob.homeX-mob.x;const homeDy=mob.homeY-mob.y;const homeDistance=Math.hypot(homeDx,homeDy);const roamRadius=TILE_SIZE*(1.8+Number(mob.tier||1)*.3);
     if(homeDistance>roamRadius)mob.heading=Math.atan2(homeDy,homeDx);else mob.heading+=Math.sin(elapsedSeconds*.37+Number(mob.phase||0))*.012;
     const step=24*dt;const dx=Math.cos(mob.heading)*step;const dy=Math.sin(mob.heading)*step;const beforeX=mob.x;const beforeY=mob.y;
-    if(blockSystem){const resolved=blockSystem.resolveEntityMovement(beforeX,beforeY,dx,dy,5);mob.x=resolved.x;mob.y=resolved.y;}else{mob.x=beforeX+dx;mob.y=beforeY+dy;}
+    if(blockSystem){const resolved=blockSystem.updateEntityPhysics(mob.id,beforeX,beforeY,dx,dy,5);mob.x=resolved.x;mob.y=resolved.y;mob.blockFloor=resolved.floor;mob.blockJump=resolved.jump;mob.blockSupportTile=resolved.supportTile;mob.blockElevation=resolved.elevation;}else{mob.x=beforeX+dx;mob.y=beforeY+dy;}
     if(Math.hypot(mob.x-beforeX,mob.y-beforeY)<step*.25)mob.heading+=Math.PI*.55;
     mob.facing = mob.x < beforeX ? "left" : "right";
     mob.state = "walk";

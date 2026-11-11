@@ -15,12 +15,12 @@ function disposeModel(root) {
   });
 }
 
-function createOverlaySprite(canvas, width, height, renderOrder) {
+function createOverlaySprite(canvas, width, height, renderOrder, depthTest = false) {
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.magFilter = THREE.NearestFilter;
   texture.minFilter = THREE.LinearFilter;
-  const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false });
+  const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest, depthWrite: false });
   const sprite = new THREE.Sprite(material);
   sprite.scale.set(width, height, 1);
   sprite.renderOrder = renderOrder;
@@ -33,7 +33,7 @@ function createPlayerShadow() {
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "rgba(0,0,0,.34)";
   ctx.beginPath();ctx.ellipse(48,20,34,11,0,0,Math.PI*2);ctx.fill();
-  return createOverlaySprite(canvas, 42, 18, 3000);
+  return createOverlaySprite(canvas, 42, 18, 0, true);
 }
 
 function createPlayerNameplate(name) {
@@ -223,7 +223,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       entry.root.position.y = -entry.y - modelBottom * scale;
       entry.root.position.z = ISOMETRIC_DEPTH_BASE + (entry.sortY || entry.y) * ISOMETRIC_DEPTH_STEP + entry.elevation * 0.1 + 0.05;
       entry.root.scale.set(scale, scale, 0.5);
-      entry.shadow.sprite.position.set(entry.x,-entry.surfaceY-4,1900);
+      entry.shadow.sprite.position.set(entry.x,-entry.surfaceY-4,entry.root.position.z-0.01);
       entry.nameplate.sprite.position.set(entry.x,-entry.y+76,1901);
 
       const directionRotations = {
@@ -307,6 +307,8 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       entry.x = mob.x ?? 0;
       entry.y = mob.y ?? 0;
       entry.facing = mob.facing || "right";
+      entry.sortY = mob.sortY ?? entry.y;
+      entry.elevation = mob.elevation ?? 0;
       entry.moving = mob.state === "walk";
       entry.incapacitated = !!mob.incapacitated;
       entry.selected = mob.id === selectedMobId;
@@ -316,7 +318,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
   function updateMobs(elapsed) {
     mobEntries.forEach((entry) => {
       const scale = entry.kind === "apex_predator" ? 9.5 : entry.kind === "carnivore" ? 8.2 : 7.5;
-      entry.root.position.set(entry.x, -entry.y + 1.15 * scale, entry.selected ? 14 : 9);
+      entry.root.position.set(entry.x, -entry.y + 1.15 * scale, ISOMETRIC_DEPTH_BASE + (entry.sortY || entry.y) * ISOMETRIC_DEPTH_STEP + entry.elevation * 0.1 + 0.04);
       entry.root.scale.setScalar(scale * (entry.selected ? 1.08 : 1));
       entry.model.root.rotation.y = entry.facing === "left" ? Math.PI : 0;
       entry.model.root.rotation.z = entry.incapacitated ? -Math.PI / 2 : 0;
