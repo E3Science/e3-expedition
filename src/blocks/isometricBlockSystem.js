@@ -173,9 +173,9 @@ export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGrid
     if (event.code === "Space" && enabled()) { event.preventDefault();requestJump();return; }
     if (!active) return;
   };
-  window.addEventListener("keydown",handleKey);
+  window.addEventListener("keydown",handleKey,true);
 
   toolbar.querySelector("[data-close]").addEventListener("click",()=>toggle(false));toolbar.querySelector("[data-clear]").addEventListener("click",()=>{if(confirm("Remove all placed blocks from this map?")){blocks.clear();save();render();}});
   load();refreshToolbar();
-  return { toggle, isActive:()=>active, isJumping:()=>!!jumpStartedAt, isFalling:()=>fallActive, handlePointer, render, load, requestJump, getPlayerOffsets, canMoveTo, resolveMovement, resolveEntityMovement:(x,y,dx,dy,radius=5)=>resolveMovement(x,y,dx,dy,false,radius,false), terrainHeight, destroy:()=>{window.removeEventListener("keydown",handleKey);toolbar.remove();syncWorldBlocks?.([]);sprites.forEach((sprite)=>sprite.destroy());sprites.clear();groundSprites.forEach((sprite)=>sprite.destroy());groundSprites.length=0;} };
+  return { toggle, isActive:()=>active, isJumping:()=>!!jumpStartedAt, isFalling:()=>fallActive, handlePointer, render, load, requestJump, getPlayerOffsets, canMoveTo, resolveMovement, resolveEntityMovement:(x,y,dx,dy,radius=5)=>resolveMovement(x,y,dx,dy,false,radius,false), terrainHeight, destroy:()=>{window.removeEventListener("keydown",handleKey,true);toolbar.remove();syncWorldBlocks?.([]);sprites.forEach((sprite)=>sprite.destroy());sprites.clear();groundSprites.forEach((sprite)=>sprite.destroy());groundSprites.length=0;} };
 }

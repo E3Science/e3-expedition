@@ -339,6 +339,8 @@ let myId = null;
 let cursors;
 let movementKeys = null;
 let interactKey;
+let jumpKey;
+let jumpKeyWasDown = false;
 let joined = false;
 let standaloneWorld = false;
 let standaloneInput = { left: false, right: false, up: false, down: false, speedScale: 1 };
@@ -4632,6 +4634,8 @@ function create() {
 
   cursors = this.input.keyboard.createCursorKeys();
   interactKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+  jumpKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+  this.input.keyboard.addCapture(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
   exportTileMapKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.H);
   resetTileMapKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.O);
@@ -4774,6 +4778,12 @@ Keyboard behavior:
 */
 
 function update() {
+  const jumpIsDown = !!jumpKey?.isDown || !!cursors?.space?.isDown;
+  if (jumpIsDown && !jumpKeyWasDown && !isTypingInUi() && !isGameplayModalActive()) {
+    blockSystem?.requestJump?.();
+  }
+  jumpKeyWasDown = jumpIsDown;
+
   if (!isGameplayModalActive()) {
     handleHotbarKeyInput();
   }
