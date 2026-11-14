@@ -17,11 +17,12 @@ each column after placement or removal so unsupported blocks drop downward.
 
 The expanded builder also includes four terrain blocks drawn from the cyan
 mountain top, blue-violet mountain face, coral mountain face, and indigo large
-cliff top frames. Compact flora samples retain their original transparent
+cliff top frames. Incomplete source frames are repaired into full-height solid
+cubes without adding a separate base block. Compact flora samples retain their original transparent
 sprites and have no collision, allowing players and mobs to pass through them.
 Habitat glass/wall/lab/console blocks and selected expedition furniture are also
-available. Furniture occupies two collision levels even though it renders one
-block tall, so players cannot stack on or jump onto it. Water and portal blocks
+available. Furniture renders by itself inside an invisible cell and occupies
+two collision levels, so players cannot stack on or jump onto it. Water and portal blocks
 are translucent and animated.
 
 Accessibility settings include player/mob dithering and improved translucent

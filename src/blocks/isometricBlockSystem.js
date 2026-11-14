@@ -18,17 +18,17 @@ export const BLOCK_MATERIALS = [
   ["crate", "Storage crate", 12, true], ["cave", "Cave stone", 13, true],
   ["alien", "Alien soil", 14, true], ["portal", "Portal block", 15, false]
 ].map(([key, label, frame, solid]) => ({ key, label, frame, solid })).concat([
-  {key:"biome_cyan",label:"Cyan fungal mountain top",frame:14,solid:true,kind:"biome",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/biome-cyan/cyan_mountain_top.png"},
+  {key:"biome_cyan",label:"Cyan fungal mountain top",frame:14,solid:true,kind:"biome",asset:"assets/blocks/cyan-fungal-solid-cube-v2.png"},
   {key:"biome_violet",label:"Blue-violet moss face",frame:15,solid:true,kind:"biome",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/biome-violet/violet_mountain_face.png"},
-  {key:"biome_coral",label:"Coral mineral face",frame:3,solid:true,kind:"biome",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/biome-coral/coral_mountain_face.png"},
-  {key:"biome_indigo",label:"Indigo large cliff top",frame:13,solid:true,kind:"biome",asset:"assets/blocks/indigo-large-cliff-top-frame-242.png"},
+  {key:"biome_coral",label:"Coral mineral face",frame:3,solid:true,kind:"biome",asset:"assets/blocks/coral-mineral-solid-cube-v2.png"},
+  {key:"biome_indigo",label:"Indigo large cliff top",frame:13,solid:true,kind:"biome",asset:"assets/blocks/indigo-volcanic-solid-cube-v2.png"},
   {key:"flora_cyan",label:"Cyan fungal flora",frame:14,solid:false,kind:"plant",nonStackable:true,asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/flora-cyan-violet-v2/cyan_flora_01.png"},
   {key:"flora_violet",label:"Blue-violet flora",frame:15,solid:false,kind:"plant",nonStackable:true,asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/flora-cyan-violet-v2/violet_flora_01.png"},
-  {key:"flora_coral",label:"Coral mineral flora",frame:3,solid:false,kind:"plant",nonStackable:true,asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/flora-coral-indigo-v2/coral_flora_01.png"},
+  {key:"flora_coral",label:"Coral mineral flora",frame:3,solid:false,kind:"plant",nonStackable:true,asset:"assets/blocks/coral-flora-clean-v2.png"},
   {key:"flora_indigo",label:"Indigo volcanic flora",frame:13,solid:false,kind:"plant",nonStackable:true,asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/flora-coral-indigo-v2/indigo_flora_01.png"},
   ...[
     ["supply_crate","Sealed supply crate","cargo_supply_crate.png"],["power_generator","Compact power generator","hardware_generator.png"],["atmosphere_processor","Atmospheric processor","hardware_atmosphere_processor.png"],["water_recycler","Water recycler","hardware_water_recycler.png"],["communications_rack","Communications rack","hardware_communications_rack.png"],["oxygen_rack","Oxygen cylinder rack","hardware_oxygen_rack.png"],["liquid_tank","Liquid storage tanks","hardware_liquid_tank.png"],["work_light","Portable work light","hardware_work_light.png"],["tool_cart","Tool cart","hardware_tool_cart.png"],["hose_bundle","Hose and cable bundle","hardware_hose_bundle.png"],["maintenance_robot","Maintenance robot","hardware_maintenance_robot.png"]
-  ].map(([key,label,file])=>({key,label,frame:10,solid:true,kind:"prop",nonStackable:true,asset:`assets/tiles/isometric/alien-expansion/collection-v2/individual/hardware-cargo/${file}`})),
+  ].map(([key,label,file])=>({key,label,frame:10,solid:true,kind:"furniture",nonStackable:true,asset:`assets/tiles/isometric/alien-expansion/collection-v2/individual/hardware-cargo/${file}`})),
   {key:"glass",label:"Framed glass block",frame:10,solid:true,kind:"glass",transparent:true},
   {key:"laboratory",label:"Laboratory block",frame:10,solid:true,kind:"prop",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/habitat-interior/interior_lab_bench.png"},
   {key:"command_console",label:"Command console",frame:11,solid:true,kind:"prop",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/habitat-interior/interior_command_console.png"},
@@ -37,6 +37,8 @@ export const BLOCK_MATERIALS = [
 
 const materialByKey = new Map(BLOCK_MATERIALS.map((entry) => [entry.key, entry]));
 const blockKey = (x, y, z) => `${x}:${y}:${z}`;
+
+function drawContainedAsset(ctx,asset,padding=2){const probe=document.createElement("canvas");probe.width=asset.width;probe.height=asset.height;const probeCtx=probe.getContext("2d");probeCtx.drawImage(asset,0,0);const pixels=probeCtx.getImageData(0,0,probe.width,probe.height).data;let minX=probe.width,minY=probe.height,maxX=-1,maxY=-1;for(let y=0;y<probe.height;y+=1){for(let x=0;x<probe.width;x+=1){if(pixels[(y*probe.width+x)*4+3]>8){minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);}}}if(maxX<minX)return;const width=maxX-minX+1;const height=maxY-minY+1;const scale=Math.min((BLOCK_SIZE-padding*2)/width,(BLOCK_SIZE-padding*2)/height);const drawWidth=width*scale;const drawHeight=height*scale;ctx.drawImage(asset,minX,minY,width,height,(BLOCK_SIZE-drawWidth)/2,(BLOCK_SIZE-drawHeight)/2,drawWidth,drawHeight);}
 
 function createBlockTexture(scene, atlasKey, material) {
   const key = `e3_block_${material.key}`;
@@ -56,9 +58,9 @@ function createBlockTexture(scene, atlasKey, material) {
   textureCtx.imageSmoothingEnabled = false;
   textureCtx.drawImage(source, sourceX, sourceY, cell, cell, 0, 0, 32, 32);
 
-  if(material.kind==="biome"||material.kind==="plant"){
+  if(material.kind==="biome"||material.kind==="plant"||material.kind==="furniture"){
     const asset=scene.textures.get(`e3_block_asset_${material.key}`)?.getSourceImage?.();
-    if(asset)ctx.drawImage(asset,0,0,BLOCK_SIZE,BLOCK_SIZE);
+    if(asset){if(material.kind==="furniture")drawContainedAsset(ctx,asset);else ctx.drawImage(asset,0,0,BLOCK_SIZE,BLOCK_SIZE);}
     scene.textures.addCanvas(key,canvas);return key;
   }
 
