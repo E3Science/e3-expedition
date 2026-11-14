@@ -273,8 +273,8 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       if(block.animated){texture.wrapS=THREE.RepeatWrapping;texture.wrapT=THREE.RepeatWrapping;}
       const sprite = new THREE.Sprite(material);
       const startY=Number.isFinite(block.startY)?block.startY:block.y;
-      sprite.position.set(block.x, -startY + 32, ISOMETRIC_DEPTH_BASE + block.sortY * ISOMETRIC_DEPTH_STEP + (block.z || 1) * 0.1);
-      sprite.scale.set(64, 64, 1);
+      const width=Number(block.width)||64;const height=Number(block.height)||64;sprite.position.set(block.x, -startY + height/2, ISOMETRIC_DEPTH_BASE + block.sortY * ISOMETRIC_DEPTH_STEP + (block.z || 1) * 0.1);
+      sprite.scale.set(block.flipX?-width:width, height, 1);
       blockRoot.add(sprite);
       material.alphaHash=!!block.transparent&&improvedTransparencyEnabled;blockEntries.set(block.id, { sprite, material, baseOpacity, isTransparent:!!block.transparent, animated:!!block.animated, phase:block.materialKey==="portal"?Math.PI:0, startY, targetY:block.y, fallStartedAt:performance.now(), duration:Math.min(850,300+Math.abs(block.y-startY)*7) });
     });

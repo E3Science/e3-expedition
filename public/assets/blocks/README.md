@@ -35,5 +35,7 @@ layering for overlapping glass, water, and portal blocks.
 Water yields samples instead of being removed. Exposed generated dirt is
 re-covered by a falling grass block after 30 seconds. Tree sprouts mature into
 block trees, and cutting a trunk releases their floating leaf rings. The habitat
-kit places a 5×5×4 modular shell; press `R` before placement to switch its door
-between southeast and southwest, then enter the doorway to reach the lab.
+kit places one unified 5×5×4 modular habitat sprite and collision footprint;
+press `R` before placement to switch its door between southeast and southwest,
+then enter the doorway to reach the lab. Older assembled habitats are migrated
+to the unified structure automatically when their saved world loads.
