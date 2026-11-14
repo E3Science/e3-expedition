@@ -8,7 +8,7 @@ The first-pass block builder is available in the Original E3 World:
 - Left click: place the selected block on the clicked ground or block surface
 - Right click: destroy the clicked block
 - Middle click: pick a placed block's material
-- `Space`: jump one block high and climb no more than one elevation step; travel distance comes from the natural jump duration and movement speed
+- `Space`, `Shift`, or `Z`: jump one block high and climb no more than one elevation step. `Shift` and `Z` provide alternatives for keyboards that cannot report particular three-key arrow/Space combinations.
 
 Layer 0 is an unbreakable dirt bed. Layers 1–5 hold generated and buildable
 blocks. Version 2 worlds generate grass, protected water, ore-bearing mountains,
