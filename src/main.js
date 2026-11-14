@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import { Client, Callbacks } from "@colyseus/sdk";
-import { createIsometricBlockSystem } from "./blocks/isometricBlockSystem";
+import { BLOCK_MATERIALS, createIsometricBlockSystem } from "./blocks/isometricBlockSystem";
 
 const ADMIN_EMAIL = "mnelsen@susd.net";
 const DEFAULT_CLASS_SERVERS = [];
@@ -443,6 +443,8 @@ let toggleProfileUiKey = null;
 let astronautPreview = null;
 let settingsOverlay = null;
 let tradesEnabled = true;
+let playerMobDitheringEnabled = localStorage.getItem("e3:player-mob-dithering") !== "false";
+let improvedTransparencyEnabled = localStorage.getItem("e3:improved-transparency") !== "false";
 let otherPlayerProfilePanel = null;
 let activeOtherPlayerProfile = null;
 let tradeRequestOverlay = null;
@@ -2864,6 +2866,7 @@ function preload() {
     "assets/events/alien-artifact/alien-artifact-event.png"
   );
   this.load.image(BLOCK_MATERIAL_ATLAS_KEY, "assets/blocks/e3-block-material-atlas-v1.png");
+  BLOCK_MATERIALS.filter((material)=>material.asset).forEach((material)=>this.load.image(`e3_block_asset_${material.key}`,material.asset));
 }
 
 /*
@@ -4570,6 +4573,8 @@ function create() {
     getCamera: () => sceneRef?.cameras?.main,
     modelUrl: OBJECT_3D_MODEL_URLS[11]
   });
+  worldPortalLayer?.setDitheringEnabled?.(playerMobDitheringEnabled);
+  worldPortalLayer?.setImprovedTransparencyEnabled?.(improvedTransparencyEnabled);
   worldOverheadLayer = createWorldOverheadLayer({
     container: document.getElementById("app"),
     phaserCanvas: game.canvas,
@@ -13367,6 +13372,8 @@ function createSettingsWindow() {
     sendRoomMessage("set_trade_settings", { enabled: tradesEnabled });
   });
   tradeRow.append(copy, toggle);
+  const ditherRow=tradeRow.cloneNode(false);const ditherCopy=document.createElement("span");ditherCopy.innerHTML="<strong>Player and mob dithering</strong><br><small>Fade models and blocks where they overlap so clipped characters remain visible.</small>";const ditherToggle=document.createElement("input");ditherToggle.type="checkbox";ditherToggle.id="player-mob-dithering-setting";ditherToggle.checked=playerMobDitheringEnabled;ditherToggle.style.width="22px";ditherToggle.style.height="22px";ditherToggle.addEventListener("change",()=>{playerMobDitheringEnabled=ditherToggle.checked;localStorage.setItem("e3:player-mob-dithering",String(playerMobDitheringEnabled));worldPortalLayer?.setDitheringEnabled?.(playerMobDitheringEnabled);});ditherRow.append(ditherCopy,ditherToggle);
+  const transparencyRow=tradeRow.cloneNode(false);const transparencyCopy=document.createElement("span");transparencyCopy.innerHTML="<strong>Improve transparency</strong><br><small>Use stable dithered layering for overlapping glass, water, and portal blocks.</small>";const transparencyToggle=document.createElement("input");transparencyToggle.type="checkbox";transparencyToggle.id="improved-transparency-setting";transparencyToggle.checked=improvedTransparencyEnabled;transparencyToggle.style.width="22px";transparencyToggle.style.height="22px";transparencyToggle.addEventListener("change",()=>{improvedTransparencyEnabled=transparencyToggle.checked;localStorage.setItem("e3:improved-transparency",String(improvedTransparencyEnabled));worldPortalLayer?.setImprovedTransparencyEnabled?.(improvedTransparencyEnabled);});transparencyRow.append(transparencyCopy,transparencyToggle);
   const logoutButton = document.createElement("button");
   logoutButton.textContent = "Log out";
   logoutButton.style.width = "100%";
@@ -13384,7 +13391,7 @@ function createSettingsWindow() {
       window.location.reload();
     }
   });
-  dialog.append(header, tradeRow, logoutButton);
+  dialog.append(header, tradeRow, ditherRow, transparencyRow, logoutButton);
   settingsOverlay.appendChild(dialog);
   uiRoot.appendChild(settingsOverlay);
 }
@@ -13393,6 +13400,8 @@ function openSettingsWindow() {
   createSettingsWindow();
   const toggle = settingsOverlay?.querySelector?.("#allow-trades-setting");
   if (toggle) toggle.checked = tradesEnabled;
+  const ditherToggle=settingsOverlay?.querySelector?.("#player-mob-dithering-setting");if(ditherToggle)ditherToggle.checked=playerMobDitheringEnabled;
+  const transparencyToggle=settingsOverlay?.querySelector?.("#improved-transparency-setting");if(transparencyToggle)transparencyToggle.checked=improvedTransparencyEnabled;
   if (settingsOverlay) settingsOverlay.style.display = "flex";
 }
 

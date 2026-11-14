@@ -17,7 +17,23 @@ export const BLOCK_MATERIALS = [
   ["panel", "Utility panel", 10, true], ["computer", "Computer", 11, true],
   ["crate", "Storage crate", 12, true], ["cave", "Cave stone", 13, true],
   ["alien", "Alien soil", 14, true], ["portal", "Portal block", 15, false]
-].map(([key, label, frame, solid]) => ({ key, label, frame, solid }));
+].map(([key, label, frame, solid]) => ({ key, label, frame, solid })).concat([
+  {key:"biome_cyan",label:"Cyan fungal biome",frame:14,solid:true,kind:"biome",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/base-biomes/base_cyan_01.png"},
+  {key:"biome_violet",label:"Blue-violet moss biome",frame:15,solid:true,kind:"biome",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/base-biomes/base_violet_01.png"},
+  {key:"biome_coral",label:"Coral mineral biome",frame:3,solid:true,kind:"biome",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/base-biomes/base_coral_01.png"},
+  {key:"biome_indigo",label:"Indigo volcanic biome",frame:13,solid:true,kind:"biome",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/base-biomes/base_indigo_01.png"},
+  {key:"flora_cyan",label:"Cyan fungal flora",frame:14,solid:true,kind:"plant",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/flora-cyan-violet-v2/cyan_flora_01.png"},
+  {key:"flora_violet",label:"Blue-violet flora",frame:15,solid:true,kind:"plant",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/flora-cyan-violet-v2/violet_flora_01.png"},
+  {key:"flora_coral",label:"Coral mineral flora",frame:3,solid:true,kind:"plant",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/flora-coral-indigo-v2/coral_flora_01.png"},
+  {key:"flora_indigo",label:"Indigo volcanic flora",frame:13,solid:true,kind:"plant",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/flora-coral-indigo-v2/indigo_flora_01.png"},
+  ...[
+    ["supply_crate","Sealed supply crate","cargo_supply_crate.png"],["power_generator","Compact power generator","hardware_generator.png"],["atmosphere_processor","Atmospheric processor","hardware_atmosphere_processor.png"],["water_recycler","Water recycler","hardware_water_recycler.png"],["communications_rack","Communications rack","hardware_communications_rack.png"],["oxygen_rack","Oxygen cylinder rack","hardware_oxygen_rack.png"],["liquid_tank","Liquid storage tanks","hardware_liquid_tank.png"],["work_light","Portable work light","hardware_work_light.png"],["tool_cart","Tool cart","hardware_tool_cart.png"],["hose_bundle","Hose and cable bundle","hardware_hose_bundle.png"],["maintenance_robot","Maintenance robot","hardware_maintenance_robot.png"]
+  ].map(([key,label,file])=>({key,label,frame:10,solid:true,kind:"prop",nonStackable:true,asset:`assets/tiles/isometric/alien-expansion/collection-v2/individual/hardware-cargo/${file}`})),
+  {key:"glass",label:"Framed glass block",frame:10,solid:true,kind:"glass",transparent:true},
+  {key:"laboratory",label:"Laboratory block",frame:10,solid:true,kind:"prop",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/habitat-interior/interior_lab_bench.png"},
+  {key:"command_console",label:"Command console",frame:11,solid:true,kind:"prop",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/habitat-interior/interior_command_console.png"},
+  {key:"habitat_wall",label:"Habitat wall",frame:10,solid:true,kind:"prop",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/habitat-exterior/habitat_command_middle.png"}
+]);
 
 const materialByKey = new Map(BLOCK_MATERIALS.map((entry) => [entry.key, entry]));
 const blockKey = (x, y, z) => `${x}:${y}:${z}`;
@@ -40,6 +56,12 @@ function createBlockTexture(scene, atlasKey, material) {
   textureCtx.imageSmoothingEnabled = false;
   textureCtx.drawImage(source, sourceX, sourceY, cell, cell, 0, 0, 32, 32);
 
+  if(material.kind==="glass"){
+    ctx.fillStyle="rgba(102,225,238,.18)";ctx.beginPath();ctx.moveTo(0,16);ctx.lineTo(32,0);ctx.lineTo(64,16);ctx.lineTo(64,48);ctx.lineTo(32,64);ctx.lineTo(0,48);ctx.closePath();ctx.fill();
+    ctx.strokeStyle="#8feaf0";ctx.lineWidth=3;[[[0,16],[32,0],[64,16],[64,48],[32,64],[0,48],[0,16]],[[0,16],[32,32],[64,16]],[[32,32],[32,64]]].forEach((line)=>{ctx.beginPath();ctx.moveTo(...line[0]);line.slice(1).forEach((point)=>ctx.lineTo(...point));ctx.stroke();});
+    scene.textures.addCanvas(key,canvas);return key;
+  }
+
   const drawFace = (points, shade) => {
     ctx.save();
     ctx.beginPath();
@@ -51,6 +73,7 @@ function createBlockTexture(scene, atlasKey, material) {
   drawFace([[0,16],[32,32],[32,64],[0,48]], "rgba(8,20,35,.28)");
   drawFace([[32,32],[64,16],[64,48],[32,64]], "rgba(0,5,15,.42)");
   drawFace([[0,16],[32,0],[64,16],[32,32]], "rgba(255,255,255,.04)");
+  if(material.asset){const asset=scene.textures.get(`e3_block_asset_${material.key}`)?.getSourceImage?.();if(asset){if(material.kind==="biome"){ctx.save();ctx.beginPath();ctx.moveTo(0,16);ctx.lineTo(32,0);ctx.lineTo(64,16);ctx.lineTo(32,32);ctx.closePath();ctx.clip();ctx.drawImage(asset,0,-32,64,64);ctx.restore();}else{ctx.drawImage(asset,6,-8,52,52);}}}
   scene.textures.addCanvas(key, canvas);
   return key;
 }
@@ -102,6 +125,7 @@ export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGrid
   let fallVelocity = 0;
   let fallActive = false;
   let lastVerticalUpdateAt = performance.now();
+  let spaceKeyCaptured = false;
   const toolbar = document.createElement("aside");
   toolbar.className = "block-builder-panel";
   toolbar.hidden = true;
@@ -111,7 +135,7 @@ export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGrid
   const materialsRoot = toolbar.querySelector(".block-materials");
   BLOCK_MATERIALS.filter((material) => material.key !== "bedrock").forEach((material) => {
     const button = document.createElement("button");button.type = "button";button.dataset.material = material.key;button.title = material.label;
-    button.innerHTML = `<i style="--atlas-x:${material.frame % 4};--atlas-y:${Math.floor(material.frame / 4)}"></i><span>${material.label}</span>`;
+    button.innerHTML = `<i style="--atlas-x:${material.frame % 4};--atlas-y:${Math.floor(material.frame / 4)};${material.asset?`background-image:url('/${material.asset}');background-size:contain;background-position:center;background-repeat:no-repeat`:""}"></i><span>${material.label}</span>`;
     button.addEventListener("click", () => { selectedMaterial = material.key; refreshToolbar(); });materialsRoot.appendChild(button);
   });
 
@@ -146,16 +170,16 @@ export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGrid
       const textureKey=createBlockTexture(scene,atlasKey,material);const sprite=scene.add.image(display.x,display.y-(block.z-1)*BLOCK_RISE,textureKey);
       sprite.setOrigin(.5,1);sprite.setDepth(10+display.y*.001+block.z*.0001);sprite.setAlpha(syncWorldBlocks?0.001:1);sprite.setData("e3Block",block);sprites.set(blockKey(block.x,block.y,block.z),sprite);
     });
-    if(syncWorldBlocks){syncWorldBlocks([...sprites.values()].map((sprite)=>{const block=sprite.getData("e3Block");const display=tileToDisplayPosition(block.x,block.y);return {id:blockKey(block.x,block.y,block.z),x:sprite.x,y:sprite.y,z:block.z,startY:display.y-((block.fallFromZ||block.z)-1)*BLOCK_RISE,sortY:display.y,canvas:scene.textures.get(sprite.texture.key).getSourceImage()};}));blocks.forEach((block)=>delete block.fallFromZ);}
+    if(syncWorldBlocks){syncWorldBlocks([...sprites.values()].map((sprite)=>{const block=sprite.getData("e3Block");const material=materialByKey.get(block.material);const display=tileToDisplayPosition(block.x,block.y);return {id:blockKey(block.x,block.y,block.z),x:sprite.x,y:sprite.y,z:block.z,startY:display.y-((block.fallFromZ||block.z)-1)*BLOCK_RISE,sortY:display.y,canvas:scene.textures.get(sprite.texture.key).getSourceImage(),materialKey:block.material,transparent:!!material?.transparent||block.material==="water"||block.material==="portal",animated:block.material==="water"||block.material==="portal"};}));blocks.forEach((block)=>delete block.fallFromZ);}
   }
 
-  function place(tileX,tileY,targetZ=1) { const size=getGridSize();if(tileX<0||tileY<0||tileX>=size.width||tileY>=size.height)return;const z=Math.max(1,Math.min(MAX_BUILD_LAYER,targetZ));if(blocks.has(blockKey(tileX,tileY,z)))return;const block={x:tileX,y:tileY,z,material:selectedMaterial,fallFromZ:Math.min(MAX_BUILD_LAYER+1,z+1)};blocks.set(blockKey(tileX,tileY,z),block);settleBlocks();save();render(); }
+  function place(tileX,tileY,targetZ=1) { const size=getGridSize();if(tileX<0||tileY<0||tileX>=size.width||tileY>=size.height)return;const z=Math.max(1,Math.min(MAX_BUILD_LAYER,targetZ));if(blocks.has(blockKey(tileX,tileY,z)))return;const below=blocks.get(blockKey(tileX,tileY,z-1));if(below&&materialByKey.get(below.material)?.nonStackable)return;const block={x:tileX,y:tileY,z,material:selectedMaterial,fallFromZ:Math.min(MAX_BUILD_LAYER+1,z+1)};blocks.set(blockKey(tileX,tileY,z),block);settleBlocks();save();render(); }
   function destroy(tileX,tileY,z) { const targetZ=z||terrainHeight(tileX,tileY);if(targetZ&&blocks.delete(blockKey(tileX,tileY,targetZ))){settleBlocks();save();render();} }
   function pick(tileX,tileY,z) { const block=blocks.get(blockKey(tileX,tileY,z||terrainHeight(tileX,tileY)));if(block){selectedMaterial=block.material;refreshToolbar();} }
   const pointInPolygon=(x,y,points)=>points.reduce((inside,[xi,yi],index)=>{const [xj,yj]=points[(index+points.length-1)%points.length];return ((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi)?!inside:inside;},false);
   function getClickedFace(pointer){for(const sprite of [...sprites.values()].sort((a,b)=>b.depth-a.depth)){const left=sprite.x-BLOCK_SIZE/2;const top=sprite.y-BLOCK_SIZE;const x=pointer.worldX-left;const y=pointer.worldY-top;if(x<0||x>BLOCK_SIZE||y<0||y>BLOCK_SIZE)continue;const faces={top:[[0,16],[32,0],[64,16],[32,32]],left:[[0,16],[32,32],[32,64],[0,48]],right:[[32,32],[64,16],[64,48],[32,64]]};for(const face of ["top","left","right"]){if(pointInPolygon(x,y,faces[face]))return {block:sprite.getData("e3Block"),face};}}return null;}
   function handlePointer(pointer) { if(!active||!enabled())return false;if(pointer.event?.target?.closest?.(".block-builder-panel"))return true;const hit=getClickedFace(pointer);const tile=hit?.block||pointerToTilePosition(pointer.worldX,pointer.worldY);if(!tile)return true;const tileX=hit?.block.x??tile.tileX;const tileY=hit?.block.y??tile.tileY;if(pointer.rightButtonDown())destroy(tileX,tileY,hit?.block.z);else if(pointer.middleButtonDown())pick(tileX,tileY,hit?.block.z);else if(pointer.leftButtonDown()){if(!hit)place(tileX,tileY,1);else if(hit.face==="top")place(tileX,tileY,hit.block.z+1);else if(hit.face==="left")place(tileX,tileY+1,hit.block.z);else place(tileX+1,tileY,hit.block.z);}return true; }
-  function terrainHeight(tileX,tileY) { let height=0;for(let z=1;z<=MAX_BUILD_LAYER;z+=1){const block=blocks.get(blockKey(tileX,tileY,z));if(!block||!materialByKey.get(block.material)?.solid)break;height=z;}return height; }
+  function terrainHeight(tileX,tileY) { let height=0;let topMaterial=null;for(let z=1;z<=MAX_BUILD_LAYER;z+=1){const block=blocks.get(blockKey(tileX,tileY,z));if(!block||!materialByKey.get(block.material)?.solid)break;height=z;topMaterial=materialByKey.get(block.material);}return height+(topMaterial?.nonStackable?1:0); }
   function hasClearance(tileX,tileY,floor) { for(let z=floor+1;z<=Math.min(MAX_BUILD_LAYER,floor+2);z+=1){const block=blocks.get(blockKey(tileX,tileY,z));if(block&&materialByKey.get(block.material)?.solid)return false;}return true; }
   function getFootprintTiles(worldX,worldY) { const samples=[[0,0],[-PLAYER_COLLISION_RADIUS,0],[PLAYER_COLLISION_RADIUS,0],[0,-PLAYER_COLLISION_RADIUS],[0,PLAYER_COLLISION_RADIUS]];const unique=new Map();samples.forEach(([dx,dy])=>{const tile=logicalWorldToTilePosition(worldX+dx,worldY+dy);if(tile)unique.set(`${tile.tileX}:${tile.tileY}`,tile);});return [...unique.values()]; }
   function ensureElevation(worldX,worldY){const tile=logicalWorldToTilePosition(worldX,worldY);if(currentElevation===null){currentElevation=tile?terrainHeight(tile.tileX,tile.tileY):0;currentSupportTile=tile;}return tile;}
@@ -185,12 +209,14 @@ export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGrid
   const handleKey = (event) => {
     if (["INPUT","TEXTAREA","SELECT"].includes(document.activeElement?.tagName)) return;
     if (event.code === "KeyV" && enabled()) { event.preventDefault();toggle();return; }
-    if (event.code === "Space" && enabled()) { event.preventDefault();requestJump();return; }
+    if (event.code === "Space" && enabled()) { event.preventDefault();spaceKeyCaptured=true;requestJump();return; }
     if (!active) return;
   };
   window.addEventListener("keydown",handleKey,true);
+  const handleKeyUp=(event)=>{if(event.code!=="Space")return;if(enabled()&&!spaceKeyCaptured)requestJump();spaceKeyCaptured=false;};
+  window.addEventListener("keyup",handleKeyUp,true);
 
   toolbar.querySelector("[data-close]").addEventListener("click",()=>toggle(false));toolbar.querySelector("[data-clear]").addEventListener("click",()=>{if(confirm("Remove all placed blocks from this map?")){blocks.clear();save();render();}});
   load();refreshToolbar();
-  return { toggle, isActive:()=>active, isJumping:()=>!!jumpStartedAt, isFalling:()=>fallActive, handlePointer, render, load, requestJump, getPlayerOffsets, updateEntityPhysics, canMoveTo, resolveMovement, resolveEntityMovement:(x,y,dx,dy,radius=5)=>resolveMovement(x,y,dx,dy,false,radius,false), terrainHeight, destroy:()=>{window.removeEventListener("keydown",handleKey,true);toolbar.remove();syncWorldBlocks?.([]);sprites.forEach((sprite)=>sprite.destroy());sprites.clear();groundSprites.forEach((sprite)=>sprite.destroy());groundSprites.length=0;} };
+  return { toggle, isActive:()=>active, isJumping:()=>!!jumpStartedAt, isFalling:()=>fallActive, handlePointer, render, load, requestJump, getPlayerOffsets, updateEntityPhysics, canMoveTo, resolveMovement, resolveEntityMovement:(x,y,dx,dy,radius=5)=>resolveMovement(x,y,dx,dy,false,radius,false), terrainHeight, destroy:()=>{window.removeEventListener("keydown",handleKey,true);window.removeEventListener("keyup",handleKeyUp,true);toolbar.remove();syncWorldBlocks?.([]);sprites.forEach((sprite)=>sprite.destroy());sprites.clear();groundSprites.forEach((sprite)=>sprite.destroy());groundSprites.length=0;} };
 }

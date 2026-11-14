@@ -100,6 +100,8 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
   const mobEntries = new Map();
   const resourceEntries = new Map();
   const blockEntries = new Map();
+  let ditheringEnabled = localStorage.getItem("e3:player-mob-dithering") !== "false";
+  let improvedTransparencyEnabled = localStorage.getItem("e3:improved-transparency") !== "false";
 
   function releaseEntries() {
     entries.forEach((entry) => {
@@ -216,6 +218,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
   }
 
   function updatePlayers(elapsed) {
+    blockEntries.forEach((block)=>{block.material.opacity=block.baseOpacity;block.material.alphaHash=block.isTransparent&&improvedTransparencyEnabled;});
     playerEntries.forEach((entry) => {
       const scale = 12.5;
       const modelBottom = -2.14;
@@ -225,6 +228,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       entry.root.scale.set(scale, scale, 0.5);
       entry.shadow.sprite.position.set(entry.x,-entry.surfaceY-4,entry.root.position.z-0.01);
       entry.nameplate.sprite.position.set(entry.x,-entry.y+76,1901);
+      let clipped=false;if(ditheringEnabled){blockEntries.forEach((block)=>{const overlaps=Math.abs(entry.x-block.sprite.position.x)<28&&Math.abs(entry.surfaceY-block.targetY)<38&&block.sprite.position.z>entry.root.position.z;if(overlaps){block.material.opacity=Math.min(block.baseOpacity,.46);block.material.alphaHash=true;clipped=true;}});}
 
       const directionRotations = {
         down: 0,
@@ -238,6 +242,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       };
       const targetRotation = directionRotations[entry.direction] ?? 0;
       if (!entry.model) return;
+      entry.model.root.traverse((object)=>{if(!object.material)return;object.material.transparent=clipped;object.material.opacity=clipped ? .68 : 1;object.material.alphaHash=clipped;});
       const angleDelta = Math.atan2(
         Math.sin(targetRotation - entry.model.root.rotation.y),
         Math.cos(targetRotation - entry.model.root.rotation.y)
@@ -264,17 +269,18 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       texture.colorSpace = THREE.SRGBColorSpace;
       texture.magFilter = THREE.NearestFilter;
       texture.minFilter = THREE.NearestFilter;
-      const material = new THREE.SpriteMaterial({ map: texture, transparent: true, alphaTest: 0.02 });
+      const baseOpacity=block.transparent ? .68 : 1;const material = new THREE.SpriteMaterial({ map: texture, transparent:true,opacity:baseOpacity,depthWrite:!block.transparent,alphaTest:block.transparent?0:.02 });
+      if(block.animated){texture.wrapS=THREE.RepeatWrapping;texture.wrapT=THREE.RepeatWrapping;}
       const sprite = new THREE.Sprite(material);
       const startY=Number.isFinite(block.startY)?block.startY:block.y;
       sprite.position.set(block.x, -startY + 32, ISOMETRIC_DEPTH_BASE + block.sortY * ISOMETRIC_DEPTH_STEP + (block.z || 1) * 0.1);
       sprite.scale.set(64, 64, 1);
       blockRoot.add(sprite);
-      blockEntries.set(block.id, { sprite, material, startY, targetY:block.y, fallStartedAt:performance.now(), duration:Math.min(850,300+Math.abs(block.y-startY)*7) });
+      material.alphaHash=!!block.transparent&&improvedTransparencyEnabled;blockEntries.set(block.id, { sprite, material, baseOpacity, isTransparent:!!block.transparent, animated:!!block.animated, phase:block.materialKey==="portal"?Math.PI:0, startY, targetY:block.y, fallStartedAt:performance.now(), duration:Math.min(850,300+Math.abs(block.y-startY)*7) });
     });
   }
 
-  function updateBlocks(){const now=performance.now();blockEntries.forEach((entry)=>{if(entry.startY===entry.targetY)return;const progress=Math.min(1,(now-entry.fallStartedAt)/entry.duration);const eased=progress*progress;const screenY=THREE.MathUtils.lerp(entry.startY,entry.targetY,eased);entry.sprite.position.y=-screenY+32;if(progress===1)entry.startY=entry.targetY;});}
+  function updateBlocks(){const now=performance.now();blockEntries.forEach((entry)=>{if(entry.animated){entry.material.map.offset.x=Math.sin(now*.0022+entry.phase)*.045;entry.material.map.offset.y=Math.cos(now*.0017+entry.phase)*.018;}if(entry.startY===entry.targetY)return;const progress=Math.min(1,(now-entry.fallStartedAt)/entry.duration);const eased=progress*progress;const screenY=THREE.MathUtils.lerp(entry.startY,entry.targetY,eased);entry.sprite.position.y=-screenY+32;if(progress===1)entry.startY=entry.targetY;});}
 
   function setMobs(mobs = [], selectedMobId = null) {
     const nextIds = new Set(mobs.map((mob) => mob.id));
@@ -319,10 +325,12 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
     mobEntries.forEach((entry) => {
       const scale = entry.kind === "apex_predator" ? 9.5 : entry.kind === "carnivore" ? 8.2 : 7.5;
       entry.root.position.set(entry.x, -entry.y + 1.15 * scale, ISOMETRIC_DEPTH_BASE + (entry.sortY || entry.y) * ISOMETRIC_DEPTH_STEP + entry.elevation * 0.1 + 0.04);
+      let clipped=false;if(ditheringEnabled){blockEntries.forEach((block)=>{const overlaps=Math.abs(entry.x-block.sprite.position.x)<28&&Math.abs(entry.y-block.targetY)<38&&block.sprite.position.z>entry.root.position.z;if(overlaps){block.material.opacity=Math.min(block.baseOpacity,.46);block.material.alphaHash=true;clipped=true;}});}
       entry.root.scale.setScalar(scale * (entry.selected ? 1.08 : 1));
       entry.model.root.rotation.y = entry.facing === "left" ? Math.PI : 0;
       entry.model.root.rotation.z = entry.incapacitated ? -Math.PI / 2 : 0;
       entry.model.root.traverse((object) => {
+        if(object.material){object.material.transparent=clipped;object.material.opacity=clipped ? .68 : 1;object.material.alphaHash=clipped;}
         if (!object.material?.emissive) return;
         object.material.emissive.set(entry.selected ? 0x155e78 : 0x000000);
         object.material.emissiveIntensity = entry.selected ? 1.4 : 0;
@@ -506,6 +514,8 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
     setMobs,
     setResources,
     setInteractionState,
+    setDitheringEnabled(value){ditheringEnabled=!!value;},
+    setImprovedTransparencyEnabled(value){improvedTransparencyEnabled=!!value;blockEntries.forEach((block)=>{block.material.alphaHash=block.isTransparent&&improvedTransparencyEnabled;});},
     update,
     dispose() {
       disposed = true;
