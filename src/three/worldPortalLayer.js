@@ -256,19 +256,19 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
   }
 
   function setBlocks(blocks = []) {
+    const oldTextures=new Set();
     blockEntries.forEach((entry) => {
-      entry.material.map.dispose();
+      oldTextures.add(entry.material.map);
       entry.material.dispose();
       entry.sprite.removeFromParent();
     });
+    oldTextures.forEach((texture)=>texture.dispose());
     blockEntries.clear();
     blockRoot.clear();
+    const textureByCanvas=new Map();
     blocks.forEach((block) => {
       if (!block.canvas) return;
-      const texture = new THREE.CanvasTexture(block.canvas);
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.magFilter = THREE.NearestFilter;
-      texture.minFilter = THREE.NearestFilter;
+      let texture=textureByCanvas.get(block.canvas);if(!texture){texture = new THREE.CanvasTexture(block.canvas);texture.colorSpace = THREE.SRGBColorSpace;texture.magFilter = THREE.NearestFilter;texture.minFilter = THREE.NearestFilter;textureByCanvas.set(block.canvas,texture);}
       const baseOpacity=block.transparent ? .68 : 1;const material = new THREE.SpriteMaterial({ map: texture, transparent:true,opacity:baseOpacity,depthWrite:!block.transparent,alphaTest:block.transparent?0:.02 });
       if(block.animated){texture.wrapS=THREE.RepeatWrapping;texture.wrapT=THREE.RepeatWrapping;}
       const sprite = new THREE.Sprite(material);

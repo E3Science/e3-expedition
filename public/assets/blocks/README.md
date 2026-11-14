@@ -10,7 +10,11 @@ The first-pass block builder is available in the Original E3 World:
 - Middle click: pick a placed block's material
 - `Space`: jump one block high and climb no more than one elevation step; travel distance comes from the natural jump duration and movement speed
 
-Layer 0 is the existing unbreakable E3 map. Layers 1–4 hold buildable blocks. Blocks are currently stored in browser local storage per portal map; server-authoritative multiplayer persistence is the next architecture step.
+Layer 0 is an unbreakable dirt bed. Layers 1–5 hold generated and buildable
+blocks. Version 2 worlds generate grass, protected water, ore-bearing mountains,
+and trees from a stable map seed. Blocks are currently stored in browser local
+storage per portal map; server-authoritative multiplayer persistence is the next
+architecture step.
 
 General terrain and nature blocks have a fixed orientation. Gravity settles
 each column after placement or removal so unsupported blocks drop downward.
@@ -27,3 +31,9 @@ are translucent and animated.
 
 Accessibility settings include player/mob dithering and improved translucent
 layering for overlapping glass, water, and portal blocks.
+
+Water yields samples instead of being removed. Exposed generated dirt is
+re-covered by a falling grass block after 30 seconds. Tree sprouts mature into
+block trees, and cutting a trunk releases their floating leaf rings. The habitat
+kit places a 5×5×4 modular shell; press `R` before placement to switch its door
+between southeast and southwest, then enter the doorway to reach the lab.

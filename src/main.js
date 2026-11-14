@@ -4611,6 +4611,8 @@ function create() {
     logicalWorldToTilePosition,
     getPlayer: () => room?.state?.players?.get?.(myId) || null,
     syncWorldBlocks: (blocks) => worldPortalLayer?.setBlocks?.(blocks),
+    onCollectSample: (baseKey) => {const itemKey=`${baseKey}:common`;latestInventoryCounts={...latestInventoryCounts,[itemKey]:(Number(latestInventoryCounts[itemKey])||0)+1};updateInventoryUI(latestInventoryCounts);showFloatingLootText(itemKey);},
+    onEnterHabitat: () => {if(isMapTransitionInProgress)return;const previous=currentMapKey||DEFAULT_MAP_KEY;runMapTransitionFade(async()=>{setCurrentMapKey("lab_entrance");await rejoinCurrentMap(previous);});},
     enabled: () => joined && isIsometricMode() && !isGameplayModalActive()
   });
 
@@ -5058,6 +5060,7 @@ function update() {
 
   updateStandalonePlayer();
   updateStandaloneAnimals((sceneRef?.time?.now || 0) / 1000);
+  blockSystem?.update?.();
 
   room.state.players.forEach((player, id) => {
     const entry = players[id];
