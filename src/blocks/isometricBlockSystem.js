@@ -18,14 +18,14 @@ export const BLOCK_MATERIALS = [
   ["crate", "Storage crate", 12, true], ["cave", "Cave stone", 13, true],
   ["alien", "Alien soil", 14, true], ["portal", "Portal block", 15, false]
 ].map(([key, label, frame, solid]) => ({ key, label, frame, solid })).concat([
-  {key:"biome_cyan",label:"Cyan fungal biome",frame:14,solid:true,kind:"biome",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/base-biomes/base_cyan_01.png"},
-  {key:"biome_violet",label:"Blue-violet moss biome",frame:15,solid:true,kind:"biome",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/base-biomes/base_violet_01.png"},
-  {key:"biome_coral",label:"Coral mineral biome",frame:3,solid:true,kind:"biome",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/base-biomes/base_coral_01.png"},
-  {key:"biome_indigo",label:"Indigo volcanic biome",frame:13,solid:true,kind:"biome",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/base-biomes/base_indigo_01.png"},
-  {key:"flora_cyan",label:"Cyan fungal flora",frame:14,solid:true,kind:"plant",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/flora-cyan-violet-v2/cyan_flora_01.png"},
-  {key:"flora_violet",label:"Blue-violet flora",frame:15,solid:true,kind:"plant",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/flora-cyan-violet-v2/violet_flora_01.png"},
-  {key:"flora_coral",label:"Coral mineral flora",frame:3,solid:true,kind:"plant",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/flora-coral-indigo-v2/coral_flora_01.png"},
-  {key:"flora_indigo",label:"Indigo volcanic flora",frame:13,solid:true,kind:"plant",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/flora-coral-indigo-v2/indigo_flora_01.png"},
+  {key:"biome_cyan",label:"Cyan fungal mountain top",frame:14,solid:true,kind:"biome",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/biome-cyan/cyan_mountain_top.png"},
+  {key:"biome_violet",label:"Blue-violet moss face",frame:15,solid:true,kind:"biome",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/biome-violet/violet_mountain_face.png"},
+  {key:"biome_coral",label:"Coral mineral face",frame:3,solid:true,kind:"biome",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/biome-coral/coral_mountain_face.png"},
+  {key:"biome_indigo",label:"Indigo large cliff top",frame:13,solid:true,kind:"biome",asset:"assets/blocks/indigo-large-cliff-top-frame-242.png"},
+  {key:"flora_cyan",label:"Cyan fungal flora",frame:14,solid:false,kind:"plant",nonStackable:true,asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/flora-cyan-violet-v2/cyan_flora_01.png"},
+  {key:"flora_violet",label:"Blue-violet flora",frame:15,solid:false,kind:"plant",nonStackable:true,asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/flora-cyan-violet-v2/violet_flora_01.png"},
+  {key:"flora_coral",label:"Coral mineral flora",frame:3,solid:false,kind:"plant",nonStackable:true,asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/flora-coral-indigo-v2/coral_flora_01.png"},
+  {key:"flora_indigo",label:"Indigo volcanic flora",frame:13,solid:false,kind:"plant",nonStackable:true,asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/flora-coral-indigo-v2/indigo_flora_01.png"},
   ...[
     ["supply_crate","Sealed supply crate","cargo_supply_crate.png"],["power_generator","Compact power generator","hardware_generator.png"],["atmosphere_processor","Atmospheric processor","hardware_atmosphere_processor.png"],["water_recycler","Water recycler","hardware_water_recycler.png"],["communications_rack","Communications rack","hardware_communications_rack.png"],["oxygen_rack","Oxygen cylinder rack","hardware_oxygen_rack.png"],["liquid_tank","Liquid storage tanks","hardware_liquid_tank.png"],["work_light","Portable work light","hardware_work_light.png"],["tool_cart","Tool cart","hardware_tool_cart.png"],["hose_bundle","Hose and cable bundle","hardware_hose_bundle.png"],["maintenance_robot","Maintenance robot","hardware_maintenance_robot.png"]
   ].map(([key,label,file])=>({key,label,frame:10,solid:true,kind:"prop",nonStackable:true,asset:`assets/tiles/isometric/alien-expansion/collection-v2/individual/hardware-cargo/${file}`})),
@@ -56,6 +56,12 @@ function createBlockTexture(scene, atlasKey, material) {
   textureCtx.imageSmoothingEnabled = false;
   textureCtx.drawImage(source, sourceX, sourceY, cell, cell, 0, 0, 32, 32);
 
+  if(material.kind==="biome"||material.kind==="plant"){
+    const asset=scene.textures.get(`e3_block_asset_${material.key}`)?.getSourceImage?.();
+    if(asset)ctx.drawImage(asset,0,0,BLOCK_SIZE,BLOCK_SIZE);
+    scene.textures.addCanvas(key,canvas);return key;
+  }
+
   if(material.kind==="glass"){
     ctx.fillStyle="rgba(102,225,238,.18)";ctx.beginPath();ctx.moveTo(0,16);ctx.lineTo(32,0);ctx.lineTo(64,16);ctx.lineTo(64,48);ctx.lineTo(32,64);ctx.lineTo(0,48);ctx.closePath();ctx.fill();
     ctx.strokeStyle="#8feaf0";ctx.lineWidth=3;[[[0,16],[32,0],[64,16],[64,48],[32,64],[0,48],[0,16]],[[0,16],[32,32],[64,16]],[[32,32],[32,64]]].forEach((line)=>{ctx.beginPath();ctx.moveTo(...line[0]);line.slice(1).forEach((point)=>ctx.lineTo(...point));ctx.stroke();});
@@ -73,7 +79,7 @@ function createBlockTexture(scene, atlasKey, material) {
   drawFace([[0,16],[32,32],[32,64],[0,48]], "rgba(8,20,35,.28)");
   drawFace([[32,32],[64,16],[64,48],[32,64]], "rgba(0,5,15,.42)");
   drawFace([[0,16],[32,0],[64,16],[32,32]], "rgba(255,255,255,.04)");
-  if(material.asset){const asset=scene.textures.get(`e3_block_asset_${material.key}`)?.getSourceImage?.();if(asset){if(material.kind==="biome"){ctx.save();ctx.beginPath();ctx.moveTo(0,16);ctx.lineTo(32,0);ctx.lineTo(64,16);ctx.lineTo(32,32);ctx.closePath();ctx.clip();ctx.drawImage(asset,0,-32,64,64);ctx.restore();}else{ctx.drawImage(asset,6,-8,52,52);}}}
+  if(material.asset){const asset=scene.textures.get(`e3_block_asset_${material.key}`)?.getSourceImage?.();if(asset)ctx.drawImage(asset,6,-8,52,52);}
   scene.textures.addCanvas(key, canvas);
   return key;
 }
