@@ -40,6 +40,8 @@ const blockKey = (x, y, z) => `${x}:${y}:${z}`;
 
 function drawContainedAsset(ctx,asset,padding=2){const probe=document.createElement("canvas");probe.width=asset.width;probe.height=asset.height;const probeCtx=probe.getContext("2d");probeCtx.drawImage(asset,0,0);const pixels=probeCtx.getImageData(0,0,probe.width,probe.height).data;let minX=probe.width,minY=probe.height,maxX=-1,maxY=-1;for(let y=0;y<probe.height;y+=1){for(let x=0;x<probe.width;x+=1){if(pixels[(y*probe.width+x)*4+3]>8){minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);}}}if(maxX<minX)return;const width=maxX-minX+1;const height=maxY-minY+1;const scale=Math.min((BLOCK_SIZE-padding*2)/width,(BLOCK_SIZE-padding*2)/height);const drawWidth=width*scale;const drawHeight=height*scale;ctx.drawImage(asset,minX,minY,width,height,(BLOCK_SIZE-drawWidth)/2,(BLOCK_SIZE-drawHeight)/2,drawWidth,drawHeight);}
 
+function paintBiomeTexture(ctx,key){const palettes={biome_cyan:["#075f67","#098b8d","#19c8bd","#75f0dc"],biome_violet:["#25205e","#3e2b83","#7250bd","#b378e0"],biome_coral:["#873a3f","#bd4b42","#ed704d","#ffb34f"],biome_indigo:["#11183f","#23245f","#343487","#20a9c2"]};const palette=palettes[key];if(!palette)return;ctx.clearRect(0,0,32,32);ctx.fillStyle=palette[0];ctx.fillRect(0,0,32,32);for(let y=0;y<32;y+=4){for(let x=0;x<32;x+=4){const value=(x*13+y*7+(x*y)%17)%11;ctx.fillStyle=value<4?palette[1]:value<8?palette[0]:palette[2];ctx.fillRect(x+(value%2),y+((value>>1)%2),3,3);}}ctx.strokeStyle=palette[2];ctx.lineWidth=2;ctx.globalAlpha=.8;ctx.beginPath();if(key==="biome_cyan"){ctx.moveTo(0,8);ctx.bezierCurveTo(8,3,14,14,32,7);ctx.moveTo(3,24);ctx.bezierCurveTo(12,17,20,29,31,20);}else if(key==="biome_violet"){ctx.moveTo(2,3);ctx.lineTo(9,10);ctx.lineTo(6,18);ctx.lineTo(16,27);ctx.moveTo(21,1);ctx.lineTo(18,12);ctx.lineTo(29,22);}else if(key==="biome_coral"){ctx.moveTo(1,12);ctx.lineTo(10,8);ctx.lineTo(16,15);ctx.lineTo(29,10);ctx.moveTo(7,27);ctx.lineTo(14,21);ctx.lineTo(25,27);}else{ctx.moveTo(5,0);ctx.lineTo(10,11);ctx.lineTo(7,20);ctx.lineTo(16,32);ctx.moveTo(25,0);ctx.lineTo(20,13);ctx.lineTo(27,24);}ctx.stroke();ctx.globalAlpha=1;ctx.fillStyle=palette[3];for(let i=0;i<6;i+=1){const x=(i*17+5)%30;const y=(i*11+3)%30;ctx.fillRect(x,y,2,2);}}
+
 function createBlockTexture(scene, atlasKey, material) {
   const key = `e3_block_${material.key}`;
   if (scene.textures.exists(key)) return key;
@@ -58,11 +60,12 @@ function createBlockTexture(scene, atlasKey, material) {
   textureCtx.imageSmoothingEnabled = false;
   textureCtx.drawImage(source, sourceX, sourceY, cell, cell, 0, 0, 32, 32);
 
-  if(material.kind==="biome"||material.kind==="plant"||material.kind==="furniture"){
+  if(material.kind==="plant"||material.kind==="furniture"){
     const asset=scene.textures.get(`e3_block_asset_${material.key}`)?.getSourceImage?.();
     if(asset){if(material.kind==="furniture")drawContainedAsset(ctx,asset);else ctx.drawImage(asset,0,0,BLOCK_SIZE,BLOCK_SIZE);}
     scene.textures.addCanvas(key,canvas);return key;
   }
+  if(material.kind==="biome")paintBiomeTexture(textureCtx,material.key);
 
   if(material.kind==="glass"){
     ctx.fillStyle="rgba(102,225,238,.18)";ctx.beginPath();ctx.moveTo(0,16);ctx.lineTo(32,0);ctx.lineTo(64,16);ctx.lineTo(64,48);ctx.lineTo(32,64);ctx.lineTo(0,48);ctx.closePath();ctx.fill();
@@ -81,7 +84,7 @@ function createBlockTexture(scene, atlasKey, material) {
   drawFace([[0,16],[32,32],[32,64],[0,48]], "rgba(8,20,35,.28)");
   drawFace([[32,32],[64,16],[64,48],[32,64]], "rgba(0,5,15,.42)");
   drawFace([[0,16],[32,0],[64,16],[32,32]], "rgba(255,255,255,.04)");
-  if(material.asset){const asset=scene.textures.get(`e3_block_asset_${material.key}`)?.getSourceImage?.();if(asset)ctx.drawImage(asset,6,-8,52,52);}
+  if(material.kind==="prop"&&material.asset){const asset=scene.textures.get(`e3_block_asset_${material.key}`)?.getSourceImage?.();if(asset)ctx.drawImage(asset,6,-8,52,52);}
   scene.textures.addCanvas(key, canvas);
   return key;
 }

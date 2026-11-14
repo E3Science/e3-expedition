@@ -15,10 +15,10 @@ Layer 0 is the existing unbreakable E3 map. Layers 1–4 hold buildable blocks. 
 General terrain and nature blocks have a fixed orientation. Gravity settles
 each column after placement or removal so unsupported blocks drop downward.
 
-The expanded builder also includes four terrain blocks drawn from the cyan
+The expanded builder also includes four terrain blocks inspired by the cyan
 mountain top, blue-violet mountain face, coral mountain face, and indigo large
-cliff top frames. Incomplete source frames are repaired into full-height solid
-cubes without adding a separate base block. Compact flora samples retain their original transparent
+cliff top frames. Their biome palettes and surface motifs are rendered through
+the same cube geometry and dimensions as the standard dirt voxel. Compact flora samples retain their original transparent
 sprites and have no collision, allowing players and mobs to pass through them.
 Habitat glass/wall/lab/console blocks and selected expedition furniture are also
 available. Furniture renders by itself inside an invisible cell and occupies
