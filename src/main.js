@@ -493,9 +493,9 @@ Purpose:
 Defines layout and behavior settings for inventory UI.
 */
 
-const INVENTORY_COLUMNS = 6;
-const BASE_INVENTORY_SLOT_COUNT = 24;
-const MAX_INVENTORY_SLOT_COUNT = 64;
+const INVENTORY_COLUMNS = 5;
+const BASE_INVENTORY_SLOT_COUNT = 20;
+const MAX_INVENTORY_SLOT_COUNT = 65;
 const INVENTORY_STACK_MAX = 10;
 let currentInventorySlotCount = BASE_INVENTORY_SLOT_COUNT;
 let selectedInventoryKey = null;
@@ -1384,7 +1384,7 @@ function applyDefaultHUDLayout() {
   const rightPanels = [profilePanel, inventoryPanel, questPanel].filter(Boolean);
   let rightTop = margin;
   rightPanels.forEach((panel) => {
-    const panelWidth=panel===inventoryPanel?Math.min(420,viewportWidth-margin*2):sideWidth;
+    const panelWidth=panel===inventoryPanel?Math.min(360,viewportWidth-margin*2):sideWidth;
     setLockedPanelPosition(panel, { right: margin, top: rightTop, width: panelWidth });
     if (panel.style.display === "none") return;
     rightTop += Math.max(42, panel.getBoundingClientRect().height) + 8;
@@ -12104,7 +12104,7 @@ function createInventoryUI() {
   inventoryPanel = createUIPanel({
     x: 490,
     y: 110,
-    width: 420,
+    width: 360,
     height: 320
   });
 
