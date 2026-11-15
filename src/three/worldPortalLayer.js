@@ -88,6 +88,8 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
   scene.add(blockRoot);
   const overlayRoot = new THREE.Group();
   scene.add(overlayRoot);
+  const debrisRoot = new THREE.Group();
+  scene.add(debrisRoot);
 
   const timer = new THREE.Timer();
   timer.connect(document);
@@ -100,6 +102,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
   const mobEntries = new Map();
   const resourceEntries = new Map();
   const blockEntries = new Map();
+  const debrisEntries=[];
   let ditheringEnabled = localStorage.getItem("e3:player-mob-dithering") !== "false";
   let improvedTransparencyEnabled = localStorage.getItem("e3:improved-transparency") !== "false";
 
@@ -283,6 +286,9 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
   }
 
   function updateBlocks(){const now=performance.now();blockEntries.forEach((entry)=>{if(entry.animated){entry.material.map.offset.x=Math.sin(now*.0022+entry.phase)*.045;entry.material.map.offset.y=Math.cos(now*.0017+entry.phase)*.018;}if(entry.startY===entry.targetY)return;const progress=Math.min(1,(now-entry.fallStartedAt)/entry.duration);const eased=progress*progress;const screenY=THREE.MathUtils.lerp(entry.startY,entry.targetY,eased);entry.sprite.position.y=-screenY+32;if(progress===1)entry.startY=entry.targetY;});}
+
+  function spawnDebris({x=0,y=0,type="dark"}={}){const color=type==="light"?0xb9f3f4:0x4a3429;for(let index=0;index<8;index+=1){const material=new THREE.SpriteMaterial({color,transparent:true,opacity:.95,depthTest:false,depthWrite:false});const sprite=new THREE.Sprite(material);const size=2+Math.random()*3;sprite.scale.set(size,size,1);sprite.position.set(x+(Math.random()-.5)*18,-y+(Math.random()-.5)*10,1900);sprite.renderOrder=2600;debrisRoot.add(sprite);debrisEntries.push({sprite,material,vx:(Math.random()-.5)*42,vy:28+Math.random()*42,gravity:90,life:0,maxLife:.45+Math.random()*.3});}}
+  function updateDebris(delta){for(let index=debrisEntries.length-1;index>=0;index-=1){const entry=debrisEntries[index];entry.life+=delta;entry.vy-=entry.gravity*delta;entry.sprite.position.x+=entry.vx*delta;entry.sprite.position.y+=entry.vy*delta;entry.material.opacity=Math.max(0,1-entry.life/entry.maxLife);entry.sprite.rotation+=delta*5;if(entry.life<entry.maxLife)continue;entry.sprite.removeFromParent();entry.material.dispose();debrisEntries.splice(index,1);}}
 
   function setMobs(mobs = [], selectedMobId = null) {
     const nextIds = new Set(mobs.map((mob) => mob.id));
@@ -500,6 +506,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
     const elapsed = timer.getElapsed();
     updatePlayers(elapsed);
     updateBlocks();
+    updateDebris(delta);
     updateMobs(elapsed);
     updateResources(elapsed);
     entries.forEach((entry) => {
@@ -518,6 +525,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
     setInteractionState,
     setDitheringEnabled(value){ditheringEnabled=!!value;},
     setImprovedTransparencyEnabled(value){improvedTransparencyEnabled=!!value;blockEntries.forEach((block)=>{block.material.alphaHash=block.isTransparent&&improvedTransparencyEnabled;});},
+    spawnDebris,
     update,
     dispose() {
       disposed = true;
@@ -530,6 +538,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       resourceEntries.forEach((entry) => disposeModel(entry.model.root));
       resourceEntries.clear();
       setBlocks([]);
+      debrisEntries.splice(0).forEach((entry)=>{entry.sprite.removeFromParent();entry.material.dispose();});
       timer.dispose();
       renderer.dispose();
       renderer.forceContextLoss();

@@ -3513,7 +3513,7 @@ function updateRuntimeMobSprites(scene) {
       );
       statusText.setDepth(31);
     } else if (snapshot.incapacitated) {
-      statusText.setText("incapacitated");
+      statusText.setText("defeated · specimen ready");
       statusText.setVisible(true);
       statusText.setPosition(
         displayPosition.x,
@@ -4294,6 +4294,7 @@ function createStandaloneAnimalsFromMap() {
       facing: (tileX + tileY) % 2 ? "left" : "right",
       state: "walk",
       phase: (tileX * 0.73 + tileY * 0.41) % (Math.PI * 2),
+      stamina:80+Number(getObjectTierForFrame(frame)||1)*20,maxStamina:80+Number(getObjectTierForFrame(frame)||1)*20,health:80+Number(getObjectTierForFrame(frame)||1)*20,maxHealth:80+Number(getObjectTierForFrame(frame)||1)*20,incapacitated:false,
       esm: 20,
       maxEsm: 20,
       ecosystemState: "local simulation"
@@ -4307,7 +4308,7 @@ function createStandaloneAnimalsFromMap() {
       [29,20,"carnivore","carnivore_c",2]
     ].forEach(([tileX,tileY,kind,speciesKey,tier],index)=>{
       const homeX=tileToWorldX(tileX)+TILE_SIZE/2;const homeY=tileToWorldY(tileY)+TILE_SIZE/2;
-      mobs.push({id:`local-box-animal-${index}`,mapKey:currentMapKey,kind,tier,speciesKey,x:homeX,y:homeY,homeX,homeY,facing:index%2?"left":"right",state:"walk",phase:index*1.37,esm:20,maxEsm:20,ecosystemState:"local simulation"});
+      const health=80+Number(tier||1)*20;mobs.push({id:`local-box-animal-${index}`,mapKey:currentMapKey,kind,tier,speciesKey,x:homeX,y:homeY,homeX,homeY,facing:index%2?"left":"right",state:"walk",phase:index*1.37,stamina:health,maxStamina:health,health,maxHealth:health,incapacitated:false,esm:20,maxEsm:20,ecosystemState:"local simulation"});
     });
   }
   applyRuntimeMobSnapshot({ mapKey: currentMapKey, mobs });
@@ -4378,6 +4379,7 @@ async function startStandaloneWorld(chosenName, mapKey = DEFAULT_MAP_KEY) {
     connection: { isOpen: true },
     state: { players: localPlayers },
     send(type, payload = {}) {
+      if(type==="interact"&&payload?.mobId){const mob=latestRuntimeMobSnapshot[payload.mobId];if(!mob)return;if(payload.action==="taser"||payload.action==="taser_artifact"){const next=Math.max(0,Number(mob.health??mob.stamina)-25);mob.health=next;mob.stamina=next;if(next<=0){mob.incapacitated=true;mob.state="defeated";}applyRuntimeMobSnapshot({mapKey:currentMapKey,mobs:Object.values(latestRuntimeMobSnapshot)});return;}if(payload.action==="collect_incapacitated_herbivore"&&mob.incapacitated){delete latestRuntimeMobSnapshot[mob.id];const itemKey="herbivore_specimen:common";latestInventoryCounts={...latestInventoryCounts,[itemKey]:(Number(latestInventoryCounts[itemKey])||0)+1};updateInventoryUI(latestInventoryCounts);showFloatingLootText(itemKey);applyRuntimeMobSnapshot({mapKey:currentMapKey,mobs:Object.values(latestRuntimeMobSnapshot)});return;}}
       if (type !== "input") return;
       standaloneInput = { ...standaloneInput, ...payload };
       Object.assign(player, {
@@ -4419,6 +4421,7 @@ function updateStandaloneAnimals(elapsedSeconds) {
   if (!standaloneWorld) return;
   Object.values(latestRuntimeMobSnapshot).forEach((mob) => {
     if (!mob?.homeX && !mob?.homeY) return;
+    if(mob.incapacitated){mob.state="defeated";return;}
     const previous=Number(mob.lastMoveAt)||elapsedSeconds;const dt=Math.min(.05,Math.max(0,elapsedSeconds-previous));mob.lastMoveAt=elapsedSeconds;
     if(!Number.isFinite(mob.heading))mob.heading=Number(mob.phase)||0;
     const homeDx=mob.homeX-mob.x;const homeDy=mob.homeY-mob.y;const homeDistance=Math.hypot(homeDx,homeDy);const roamRadius=TILE_SIZE*(1.8+Number(mob.tier||1)*.3);
@@ -4642,10 +4645,11 @@ function create() {
     pointerToTilePosition: worldToTilePosition,
     logicalWorldToTilePosition,
     getPlayer: () => room?.state?.players?.get?.(myId) || null,
+    getPlayerDirection: () => players?.[myId]?.lastDirection || "down",
     getSelectedTool: getSelectedToolKey,
     syncWorldBlocks: (blocks) => worldPortalLayer?.setBlocks?.(blocks),
     onCollectSample: (baseKey) => {const itemKey=`${baseKey}:common`;latestInventoryCounts={...latestInventoryCounts,[itemKey]:(Number(latestInventoryCounts[itemKey])||0)+1};updateInventoryUI(latestInventoryCounts);showFloatingLootText(itemKey);if(joined&&!standaloneWorld)sendRoomMessage("collect_voxel_material",{baseItemKey:baseKey});},
-    onToolAction: (actionName) => startLocalPlayerActionAnimation(actionName),
+    onToolAction: (actionName,details) => {startLocalPlayerActionAnimation(actionName);const display=tileToDisplayPosition(details.x,details.y);worldPortalLayer?.spawnDebris?.({x:display.x,y:display.y-(Math.max(1,details.z)-1)*32-20,type:details.debris});},
     onStatus: (message) => showStatusMessage(message,false),
     onEnterHabitat: () => {if(isMapTransitionInProgress)return;const previous=currentMapKey||DEFAULT_MAP_KEY;runMapTransitionFade(async()=>{setCurrentMapKey("lab_entrance");await rejoinCurrentMap(previous);});},
     enabled: () => joined && isIsometricMode() && !isGameplayModalActive()
@@ -5175,8 +5179,8 @@ function update() {
     const herbivoreTarget = getSelectedTargetSnapshot();
 
     if (herbivoreTarget) {
-      const herbivoreStamina = Number(herbivoreTarget.stamina) || 0;
-      const herbivoreMaxStamina = Number(herbivoreTarget.maxStamina) || 0;
+      const herbivoreStamina = Number(herbivoreTarget.health??herbivoreTarget.stamina) || 0;
+      const herbivoreMaxStamina = Number(herbivoreTarget.maxHealth??herbivoreTarget.maxStamina) || 0;
 
       if (animalVitalsPanel) {
         animalVitalsPanel.style.display = "flex";
@@ -5196,7 +5200,7 @@ function update() {
       if (oxygenHerbivoreLabel) {
         oxygenHerbivoreLabel.textContent = herbivoreTarget.kind === "alien_artifact"
           ? "Alien Artifact · Durability"
-          : `${getAnimalVitalsLabel(herbivoreTarget.kind, herbivoreTarget.speciesKey)} · Lv ${Math.max(1, Number(herbivoreTarget.tier) || 1)}`;
+          : `${getAnimalVitalsLabel(herbivoreTarget.kind, herbivoreTarget.speciesKey)} Health · Lv ${Math.max(1, Number(herbivoreTarget.tier) || 1)}`;
       }
     } else {
       if (animalVitalsPanel) {
@@ -5248,7 +5252,7 @@ function update() {
     }
 
     const selectedMob = getSelectedTargetSnapshot();
-    if (selectedMob) {
+    if (selectedMob && getSelectedToolKey()==="spacegun") {
       const selectedMobInAttackRange = getSelectedTargetInRange(me, getCurrentTaserRangePx());
       const selectedMobInCollectRange = getSelectedTargetInRange(me, TILE_SIZE * 3);
 
@@ -5402,7 +5406,9 @@ if (nearbyActionCenter) {
   }
 
   requestActionCenterCollection();
+  return;
 }
+    if(blockSystem?.performSelectedAction?.())return;
   }
 
   if (
