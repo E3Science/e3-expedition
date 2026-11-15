@@ -230,7 +230,7 @@ const PORTAL_SPAWN_FRAME = 10;
 const PLANT_RESPAWN_AREA_SIZE_PX = 128;
 const PLANT_GROWTH_STAGE_COUNT = 6;
 const PLANT_GROWTH_STAGE_MS = 30000;
-const INVENTORY_SLOT_COUNT = 12;
+const INVENTORY_SLOT_COUNT = 60;
 const INVENTORY_STACK_MAX = 10;
 const INVENTORY_EXPANSION_MAX = 4;
 const COLLECTABLE_NODE_RESPAWN_MS = 60 * 1000;
@@ -661,7 +661,13 @@ function getInventoryItemLabel(baseItemKey: string, quality: ItemQuality) {
     plant_sample: "Plant Sample",
     mission_badge: "Mission Badge",
     comm_quest_token: "Comm Quest Token",
-    herbivore_specimen: "Animal Specimen"
+    herbivore_specimen: "Animal Specimen",
+    dirt_sample: "Dirt",
+    iron_ore: "Iron Ore",
+    crystal_ore: "Crystal Ore",
+    wood_sample: "Wood",
+    fish_sample: "Fish Sample",
+    habitat_component: "Habitat Component"
   };
 
   return `${qualityLabel} ${baseLabelMap[baseItemKey] || baseItemKey}`;
@@ -7042,7 +7048,7 @@ if (stillDistance > TILE_SIZE * 6) {
   Rules:
   - each unique item_id can span multiple stacks
   - each stack holds max 10
-  - total stack count across all items cannot exceed 12
+  - total stack count across all items cannot exceed the player's expanded cargo capacity
   - if no space exists, collection fails
   */
 
@@ -7283,6 +7289,15 @@ if (stillDistance > TILE_SIZE * 6) {
 
     this.onMessage("delete_inventory_item", async (client, message: { itemId?: string }) => {
       await this.handleInventoryItemDelete(client, message);
+    });
+
+    this.onMessage("collect_voxel_material", async (client, message: { baseItemKey?: string }) => {
+      const player=this.state.players.get(client.sessionId);if(!player)return;
+      const baseItemKey=String(message?.baseItemKey||"");
+      const allowed=new Set(["dirt_sample","rock_sample","iron_ore","crystal_ore","wood_sample","plant_sample","water_sample","fish_sample","habitat_component"]);
+      if(!allowed.has(baseItemKey)){client.send("interaction_result",{success:false,message:"Unknown voxel material."});return;}
+      try{const granted=await this.awardInventoryItem(player,{baseItemKey,quality:"common",quantity:1});client.send("interaction_result",{success:true,message:`${granted.itemLabel} added to inventory.`,itemKey:granted.itemId});}
+      catch(error){client.send("interaction_result",{success:false,message:error instanceof Error?error.message:"Could not store the collected material."});}
     });
 
     this.onMessage("summon_alien_artifact", async (client) => {

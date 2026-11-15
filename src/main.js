@@ -493,14 +493,24 @@ Purpose:
 Defines layout and behavior settings for inventory UI.
 */
 
-const INVENTORY_COLUMNS = 4;
-const BASE_INVENTORY_SLOT_COUNT = 12;
-const MAX_INVENTORY_SLOT_COUNT = 16;
+const INVENTORY_COLUMNS = 6;
+const BASE_INVENTORY_SLOT_COUNT = 24;
+const MAX_INVENTORY_SLOT_COUNT = 64;
 const INVENTORY_STACK_MAX = 10;
 let currentInventorySlotCount = BASE_INVENTORY_SLOT_COUNT;
 let selectedInventoryKey = null;
 let selectedInventorySlotId = null;
 const HOTBAR_SLOT_COUNT = 9;
+
+const TOOL_DEFS = {
+  axe: { label: "Axe", abbreviation: "AX", imageSrc: "assets/ui/tools/axe.svg", action: "chop" },
+  shovel: { label: "Shovel", abbreviation: "SH", imageSrc: "assets/ui/tools/shovel.svg", action: "dig" },
+  pickaxe: { label: "Pickaxe", abbreviation: "PX", imageSrc: "assets/ui/tools/pickaxe.svg", action: "mine" },
+  hoe: { label: "Hoe", abbreviation: "HO", imageSrc: "assets/ui/tools/hoe.svg", action: "hoe" },
+  spacegun: { label: "Spacegun", abbreviation: "SG", imageSrc: "assets/ui/tools/spacegun.svg", action: "shoot" },
+  fishing_pole: { label: "Fishing Pole", abbreviation: "FP", imageSrc: "assets/ui/tools/fishing-pole.svg", action: "fish" }
+};
+const DEFAULT_TOOL_HOTBAR = ["axe", "shovel", "pickaxe", "hoe", "spacegun", "fishing_pole"];
 
 const ITEM_QUALITY_DEFS = {
   common: {
@@ -579,7 +589,12 @@ const INVENTORY_ITEM_DEFS = [
     label: "Alien Artifact",
     imageSrc: "assets/ui/inventory/alien_artifact.png",
     fixedLabel: true
-  }
+  },
+  { key: "dirt_sample", label: "Dirt", imageSrc: "assets/ui/inventory/rock_sample.png" },
+  { key: "iron_ore", label: "Iron Ore", imageSrc: "assets/ui/inventory/rock_sample.png" },
+  { key: "crystal_ore", label: "Crystal Ore", imageSrc: "assets/ui/inventory/rock_sample.png" },
+  { key: "wood_sample", label: "Wood", imageSrc: "assets/ui/inventory/plant_sample.png" },
+  { key: "fish_sample", label: "Fish Sample", imageSrc: "assets/ui/inventory/water_sample.png" }
 ];
 
 const SCIENCE_SKILL_DEFS = {
@@ -1369,7 +1384,8 @@ function applyDefaultHUDLayout() {
   const rightPanels = [profilePanel, inventoryPanel, questPanel].filter(Boolean);
   let rightTop = margin;
   rightPanels.forEach((panel) => {
-    setLockedPanelPosition(panel, { right: margin, top: rightTop, width: sideWidth });
+    const panelWidth=panel===inventoryPanel?Math.min(420,viewportWidth-margin*2):sideWidth;
+    setLockedPanelPosition(panel, { right: margin, top: rightTop, width: panelWidth });
     if (panel.style.display === "none") return;
     rightTop += Math.max(42, panel.getBoundingClientRect().height) + 8;
   });
@@ -2146,7 +2162,17 @@ const PLAYER_ACTION_DEFS = {
     frames: 4,
     rows: { down: 25, left: 26, right: 27 }
   },
+  chop: {
+    directional: true,
+    frames: 4,
+    rows: { down: 25, left: 26, right: 27 }
+  },
   dig: {
+    directional: true,
+    frames: 4,
+    rows: { down: 29, left: 30, right: 31 }
+  },
+  hoe: {
     directional: true,
     frames: 4,
     rows: { down: 29, left: 30, right: 31 }
@@ -2155,6 +2181,11 @@ const PLAYER_ACTION_DEFS = {
     directional: true,
     frames: 4,
     rows: { down: 33, left: 34, right: 35 }
+  },
+  shoot: {
+    directional: true,
+    frames: 4,
+    rows: { down: 21, left: 22, right: 23 }
   },
   comm: {
     directional: true,
@@ -4440,6 +4471,7 @@ function syncWorld3DPlayers() {
       direction: entry.lastDirection || "down",
       moving: isPlayerMoving(player),
       actionActive: isServerPlayerActionActive(player) || isPlayerActionActive(entry),
+      actionName: isServerPlayerActionActive(player)?player.actionName:(isPlayerActionActive(entry)?entry.activeActionName:null),
       isLocalPlayer: id === myId
     });
   });
@@ -4610,8 +4642,11 @@ function create() {
     pointerToTilePosition: worldToTilePosition,
     logicalWorldToTilePosition,
     getPlayer: () => room?.state?.players?.get?.(myId) || null,
+    getSelectedTool: getSelectedToolKey,
     syncWorldBlocks: (blocks) => worldPortalLayer?.setBlocks?.(blocks),
-    onCollectSample: (baseKey) => {const itemKey=`${baseKey}:common`;latestInventoryCounts={...latestInventoryCounts,[itemKey]:(Number(latestInventoryCounts[itemKey])||0)+1};updateInventoryUI(latestInventoryCounts);showFloatingLootText(itemKey);},
+    onCollectSample: (baseKey) => {const itemKey=`${baseKey}:common`;latestInventoryCounts={...latestInventoryCounts,[itemKey]:(Number(latestInventoryCounts[itemKey])||0)+1};updateInventoryUI(latestInventoryCounts);showFloatingLootText(itemKey);if(joined&&!standaloneWorld)sendRoomMessage("collect_voxel_material",{baseItemKey:baseKey});},
+    onToolAction: (actionName) => startLocalPlayerActionAnimation(actionName),
+    onStatus: (message) => showStatusMessage(message,false),
     onEnterHabitat: () => {if(isMapTransitionInProgress)return;const previous=currentMapKey||DEFAULT_MAP_KEY;runMapTransitionFade(async()=>{setCurrentMapKey("lab_entrance");await rejoinCurrentMap(previous);});},
     enabled: () => joined && isIsometricMode() && !isGameplayModalActive()
   });
@@ -5249,6 +5284,11 @@ function update() {
         return;
       }
 
+      if(getSelectedToolKey()!=="spacegun"){
+        showStatusMessage("Select the Spacegun in the hotbar before shooting.",false);
+        return;
+      }
+
       const taserEnergyCost = Math.max(
         1,
         Number(latestProgressionSnapshot.vitals?.taserEnergyCost) || 8
@@ -5262,7 +5302,7 @@ function update() {
         worldX: selectedMob.x,
         worldY: selectedMob.y
       });
-      startLocalPlayerActionAnimation("taser");
+      startLocalPlayerActionAnimation("shoot");
       sendRoomMessage("interact", {
         source: selectedMob.kind === "alien_artifact" ? "alien_artifact" : "mob",
         action: selectedMob.kind === "alien_artifact" ? "taser_artifact" : "taser",
@@ -5289,6 +5329,10 @@ function update() {
         });
         return;
       }
+
+      const requiredToolByKind={rock:"pickaxe",pond:"fishing_pole",plant:"shovel",specimen:"shovel"};
+      const requiredTool=requiredToolByKind[nearbyCollectable.kind]||"shovel";
+      if(getSelectedToolKey()!==requiredTool){showStatusMessage(`Select the ${TOOL_DEFS[requiredTool]?.label||requiredTool} in the hotbar.`,false);return;}
 
       resourceCollectionSequence?.start({
         resourceKind: nearbyCollectable.kind,
@@ -5327,6 +5371,9 @@ if (nearbyActionCenter) {
     dig: "plant"
   };
   const actionResourceKind = resourceKindByAction[nearbyActionCenter.action] || null;
+  const requiredToolByAction={mine:"pickaxe",fish:"fishing_pole",dig:"shovel"};
+  const requiredTool=requiredToolByAction[nearbyActionCenter.action];
+  if(requiredTool&&getSelectedToolKey()!==requiredTool){showStatusMessage(`Select the ${TOOL_DEFS[requiredTool]?.label||requiredTool} in the hotbar.`,false);return;}
   const requestActionCenterCollection = () => {
     faceLocalPlayerTowardActionCenter(nearbyActionCenter);
     startLocalPlayerActionAnimation(nearbyActionCenter.action);
@@ -12057,8 +12104,8 @@ function createInventoryUI() {
   inventoryPanel = createUIPanel({
     x: 490,
     y: 110,
-    width: 290,
-    height: 250
+    width: 420,
+    height: 320
   });
 
   if (!inventoryPanel) return;
@@ -12133,7 +12180,7 @@ function createInventoryUI() {
   inventoryPanelBody.style.padding = "10px";
   inventoryPanelBody.style.flex = "1";
   inventoryPanelBody.style.minHeight = "0";
-  inventoryPanelBody.style.overflowY = "hidden";
+  inventoryPanelBody.style.overflowY = "auto";
   inventoryPanelBody.style.overflowX = "hidden";
 
   panelBody.appendChild(inventoryPanelBody);
@@ -12173,14 +12220,14 @@ function ensureInventorySlotCapacity(requestedSlotCount) {
 
   currentInventorySlotCount = nextSlotCount;
   if (inventoryPanel) {
-    inventoryPanel._expandedHeight = 250;
+    inventoryPanel._expandedHeight = 320;
     if (!inventoryPanel._isCollapsed) {
       inventoryPanel.style.height = `${inventoryPanel._expandedHeight}px`;
     }
   }
   if (inventoryPanelBody) {
-    inventoryPanelBody.style.overflowY = nextSlotCount > BASE_INVENTORY_SLOT_COUNT ? "auto" : "hidden";
-    inventoryPanelBody.style.paddingRight = nextSlotCount > BASE_INVENTORY_SLOT_COUNT ? "6px" : "10px";
+    inventoryPanelBody.style.overflowY = "auto";
+    inventoryPanelBody.style.paddingRight = "6px";
   }
   updateInventoryUI(latestInventoryCounts);
   window.requestAnimationFrame(applyDefaultHUDLayout);
@@ -13079,6 +13126,9 @@ function updateInventoryUI(inventoryCounts = {}) {
 
   if (inventoryChanged) studentDashboard?.refresh();
 
+  const requiredStacks=Object.values(visibleInventoryCounts).reduce((total,count)=>total+Math.ceil(Math.max(0,Number(count)||0)/INVENTORY_STACK_MAX),0);
+  const requiredSlots=Math.min(MAX_INVENTORY_SLOT_COUNT,Math.max(BASE_INVENTORY_SLOT_COUNT,Math.ceil(requiredStacks/INVENTORY_COLUMNS)*INVENTORY_COLUMNS));
+  if(requiredSlots!==currentInventorySlotCount)ensureInventorySlotCapacity(requiredSlots);
   const stacks = getPackedInventoryStacks(visibleInventoryCounts);
 
   for (let i = 0; i < currentInventorySlotCount; i++) {
@@ -13141,6 +13191,8 @@ function createHotbarUI() {
   hotbarBody.style.justifyContent = "center";
 
   hotbarSlotMap = {};
+
+  DEFAULT_TOOL_HOTBAR.forEach((toolKey,index)=>{hotbarAssignments[index]=`tool:${toolKey}`;});
 
   for (let i = 0; i < HOTBAR_SLOT_COUNT; i++) {
     const slot = createHotbarSlot(i);
@@ -14304,6 +14356,8 @@ function createHotbarSlot(index) {
   tile.style.justifyContent = "center";
   tile.style.overflow = "hidden";
   tile.style.transition = "transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease, opacity 120ms ease";
+  tile.style.cursor = "pointer";
+  tile.addEventListener("click",()=>{selectedHotbarIndex=index;refreshHotbarSelectionState();});
 
   const icon = document.createElement("img");
   icon.style.width = "36px";
@@ -14700,6 +14754,13 @@ function getUnlockedActiveSpecial(assignedKey) {
   return { key: abilityKey, ...snapshot, ...(SPECIAL_ABILITY_UI_DEFS[abilityKey] || {}) };
 }
 
+function getToolDefinition(assignedKey) {
+  if(!String(assignedKey||"").startsWith("tool:"))return null;
+  const key=String(assignedKey).slice(5);return TOOL_DEFS[key]?{key,...TOOL_DEFS[key]}:null;
+}
+
+function getSelectedToolKey(){return getToolDefinition(hotbarAssignments[selectedHotbarIndex])?.key||null;}
+
 function getSpecialAbilityCooldownRemaining(abilityKey) {
   const cooldownProperty = abilityKey === "solar_charge"
     ? "solarChargeReadyAt"
@@ -14726,7 +14787,7 @@ function refreshHotbarAssignments() {
     if (!slot || !slot.tile) return;
 
     let assignedKey = hotbarAssignments[slot.index] || null;
-    if (assignedKey && !String(assignedKey).startsWith("ability:")) {
+    if (assignedKey && !String(assignedKey).startsWith("ability:") && !String(assignedKey).startsWith("tool:")) {
       hotbarAssignments[slot.index] = null;
       assignedKey = null;
     }
@@ -14736,13 +14797,15 @@ function refreshHotbarAssignments() {
       assignedKey = null;
       specialAbility = null;
     }
+    const tool=getToolDefinition(assignedKey);
     const itemDef = assignedKey ? getInventoryItemDefByKey(assignedKey) : null;
     const parsed = parseInventoryItemKey(assignedKey);
     const liveCount = assignedKey ? getInventoryCountForItemKey(assignedKey) : 0;
-    const hasItem = !!specialAbility || (!!itemDef && liveCount > 0);
+    const hasItem = !!specialAbility || !!tool || (!!itemDef && liveCount > 0);
     slot.fallbackLabel.style.color = "rgba(255,255,255,0.72)";
 
-    if (specialAbility) {
+    if(tool){slot.icon.src=tool.imageSrc;slot.icon.alt=tool.label;slot.icon.style.display="block";slot.fallbackLabel.textContent="";
+    } else if (specialAbility) {
       slot.icon.src = "";
       slot.icon.alt = "";
       slot.icon.style.display = "none";
@@ -14773,12 +14836,12 @@ function refreshHotbarAssignments() {
       slot.countBadge.textContent = specialAbility ? `${cooldownRemaining}s` : String(liveCount);
       slot.countBadge.style.display = specialAbility && cooldownRemaining > 0
         ? "block"
-        : hasItem && liveCount > 1
+        : !tool&&hasItem && liveCount > 1
           ? "block"
           : "none";
     }
 
-    slot.tile.title = specialAbility
+    slot.tile.title = tool?`${slot.index+1}: ${tool.label}`:specialAbility
       ? `${slot.index + 1}: ${specialAbility.label}${getSpecialAbilityCooldownRemaining(specialAbility.key) > 0 ? ` (${getSpecialAbilityCooldownRemaining(specialAbility.key)}s)` : ""}`
       : itemDef
       ? `${slot.index + 1}: ${itemDef.label}`
@@ -14786,7 +14849,7 @@ function refreshHotbarAssignments() {
 
     applyHotbarSlotVisualState({
       tile: slot.tile,
-      quality: specialAbility ? "rare" : parsed.quality,
+      quality: specialAbility||tool ? "rare" : parsed.quality,
       selected: slot.index === selectedHotbarIndex,
       filled: hasItem
     });
@@ -14855,11 +14918,12 @@ function refreshHotbarSelectionState() {
     const itemKey = hotbarAssignments[hotbarIndex] || null;
     const parsed = parseInventoryItemKey(itemKey);
     const specialAbility = getUnlockedActiveSpecial(itemKey);
-    const hasItem = !!specialAbility || (!!itemKey && getInventoryCountForItemKey(itemKey) > 0);
+    const tool=getToolDefinition(itemKey);
+    const hasItem = !!specialAbility || !!tool || (!!itemKey && getInventoryCountForItemKey(itemKey) > 0);
 
     applyHotbarSlotVisualState({
       tile: slot.tile,
-      quality: specialAbility ? "rare" : parsed.quality,
+      quality: specialAbility||tool ? "rare" : parsed.quality,
       selected: hotbarIndex === selectedHotbarIndex,
       filled: hasItem
     });

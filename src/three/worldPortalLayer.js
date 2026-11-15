@@ -191,7 +191,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
         playerRoot.add(root);
         const shadow=createPlayerShadow();const nameplate=createPlayerNameplate(player.name);
         overlayRoot.add(shadow.sprite,nameplate.sprite);
-        entry = { root, model: null, shadow, nameplate, name: player.name, x: player.x, y: player.y, surfaceY:player.surfaceY??player.y, direction: player.direction || "down", moving: false, actionActive: false };
+        entry = { root, model: null, shadow, nameplate, name: player.name, x: player.x, y: player.y, surfaceY:player.surfaceY??player.y, direction: player.direction || "down", moving: false, actionActive: false, actionName:null };
         playerEntries.set(player.id, entry);
         loadAnimatedAstronaut({ isLocalPlayer: !!player.isLocalPlayer }).then((model) => {
           if (disposed || playerEntries.get(player.id) !== entry) {
@@ -210,6 +210,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       entry.direction = player.direction || entry.direction || "down";
       entry.moving = !!player.moving;
       entry.actionActive = !!player.actionActive;
+      entry.actionName = player.actionName||null;
       entry.sortY = player.sortY ?? entry.y;
       entry.elevation = player.elevation ?? 0;
       entry.surfaceY = player.surfaceY ?? entry.y;
@@ -250,7 +251,8 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       entry.model.root.rotation.y += angleDelta * 0.24;
       entry.model.animator.update(elapsed, {
         moving: entry.moving,
-        actionActive: entry.actionActive
+        actionActive: entry.actionActive,
+        actionName: entry.actionName
       });
     });
   }
