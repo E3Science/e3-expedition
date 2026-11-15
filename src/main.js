@@ -500,6 +500,7 @@ const INVENTORY_STACK_MAX = 99;
 let currentInventorySlotCount = BASE_INVENTORY_SLOT_COUNT;
 let selectedInventoryKey = null;
 let selectedInventorySlotId = null;
+const pendingVoxelInventoryCounts = new Map();
 const HOTBAR_SLOT_COUNT = 9;
 
 const TOOL_DEFS = {
@@ -2982,16 +2983,6 @@ function getPlayerMoveDirection(player) {
   let horizontal = Number(!!player.right) - Number(!!player.left);
   let vertical = Number(!!player.down) - Number(!!player.up);
 
-  // Colyseus stores movement in the map's logical square grid. Convert that
-  // vector back into screen space before choosing an animation direction so
-  // an isometric north walk faces north instead of north-west.
-  if (isIsometricMode()) {
-    const screenHorizontal = horizontal - vertical;
-    const screenVertical = horizontal + vertical;
-    horizontal = Math.sign(screenHorizontal);
-    vertical = Math.sign(screenVertical);
-  }
-
   const left = horizontal < 0;
   const right = horizontal > 0;
   const up = vertical < 0;
@@ -4648,7 +4639,7 @@ function create() {
     getPlayerDirection: () => players?.[myId]?.lastDirection || "down",
     getSelectedTool: getSelectedToolKey,
     syncWorldBlocks: (blocks) => worldPortalLayer?.setBlocks?.(blocks),
-    onCollectSample: (baseKey) => {const itemKey=`${baseKey}:common`;latestInventoryCounts={...latestInventoryCounts,[itemKey]:(Number(latestInventoryCounts[itemKey])||0)+1};updateInventoryUI(latestInventoryCounts);showFloatingLootText(itemKey);if(joined&&!standaloneWorld)sendRoomMessage("collect_voxel_material",{baseItemKey:baseKey});},
+    onCollectSample: (baseKey) => {const itemKey=`${baseKey}:common`;const expectedCount=(Number(latestInventoryCounts[itemKey])||0)+1;latestInventoryCounts={...latestInventoryCounts,[itemKey]:expectedCount};updateInventoryUI(latestInventoryCounts);if(joined&&!standaloneWorld)pendingVoxelInventoryCounts.set(itemKey,expectedCount);showFloatingLootText(itemKey);if(joined&&!standaloneWorld)sendRoomMessage("collect_voxel_material",{baseItemKey:baseKey});},
     onToolAction: (actionName,details) => {startLocalPlayerActionAnimation(actionName);const display=tileToDisplayPosition(details.x,details.y);worldPortalLayer?.spawnDebris?.({x:display.x,y:display.y-(Math.max(1,details.z)-1)*32-20,type:details.debris});},
     onStatus: (message) => showStatusMessage(message,false),
     onEnterHabitat: () => {if(isMapTransitionInProgress)return;const previous=currentMapKey||DEFAULT_MAP_KEY;runMapTransitionFade(async()=>{setCurrentMapKey("lab_entrance");await rejoinCurrentMap(previous);});},
@@ -12111,7 +12102,7 @@ function createInventoryUI() {
   inventoryPanel = createUIPanel({
     x: 490,
     y: 110,
-    width: 360,
+    width: 326,
     height: 320
   });
 
@@ -12175,20 +12166,27 @@ function createInventoryUI() {
 
   inventoryPanelBody = document.createElement("div");
   inventoryPanelBody.id = "inventory-panel-body";
+  inventoryPanelBody.className = "inventory-slot-scroller";
   inventoryPanelBody.style.display = "grid";
   inventoryPanelBody.style.gridTemplateColumns = `repeat(${INVENTORY_COLUMNS}, 52px)`;
-  inventoryPanelBody.style.gap = "10px";
+  inventoryPanelBody.style.gap = "8px";
   inventoryPanelBody.style.justifyContent = "start";
   inventoryPanelBody.style.justifyItems = "center";
   inventoryPanelBody.style.alignContent = "start";
   inventoryPanelBody.style.background = "rgba(255, 255, 255, 0.05)";
   inventoryPanelBody.style.border = "1px solid rgba(255, 255, 255, 0.08)";
   inventoryPanelBody.style.borderRadius = "6px";
-  inventoryPanelBody.style.padding = "10px";
+  inventoryPanelBody.style.padding = "8px";
   inventoryPanelBody.style.flex = "1";
   inventoryPanelBody.style.minHeight = "0";
   inventoryPanelBody.style.overflowY = "auto";
   inventoryPanelBody.style.overflowX = "hidden";
+  let inventoryScrollFadeTimer = 0;
+  inventoryPanelBody.addEventListener("scroll", () => {
+    inventoryPanelBody.classList.add("is-scrolling");
+    window.clearTimeout(inventoryScrollFadeTimer);
+    inventoryScrollFadeTimer = window.setTimeout(() => inventoryPanelBody?.classList.remove("is-scrolling"), 650);
+  }, { passive: true });
 
   panelBody.appendChild(inventoryPanelBody);
 
@@ -12234,7 +12232,7 @@ function ensureInventorySlotCapacity(requestedSlotCount) {
   }
   if (inventoryPanelBody) {
     inventoryPanelBody.style.overflowY = "auto";
-    inventoryPanelBody.style.paddingRight = "6px";
+    inventoryPanelBody.style.paddingRight = "8px";
   }
   updateInventoryUI(latestInventoryCounts);
   window.requestAnimationFrame(applyDefaultHUDLayout);
@@ -13121,9 +13119,14 @@ Rules:
 */
 
 function updateInventoryUI(inventoryCounts = {}) {
-  const visibleInventoryCounts = Object.fromEntries(
+  const syncedInventoryCounts = Object.fromEntries(
     Object.entries(inventoryCounts).filter(([itemKey]) => !isVirtualInventoryItemKey(itemKey))
   );
+  pendingVoxelInventoryCounts.forEach((expectedCount, itemKey) => {
+    if ((Number(syncedInventoryCounts[itemKey]) || 0) >= expectedCount) pendingVoxelInventoryCounts.delete(itemKey);
+    else syncedInventoryCounts[itemKey] = expectedCount;
+  });
+  const visibleInventoryCounts = syncedInventoryCounts;
   const nextInventorySignature = JSON.stringify(
     Object.entries(visibleInventoryCounts).sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
   );
@@ -14464,7 +14467,7 @@ function parseInventoryItemKey(itemKey) {
 function getInventoryBaseItemDef(itemKey) {
   const parsed = parseInventoryItemKey(itemKey);
   const defined=INVENTORY_ITEM_DEFS.find((item) => item.key === parsed.baseKey);if(defined)return defined;
-  if(parsed.baseKey.endsWith("_block")){const material=parsed.baseKey.slice(0,-6);const label=material.split("_").map((part)=>part.charAt(0).toUpperCase()+part.slice(1)).join(" ");const imageSrc=material==="water"?"assets/ui/inventory/water_sample.png":["bark","leaves","grass"].includes(material)||material.startsWith("flora")?"assets/ui/inventory/plant_sample.png":"assets/ui/inventory/rock_sample.png";return {key:parsed.baseKey,label:`${label} Block`,imageSrc};}
+  if(parsed.baseKey.endsWith("_block")){const materialKey=parsed.baseKey.slice(0,-6);const material=BLOCK_MATERIALS.find((entry)=>entry.key===materialKey);const label=material?.label||materialKey.split("_").map((part)=>part.charAt(0).toUpperCase()+part.slice(1)).join(" ");let imageSrc=material?.asset||"";const texture=sceneRef?.textures?.get?.(`e3_block_${materialKey}`)?.getSourceImage?.();if(!imageSrc&&texture?.toDataURL){try{imageSrc=texture.toDataURL("image/png");}catch{imageSrc="";}}if(!imageSrc)imageSrc=materialKey==="water"?"assets/ui/inventory/water_sample.png":["bark","leaves","grass"].includes(materialKey)||materialKey.startsWith("flora")?"assets/ui/inventory/plant_sample.png":"assets/ui/inventory/rock_sample.png";return {key:parsed.baseKey,label:material?.label||`${label} Block`,imageSrc};}
   return null;
 }
 
