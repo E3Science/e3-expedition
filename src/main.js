@@ -496,7 +496,7 @@ Defines layout and behavior settings for inventory UI.
 const INVENTORY_COLUMNS = 5;
 const BASE_INVENTORY_SLOT_COUNT = 20;
 const MAX_INVENTORY_SLOT_COUNT = 65;
-const INVENTORY_STACK_MAX = 10;
+const INVENTORY_STACK_MAX = 99;
 let currentInventorySlotCount = BASE_INVENTORY_SLOT_COUNT;
 let selectedInventoryKey = null;
 let selectedInventorySlotId = null;
@@ -5251,6 +5251,8 @@ function update() {
       return;
     }
 
+    if(getSelectedToolKey()!=="spacegun"&&blockSystem?.performSelectedAction?.())return;
+
     const selectedMob = getSelectedTargetSnapshot();
     if (selectedMob && getSelectedToolKey()==="spacegun") {
       const selectedMobInAttackRange = getSelectedTargetInRange(me, getCurrentTaserRangePx());
@@ -5408,7 +5410,6 @@ if (nearbyActionCenter) {
   requestActionCenterCollection();
   return;
 }
-    if(blockSystem?.performSelectedAction?.())return;
   }
 
   if (
@@ -14462,7 +14463,9 @@ function parseInventoryItemKey(itemKey) {
 
 function getInventoryBaseItemDef(itemKey) {
   const parsed = parseInventoryItemKey(itemKey);
-  return INVENTORY_ITEM_DEFS.find((item) => item.key === parsed.baseKey) || null;
+  const defined=INVENTORY_ITEM_DEFS.find((item) => item.key === parsed.baseKey);if(defined)return defined;
+  if(parsed.baseKey.endsWith("_block")){const material=parsed.baseKey.slice(0,-6);const label=material.split("_").map((part)=>part.charAt(0).toUpperCase()+part.slice(1)).join(" ");const imageSrc=material==="water"?"assets/ui/inventory/water_sample.png":["bark","leaves","grass"].includes(material)||material.startsWith("flora")?"assets/ui/inventory/plant_sample.png":"assets/ui/inventory/rock_sample.png";return {key:parsed.baseKey,label:`${label} Block`,imageSrc};}
+  return null;
 }
 
 function getInventoryItemDefByKey(itemKey) {

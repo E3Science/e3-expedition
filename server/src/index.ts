@@ -231,7 +231,7 @@ const PLANT_RESPAWN_AREA_SIZE_PX = 128;
 const PLANT_GROWTH_STAGE_COUNT = 6;
 const PLANT_GROWTH_STAGE_MS = 30000;
 const INVENTORY_SLOT_COUNT = 60;
-const INVENTORY_STACK_MAX = 10;
+const INVENTORY_STACK_MAX = 99;
 const INVENTORY_EXPANSION_MAX = 4;
 const COLLECTABLE_NODE_RESPAWN_MS = 60 * 1000;
 const MAX_ACTIVE_QUESTS = 5;
@@ -7296,8 +7296,9 @@ if (stillDistance > TILE_SIZE * 6) {
     this.onMessage("collect_voxel_material", async (client, message: { baseItemKey?: string }) => {
       const player=this.state.players.get(client.sessionId);if(!player)return;
       const baseItemKey=String(message?.baseItemKey||"");
-      const allowed=new Set(["dirt_sample","rock_sample","iron_ore","crystal_ore","wood_sample","plant_sample","water_sample","fish_sample","habitat_component"]);
-      if(!allowed.has(baseItemKey)){client.send("interaction_result",{success:false,message:"Unknown voxel material."});return;}
+      const allowed=new Set(["dirt_sample","rock_sample","iron_ore","crystal_ore","wood_sample","plant_sample","water_sample","fish_sample","habitat_component","bedrock_block","dirt_block","stone_block","iron_block","crystal_block","grass_block","bark_block","leaves_block","water_block","sand_block","panel_block","computer_block","crate_block","cave_block","alien_block","portal_block","biome_cyan_block","biome_violet_block","biome_coral_block","biome_indigo_block","tree_sprout_block","habitat_kit_block"]);
+      ["supply_crate","power_generator","atmosphere_processor","water_recycler","communications_rack","oxygen_rack","liquid_tank","work_light","tool_cart","hose_bundle","maintenance_robot","glass","laboratory","command_console","habitat_wall"].forEach((key)=>allowed.add(`${key}_block`));
+      if(!allowed.has(baseItemKey)&&!/^flora_(cyan|violet|coral|indigo)(_2)?_block$/.test(baseItemKey)){client.send("interaction_result",{success:false,message:"Unknown voxel material."});return;}
       try{const granted=await this.awardInventoryItem(player,{baseItemKey,quality:"common",quantity:1});client.send("interaction_result",{success:true,message:`${granted.itemLabel} added to inventory.`,itemKey:granted.itemId});}
       catch(error){client.send("interaction_result",{success:false,message:error instanceof Error?error.message:"Could not store the collected material."});}
     });
