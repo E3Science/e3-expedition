@@ -35,9 +35,12 @@ layering for overlapping glass, water, and portal blocks.
 Water yields samples instead of being removed. Exposed generated dirt is
 re-covered by a falling grass block after 30 seconds. Tree sprouts mature into
 block trees, and cutting a trunk releases their floating leaf rings. The habitat
-kit places one unified 5×5×4 modular habitat sprite whose straight-edged shell
-fills the complete block prism. Its panel grid measures one-block windows and a
-two-block-wide, three-block-high hatch; the two hatch tiles form the entrance;
+kit places one unified 5×5×4 modular habitat drawn directly on the same 64×32
+isometric projection as the voxel blocks. Its panel grid measures one-block
+windows and a two-block-wide, three-block-high hatch; the two hatch tiles form
+the entrance. Selecting the kit shows a transparent 5×5×4 placement outline at
+the cursor, and the finished structure uses its full footprint for collision and
+player/mob dithering;
 press `R` before placement to switch its door between southeast and southwest,
 then enter the doorway to reach the lab. Older assembled habitats are migrated
 to the unified structure automatically when their saved world loads.

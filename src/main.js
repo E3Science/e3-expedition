@@ -9151,6 +9151,7 @@ function handleTilePointerDown(pointer) {
 }
 
 function handleTilePointerMove(pointer) {
+  if (blockSystem?.handlePointerMove?.(pointer)) return;
   if (!isAdminUser()) return;
   if (!tileEditorEnabled && !metadataEditorEnabled && !objectEditorEnabled) return;
 

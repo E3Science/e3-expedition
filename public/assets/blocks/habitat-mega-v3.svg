@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="288" viewBox="0 0 320 288">
+  <defs>
+    <linearGradient id="top" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#f8f8f4"/><stop offset="1" stop-color="#cfd4d8"/></linearGradient>
+    <linearGradient id="left" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#e8e9e7"/><stop offset="1" stop-color="#aeb6bd"/></linearGradient>
+    <linearGradient id="right" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#cdd3d7"/><stop offset="1" stop-color="#87949e"/></linearGradient>
+    <linearGradient id="glass" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#074b71"/><stop offset=".55" stop-color="#1596c3"/><stop offset="1" stop-color="#8deaff"/></linearGradient>
+    <filter id="edge"><feDropShadow dx="0" dy="2" stdDeviation="1.5" flood-color="#07111a" flood-opacity=".6"/></filter>
+  </defs>
+  <!-- Exact 5 × 5 top and four-block-high faces on the 64 × 32 voxel projection. -->
+  <g stroke="#4d5660" stroke-width="2" stroke-linejoin="round" filter="url(#edge)">
+    <path fill="url(#left)" d="M0 80 160 160 160 288 0 208Z"/>
+    <path fill="url(#right)" d="M160 160 320 80 320 208 160 288Z"/>
+    <path fill="url(#top)" d="M160 0 320 80 160 160 0 80Z"/>
+  </g>
+  <!-- Five-by-five roof grid. -->
+  <g fill="none" stroke="#727b83" stroke-width="1.5" opacity=".9">
+    <path d="M32 64 192 144M64 48 224 128M96 32 256 112M128 16 288 96"/>
+    <path d="M192 16 32 96M224 32 64 112M256 48 96 128M288 64 128 144"/>
+  </g>
+  <!-- Four vertical levels and five columns per visible face. -->
+  <g fill="none" stroke="#69737c" stroke-width="1.5" opacity=".92">
+    <path d="M0 112 160 192M0 144 160 224M0 176 160 256M32 96V224M64 112V240M96 128V256M128 144V272"/>
+    <path d="M160 192 320 112M160 224 320 144M160 256 320 176M192 144V272M224 128V256M256 112V240M288 96V224"/>
+  </g>
+  <!-- Two-block-wide, three-block-high airlock on the left/front face. -->
+  <g transform="matrix(1 .5 0 1 0 0)" stroke="#2d3740" stroke-linejoin="round">
+    <rect x="32" y="92" width="64" height="96" rx="28" fill="#69747d" stroke-width="5"/>
+    <rect x="38" y="99" width="52" height="83" rx="23" fill="#d8dcdd" stroke="#f17820" stroke-width="4"/>
+    <circle cx="64" cy="140" r="18" fill="#8d989f" stroke-width="3"/>
+    <circle cx="64" cy="140" r="8" fill="#35414a" stroke-width="2"/>
+    <path d="M48 112H80M48 168H80" fill="none" stroke="#f17820" stroke-width="4"/>
+  </g>
+  <!-- One-block window modules aligned to the right-face grid. -->
+  <g stroke="#303b44" stroke-width="4" stroke-linejoin="round">
+    <path fill="url(#glass)" d="M194 178 220 165 220 189 194 202Z"/><path fill="url(#glass)" d="M226 162 252 149 252 173 226 186Z"/><path fill="url(#glass)" d="M258 146 284 133 284 157 258 170Z"/>
+  </g>
+  <g fill="none" stroke="#f17820" stroke-width="4">
+    <path d="M174 235 306 169"/><path d="M18 177 42 189M113 241 139 254"/>
+  </g>
+  <g fill="#f17820">
+    <path d="M144 26 160 18 176 26 170 29 160 24 150 29Z"/><path d="M272 74 288 66 304 74 298 77 288 72 278 77Z"/>
+  </g>
+  <g fill="#59646d" opacity=".7">
+    <circle cx="160" cy="8" r="2"/><circle cx="16" cy="81" r="2"/><circle cx="304" cy="81" r="2"/><circle cx="160" cy="151" r="2"/>
+  </g>
+</svg>

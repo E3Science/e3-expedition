@@ -228,7 +228,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       entry.root.scale.set(scale, scale, 0.5);
       entry.shadow.sprite.position.set(entry.x,-entry.surfaceY-4,entry.root.position.z-0.01);
       entry.nameplate.sprite.position.set(entry.x,-entry.y+76,1901);
-      let clipped=false;if(ditheringEnabled){blockEntries.forEach((block)=>{const overlaps=Math.abs(entry.x-block.sprite.position.x)<28&&Math.abs(entry.surfaceY-block.targetY)<38&&block.sprite.position.z>entry.root.position.z;if(overlaps){block.material.opacity=Math.min(block.baseOpacity,.46);block.material.alphaHash=true;clipped=true;}});}
+      let clipped=false;if(ditheringEnabled){blockEntries.forEach((block)=>{if(block.preview)return;const bounds=block.ditherBounds;const overlaps=bounds?Math.abs(entry.x-block.sprite.position.x)<bounds.halfWidth&&entry.surfaceY>block.targetY-bounds.top&&entry.surfaceY<block.targetY+bounds.bottom:Math.abs(entry.x-block.sprite.position.x)<28&&Math.abs(entry.surfaceY-block.targetY)<38;if(overlaps&&block.sprite.position.z>entry.root.position.z){block.material.opacity=Math.min(block.baseOpacity,.46);block.material.alphaHash=true;clipped=true;}});}
 
       const directionRotations = {
         down: 0,
@@ -269,14 +269,14 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
     blocks.forEach((block) => {
       if (!block.canvas) return;
       let texture=textureByCanvas.get(block.canvas);if(!texture){texture = new THREE.CanvasTexture(block.canvas);texture.colorSpace = THREE.SRGBColorSpace;texture.magFilter = THREE.NearestFilter;texture.minFilter = THREE.NearestFilter;textureByCanvas.set(block.canvas,texture);}
-      const baseOpacity=block.transparent ? .68 : 1;const material = new THREE.SpriteMaterial({ map: texture, transparent:true,opacity:baseOpacity,depthWrite:!block.transparent,alphaTest:block.transparent?0:.02 });
+      const baseOpacity=Number.isFinite(block.opacity)?block.opacity:(block.transparent ? .68 : 1);const material = new THREE.SpriteMaterial({ map: texture, transparent:true,opacity:baseOpacity,depthWrite:!block.transparent,alphaTest:block.transparent?0:.02 });
       if(block.animated){texture.wrapS=THREE.RepeatWrapping;texture.wrapT=THREE.RepeatWrapping;}
       const sprite = new THREE.Sprite(material);
       const startY=Number.isFinite(block.startY)?block.startY:block.y;
       const width=Number(block.width)||64;const height=Number(block.height)||64;sprite.position.set(block.x, -startY + height/2, ISOMETRIC_DEPTH_BASE + block.sortY * ISOMETRIC_DEPTH_STEP + (block.z || 1) * 0.1);
       sprite.scale.set(block.flipX?-width:width, height, 1);
       blockRoot.add(sprite);
-      material.alphaHash=!!block.transparent&&improvedTransparencyEnabled;blockEntries.set(block.id, { sprite, material, baseOpacity, isTransparent:!!block.transparent, animated:!!block.animated, phase:block.materialKey==="portal"?Math.PI:0, startY, targetY:block.y, fallStartedAt:performance.now(), duration:Math.min(850,300+Math.abs(block.y-startY)*7) });
+      material.alphaHash=!!block.transparent&&improvedTransparencyEnabled;blockEntries.set(block.id, { sprite, material, baseOpacity, isTransparent:!!block.transparent, preview:!!block.preview, ditherBounds:block.ditherBounds||null, animated:!!block.animated, phase:block.materialKey==="portal"?Math.PI:0, startY, targetY:block.y, fallStartedAt:performance.now(), duration:Math.min(850,300+Math.abs(block.y-startY)*7) });
     });
   }
 
@@ -325,7 +325,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
     mobEntries.forEach((entry) => {
       const scale = entry.kind === "apex_predator" ? 9.5 : entry.kind === "carnivore" ? 8.2 : 7.5;
       entry.root.position.set(entry.x, -entry.y + 1.15 * scale, ISOMETRIC_DEPTH_BASE + (entry.sortY || entry.y) * ISOMETRIC_DEPTH_STEP + entry.elevation * 0.1 + 0.04);
-      let clipped=false;if(ditheringEnabled){blockEntries.forEach((block)=>{const overlaps=Math.abs(entry.x-block.sprite.position.x)<28&&Math.abs(entry.y-block.targetY)<38&&block.sprite.position.z>entry.root.position.z;if(overlaps){block.material.opacity=Math.min(block.baseOpacity,.46);block.material.alphaHash=true;clipped=true;}});}
+      let clipped=false;if(ditheringEnabled){blockEntries.forEach((block)=>{if(block.preview)return;const bounds=block.ditherBounds;const overlaps=bounds?Math.abs(entry.x-block.sprite.position.x)<bounds.halfWidth&&entry.y>block.targetY-bounds.top&&entry.y<block.targetY+bounds.bottom:Math.abs(entry.x-block.sprite.position.x)<28&&Math.abs(entry.y-block.targetY)<38;if(overlaps&&block.sprite.position.z>entry.root.position.z){block.material.opacity=Math.min(block.baseOpacity,.46);block.material.alphaHash=true;clipped=true;}});}
       entry.root.scale.setScalar(scale * (entry.selected ? 1.08 : 1));
       entry.model.root.rotation.y = entry.facing === "left" ? Math.PI : 0;
       entry.model.root.rotation.z = entry.incapacitated ? -Math.PI / 2 : 0;

@@ -38,7 +38,7 @@ export const BLOCK_MATERIALS = [
   {key:"command_console",label:"Command console",frame:11,solid:true,kind:"prop",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/habitat-interior/interior_command_console.png"},
   {key:"habitat_wall",label:"Habitat wall",frame:10,solid:true,kind:"prop",asset:"assets/tiles/isometric/alien-expansion/collection-v2/individual/habitat-exterior/habitat_command_middle.png"}
   ,{key:"tree_sprout",label:"Tree sprout",frame:7,solid:false,kind:"sprout",nonStackable:true}
-  ,{key:"habitat_kit",label:"5×5 habitat",frame:10,solid:true,kind:"habitat",nonStackable:true,asset:"assets/blocks/habitat-mega-v2.png"}
+  ,{key:"habitat_kit",label:"5×5 habitat",frame:10,solid:true,kind:"habitat",nonStackable:true,asset:"assets/blocks/habitat-mega-v3.svg"}
 ]);
 
 const materialByKey = new Map(BLOCK_MATERIALS.map((entry) => [entry.key, entry]));
@@ -122,6 +122,18 @@ function createGroundTexture(scene, atlasKey, material) {
   return key;
 }
 
+function createHabitatPreviewTexture(scene) {
+  const key="e3_habitat_placement_preview";if(scene.textures.exists(key))return key;
+  const canvas=document.createElement("canvas");canvas.width=320;canvas.height=288;const ctx=canvas.getContext("2d");
+  ctx.strokeStyle="rgba(99,245,239,.92)";ctx.fillStyle="rgba(75,225,220,.1)";ctx.lineWidth=2;
+  const polygon=(points,fill=true)=>{ctx.beginPath();ctx.moveTo(...points[0]);points.slice(1).forEach((point)=>ctx.lineTo(...point));ctx.closePath();if(fill)ctx.fill();ctx.stroke();};
+  polygon([[160,0],[320,80],[160,160],[0,80]]);polygon([[0,80],[160,160],[160,288],[0,208]]);polygon([[160,160],[320,80],[320,208],[160,288]]);
+  ctx.globalAlpha=.68;for(let i=1;i<5;i+=1){const step=i*32;ctx.beginPath();ctx.moveTo(step,80-step/2);ctx.lineTo(step+160,160-step/2);ctx.stroke();ctx.beginPath();ctx.moveTo(160+step,step/2);ctx.lineTo(step,80+step/2);ctx.stroke();}
+  for(let i=1;i<4;i+=1){const y=i*32;ctx.beginPath();ctx.moveTo(0,80+y);ctx.lineTo(160,160+y);ctx.lineTo(320,80+y);ctx.stroke();}
+  for(let i=1;i<5;i+=1){const x=i*32;ctx.beginPath();ctx.moveTo(x,80+x/2);ctx.lineTo(x,208+x/2);ctx.stroke();ctx.beginPath();ctx.moveTo(160+x,160-x/2);ctx.lineTo(160+x,288-x/2);ctx.stroke();}
+  scene.textures.addCanvas(key,canvas);return key;
+}
+
 export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGridSize, tileToDisplayPosition, tileToLogicalPosition, pointerToTilePosition, logicalWorldToTilePosition, getPlayer, syncWorldBlocks, onCollectSample, onEnterHabitat, enabled = () => true }) {
   const blocks = new Map();
   const sprites = new Map();
@@ -130,6 +142,7 @@ export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGrid
   let active = false;
   let selectedMaterial = "dirt";
   let habitatOrientation = "se";
+  let habitatPreview = null;
   let lastHabitatEntryAt = 0;
   let lastWorldUpdateAt = 0;
   const grassRegrowth = new Map();
@@ -158,7 +171,7 @@ export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGrid
   BLOCK_MATERIALS.filter((material) => material.key !== "bedrock").forEach((material) => {
     const button = document.createElement("button");button.type = "button";button.dataset.material = material.key;button.title = material.label;
     button.innerHTML = `<i style="--atlas-x:${material.frame % 4};--atlas-y:${Math.floor(material.frame / 4)};${material.asset?`background-image:url('/${material.asset}');background-size:contain;background-position:center;background-repeat:no-repeat`:""}"></i><span>${material.label}</span>`;
-    button.addEventListener("click", () => { selectedMaterial = material.key; refreshToolbar(); });materialsRoot.appendChild(button);
+    button.addEventListener("click", () => { selectedMaterial = material.key;if(selectedMaterial!=="habitat_kit"&&habitatPreview){habitatPreview=null;render();}refreshToolbar(); });materialsRoot.appendChild(button);
   });
 
   const storageKey = () => `e3:block-world:v3:${getMapKey() || "default"}`;
@@ -201,7 +214,8 @@ export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGrid
       const material=materialByKey.get(block.material);if(!material)return;if(block.megaHabitat){const center=tileToDisplayPosition(block.x+2,block.y+2);const bottom=tileToDisplayPosition(block.x+4,block.y+4);const textureKey=`e3_block_asset_${block.material}`;const sprite=scene.add.image(center.x,bottom.y-(block.z-1)*BLOCK_RISE,textureKey);sprite.setOrigin(.5,1);sprite.setDisplaySize(320,288);sprite.setFlipX(block.orientation==="sw");sprite.setDepth(10+bottom.y*.001+block.z*.0001);sprite.setAlpha(syncWorldBlocks?0.001:1);sprite.setData("e3Block",block);sprites.set(blockKey(block.x,block.y,block.z),sprite);return;}const display=tileToDisplayPosition(block.x,block.y);
       const textureKey=createBlockTexture(scene,atlasKey,material);const sprite=scene.add.image(display.x,display.y-(block.z-1)*BLOCK_RISE,textureKey);sprite.setOrigin(.5,1);sprite.setDepth(10+display.y*.001+block.z*.0001);sprite.setAlpha(syncWorldBlocks?0.001:1);sprite.setData("e3Block",block);sprites.set(blockKey(block.x,block.y,block.z),sprite);
     });
-    if(syncWorldBlocks){syncWorldBlocks([...sprites.values()].map((sprite)=>{const block=sprite.getData("e3Block");const material=materialByKey.get(block.material);const display=block.megaHabitat?tileToDisplayPosition(block.x+4,block.y+4):tileToDisplayPosition(block.x,block.y);return {id:blockKey(block.x,block.y,block.z),x:sprite.x,y:sprite.y,z:block.z,startY:block.megaHabitat?sprite.y:display.y-((block.fallFromZ||block.z)-1)*BLOCK_RISE,sortY:display.y,canvas:scene.textures.get(sprite.texture.key).getSourceImage(),width:block.megaHabitat?320:64,height:block.megaHabitat?288:64,flipX:block.megaHabitat&&block.orientation==="sw",materialKey:block.material,transparent:!!material?.transparent||block.material==="water"||block.material==="portal",animated:block.material==="water"||block.material==="portal"};}));blocks.forEach((block)=>delete block.fallFromZ);}
+    if(active&&selectedMaterial==="habitat_kit"&&habitatPreview){const center=tileToDisplayPosition(habitatPreview.x+2,habitatPreview.y+2);const bottom=tileToDisplayPosition(habitatPreview.x+4,habitatPreview.y+4);const previewBlock={x:habitatPreview.x,y:habitatPreview.y,z:2,material:"habitat_kit",previewHabitat:true,megaHabitat:true,orientation:habitatOrientation};const sprite=scene.add.image(center.x,bottom.y-BLOCK_RISE,createHabitatPreviewTexture(scene));sprite.setOrigin(.5,1);sprite.setDepth(2000);sprite.setAlpha(syncWorldBlocks?0.001:1);sprite.setData("e3Block",previewBlock);sprites.set("habitat-preview",sprite);}
+    if(syncWorldBlocks){syncWorldBlocks([...sprites.values()].map((sprite)=>{const block=sprite.getData("e3Block");const material=materialByKey.get(block.material);const display=block.megaHabitat?tileToDisplayPosition(block.x+4,block.y+4):tileToDisplayPosition(block.x,block.y);return {id:block.previewHabitat?"habitat-preview":blockKey(block.x,block.y,block.z),x:sprite.x,y:sprite.y,z:block.z,startY:block.megaHabitat?sprite.y:display.y-((block.fallFromZ||block.z)-1)*BLOCK_RISE,sortY:block.previewHabitat?999999:display.y,canvas:scene.textures.get(sprite.texture.key).getSourceImage(),width:block.megaHabitat?320:64,height:block.megaHabitat?288:64,flipX:block.megaHabitat&&block.orientation==="sw",materialKey:block.material,transparent:block.previewHabitat||!!material?.transparent||block.material==="water"||block.material==="portal",opacity:block.previewHabitat?.34:undefined,preview:!!block.previewHabitat,ditherBounds:block.megaHabitat&&!block.previewHabitat?{halfWidth:160,top:160,bottom:24}:undefined,animated:block.material==="water"||block.material==="portal"};}));blocks.forEach((block)=>delete block.fallFromZ);}
   }
 
   function buildHabitat(tileX,tileY){const size=getGridSize();const originX=tileX-2,originY=tileY-2;if(originX<0||originY<0||originX+4>=size.width||originY+4>=size.height)return;for(let y=originY;y<=originY+4;y+=1){for(let x=originX;x<=originX+4;x+=1){for(let z=2;z<=MAX_BUILD_LAYER;z+=1)blocks.delete(blockKey(x,y,z));}}const block={x:originX,y:originY,z:2,material:"habitat_kit",megaHabitat:true,orientation:habitatOrientation,width:5,height:5,levels:4,doorTiles:habitatDoorTiles(originX,originY,habitatOrientation)};blocks.set(blockKey(originX,originY,2),block);save();render();}
@@ -209,8 +223,9 @@ export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGrid
   function destroy(tileX,tileY,z) { const targetZ=z||terrainHeight(tileX,tileY);const key=blockKey(tileX,tileY,targetZ);const block=blocks.get(key);if(!block)return;if(block.protectedWater){onCollectSample?.("water_sample");return;}if(block.protectedGround){block.material="dirt";delete block.protectedGround;grassRegrowth.set(`${tileX}:${tileY}`,{x:tileX,y:tileY,z:targetZ,at:Date.now()+30000});save();render();return;}if(block.treeId&&block.treePart==="trunk"){blocks.forEach((part)=>{if(part.treeId===block.treeId)part.floating=false;});}if(block.generated&&block.material==="grass")grassRegrowth.set(`${tileX}:${tileY}`,{x:tileX,y:tileY,z:targetZ,at:Date.now()+30000});if(blocks.delete(key)){settleBlocks();save();render();} }
   function pick(tileX,tileY,z) { const block=blocks.get(blockKey(tileX,tileY,z||terrainHeight(tileX,tileY)));if(block){selectedMaterial=block.material;refreshToolbar();} }
   const pointInPolygon=(x,y,points)=>points.reduce((inside,[xi,yi],index)=>{const [xj,yj]=points[(index+points.length-1)%points.length];return ((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi)?!inside:inside;},false);
-  function getClickedFace(pointer){for(const sprite of [...sprites.values()].sort((a,b)=>b.depth-a.depth)){const block=sprite.getData("e3Block");if(block?.megaHabitat){if(pointer.worldX>=sprite.x-160&&pointer.worldX<=sprite.x+160&&pointer.worldY>=sprite.y-288&&pointer.worldY<=sprite.y)return {block,face:"top"};continue;}const left=sprite.x-BLOCK_SIZE/2;const top=sprite.y-BLOCK_SIZE;const x=pointer.worldX-left;const y=pointer.worldY-top;if(x<0||x>BLOCK_SIZE||y<0||y>BLOCK_SIZE)continue;const faces={top:[[0,16],[32,0],[64,16],[32,32]],left:[[0,16],[32,32],[32,64],[0,48]],right:[[32,32],[64,16],[64,48],[32,64]]};for(const face of ["top","left","right"]){if(pointInPolygon(x,y,faces[face]))return {block,face};}}return null;}
+  function getClickedFace(pointer){for(const sprite of [...sprites.values()].sort((a,b)=>b.depth-a.depth)){const block=sprite.getData("e3Block");if(block?.previewHabitat)continue;if(block?.megaHabitat){if(pointer.worldX>=sprite.x-160&&pointer.worldX<=sprite.x+160&&pointer.worldY>=sprite.y-288&&pointer.worldY<=sprite.y)return {block,face:"top"};continue;}const left=sprite.x-BLOCK_SIZE/2;const top=sprite.y-BLOCK_SIZE;const x=pointer.worldX-left;const y=pointer.worldY-top;if(x<0||x>BLOCK_SIZE||y<0||y>BLOCK_SIZE)continue;const faces={top:[[0,16],[32,0],[64,16],[32,32]],left:[[0,16],[32,32],[32,64],[0,48]],right:[[32,32],[64,16],[64,48],[32,64]]};for(const face of ["top","left","right"]){if(pointInPolygon(x,y,faces[face]))return {block,face};}}return null;}
   function handlePointer(pointer) { if(!active||!enabled())return false;if(pointer.event?.target?.closest?.(".block-builder-panel"))return true;const hit=getClickedFace(pointer);const tile=hit?.block||pointerToTilePosition(pointer.worldX,pointer.worldY);if(!tile)return true;const tileX=hit?.block.x??tile.tileX;const tileY=hit?.block.y??tile.tileY;if(pointer.rightButtonDown())destroy(tileX,tileY,hit?.block.z);else if(pointer.middleButtonDown())pick(tileX,tileY,hit?.block.z);else if(pointer.leftButtonDown()){if(!hit)place(tileX,tileY,1);else if(hit.face==="top")place(tileX,tileY,hit.block.z+1);else if(hit.face==="left")place(tileX,tileY+1,hit.block.z);else place(tileX+1,tileY,hit.block.z);}return true; }
+  function handlePointerMove(pointer){if(!active||!enabled()||selectedMaterial!=="habitat_kit"){if(habitatPreview){habitatPreview=null;render();}return false;}const tile=pointerToTilePosition(pointer.worldX,pointer.worldY);if(!tile)return true;const next={x:tile.tileX-2,y:tile.tileY-2};if(!habitatPreview||next.x!==habitatPreview.x||next.y!==habitatPreview.y){habitatPreview=next;render();}return true;}
   function getHabitatAt(tileX,tileY){return [...blocks.values()].find((block)=>block.megaHabitat&&tileX>=block.x&&tileX<block.x+5&&tileY>=block.y&&tileY<block.y+5)||null;}
   function terrainHeight(tileX,tileY) { const habitat=getHabitatAt(tileX,tileY);if(habitat){const doors=habitat.doorTiles||habitatDoorTiles(habitat.x,habitat.y,habitat.orientation);if(doors.some((door)=>tileX===door.x&&tileY===door.y))return 1;return habitat.z+habitat.levels-1;}let height=0;let topMaterial=null;for(let z=1;z<=MAX_BUILD_LAYER;z+=1){const block=blocks.get(blockKey(tileX,tileY,z));if(!block||!materialByKey.get(block.material)?.solid)break;height=z;topMaterial=materialByKey.get(block.material);}return height+(topMaterial?.nonStackable?1:0); }
   function hasClearance(tileX,tileY,floor) { for(let z=floor+1;z<=Math.min(MAX_BUILD_LAYER,floor+2);z+=1){const block=blocks.get(blockKey(tileX,tileY,z));if(block&&materialByKey.get(block.material)?.solid)return false;}return true; }
@@ -238,12 +253,12 @@ export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGrid
     if(ground<state.elevation){if(!overlapsTile(worldX,worldY,state.supportTile,radius+4)){state.falling=true;state.fallVelocity=0;state.supportTile=tile;}}else if(ground===state.elevation){state.supportTile=tile;state.floor=ground*BLOCK_RISE;}
     return {x:worldX,y:worldY,floor:state.floor,jump:0,supportTile:state.supportTile,elevation:state.elevation,falling:state.falling};
   }
-  function toggle(force) { active=typeof force==="boolean"?force:!active;toolbar.hidden=!active;refreshToolbar();return active; }
+  function toggle(force) { active=typeof force==="boolean"?force:!active;toolbar.hidden=!active;if(!active&&habitatPreview){habitatPreview=null;render();}refreshToolbar();return active; }
 
   const handleKey = (event) => {
     if (["INPUT","TEXTAREA","SELECT"].includes(document.activeElement?.tagName)) return;
     if (event.code === "KeyV" && enabled()) { event.preventDefault();toggle();return; }
-    if (event.code === "KeyR" && enabled() && selectedMaterial==="habitat_kit") { event.preventDefault();habitatOrientation=habitatOrientation==="se"?"sw":"se";refreshToolbar();return; }
+    if (event.code === "KeyR" && enabled() && selectedMaterial==="habitat_kit") { event.preventDefault();habitatOrientation=habitatOrientation==="se"?"sw":"se";refreshToolbar();if(habitatPreview)render();return; }
     if (["Space","ShiftLeft","ShiftRight","KeyZ"].includes(event.code) && enabled()) { event.preventDefault();if(event.code==="Space")spaceKeyCaptured=true;requestJump();return; }
     if (!active) return;
   };
@@ -253,5 +268,5 @@ export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGrid
 
   toolbar.querySelector("[data-close]").addEventListener("click",()=>toggle(false));toolbar.querySelector("[data-clear]").addEventListener("click",()=>{if(confirm("Regenerate this map and replace all placed blocks?")){generateWorld();render();}});
   load();refreshToolbar();
-  return { toggle, isActive:()=>active, isJumping:()=>!!jumpStartedAt, isFalling:()=>fallActive, handlePointer, render, load, update:updateWorld, requestJump, getPlayerOffsets, updateEntityPhysics, canMoveTo, resolveMovement, resolveEntityMovement:(x,y,dx,dy,radius=5)=>resolveMovement(x,y,dx,dy,false,radius,false), terrainHeight, regenerate:()=>{generateWorld();render();}, destroy:()=>{window.removeEventListener("keydown",handleKey,true);window.removeEventListener("keyup",handleKeyUp,true);toolbar.remove();syncWorldBlocks?.([]);sprites.forEach((sprite)=>sprite.destroy());sprites.clear();groundSprites.forEach((sprite)=>sprite.destroy());groundSprites.length=0;} };
+  return { toggle, isActive:()=>active, isJumping:()=>!!jumpStartedAt, isFalling:()=>fallActive, handlePointer, handlePointerMove, render, load, update:updateWorld, requestJump, getPlayerOffsets, updateEntityPhysics, canMoveTo, resolveMovement, resolveEntityMovement:(x,y,dx,dy,radius=5)=>resolveMovement(x,y,dx,dy,false,radius,false), terrainHeight, regenerate:()=>{generateWorld();render();}, destroy:()=>{window.removeEventListener("keydown",handleKey,true);window.removeEventListener("keyup",handleKeyUp,true);toolbar.remove();syncWorldBlocks?.([]);sprites.forEach((sprite)=>sprite.destroy());sprites.clear();groundSprites.forEach((sprite)=>sprite.destroy());groundSprites.length=0;} };
 }
