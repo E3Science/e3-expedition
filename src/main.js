@@ -2983,6 +2983,15 @@ function getPlayerMoveDirection(player) {
   let horizontal = Number(!!player.right) - Number(!!player.left);
   let vertical = Number(!!player.down) - Number(!!player.up);
 
+  // Movement is stored on the logical isometric grid. Convert it back to the
+  // player's screen-space arrow direction for the matching facing animation.
+  if (isIsometricMode()) {
+    const screenHorizontal = horizontal - vertical;
+    const screenVertical = horizontal + vertical;
+    horizontal = Math.sign(screenHorizontal);
+    vertical = Math.sign(screenVertical);
+  }
+
   const left = horizontal < 0;
   const right = horizontal > 0;
   const up = vertical < 0;
@@ -2998,6 +3007,36 @@ function getPlayerMoveDirection(player) {
   if (up) return "up";
   if (down) return "down";
 
+  return null;
+}
+
+function getLocalInputFacingDirection(entry) {
+  const left = !!cursors?.left?.isDown || !!movementKeys?.left?.isDown;
+  const right = !!cursors?.right?.isDown || !!movementKeys?.right?.isDown;
+  const up = !!cursors?.up?.isDown || !!movementKeys?.up?.isDown;
+  const down = !!cursors?.down?.isDown || !!movementKeys?.down?.isDown;
+  const horizontal = Number(right) - Number(left);
+  const vertical = Number(down) - Number(up);
+  const keyCount = Number(left) + Number(right) + Number(up) + Number(down);
+  const previousKeyCount = Number(entry?.localFacingKeyCount) || 0;
+  const now = performance.now();
+
+  if (entry) {
+    if (previousKeyCount > keyCount && previousKeyCount > 1 && keyCount > 0) {
+      entry.localFacingReleaseUntil = now + 90;
+    }
+    entry.localFacingKeyCount = keyCount;
+  }
+
+  if (!keyCount || (entry?.localFacingReleaseUntil || 0) > now) return null;
+  if (horizontal < 0 && vertical < 0) return "left_up";
+  if (horizontal > 0 && vertical < 0) return "right_up";
+  if (horizontal < 0 && vertical > 0) return "left_down";
+  if (horizontal > 0 && vertical > 0) return "right_down";
+  if (horizontal < 0) return "left";
+  if (horizontal > 0) return "right";
+  if (vertical < 0) return "up";
+  if (vertical > 0) return "down";
   return null;
 }
 
@@ -4475,7 +4514,11 @@ function syncWorld3DPlayers() {
 
 function updatePlayerSprite(scene, entry, player, id) {
   const moving = isPlayerMoving(player);
-  const moveDirection = getPlayerMoveDirection(player);
+  const serverMoveDirection = getPlayerMoveDirection(player);
+  const localInputDirection = id === myId ? getLocalInputFacingDirection(entry) : null;
+  const moveDirection = id === myId
+    ? (localInputDirection || entry.lastDirection || serverMoveDirection)
+    : serverMoveDirection;
 
   if (moveDirection) {
     entry.lastDirection = moveDirection;
@@ -4499,7 +4542,6 @@ function updatePlayerSprite(scene, entry, player, id) {
       fallbackDirection
     );
 
-    entry.lastDirection = direction;
   } else if (isPlayerActionActive(entry)) {
     actionName = entry.activeActionName;
 
