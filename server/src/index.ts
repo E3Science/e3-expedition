@@ -235,7 +235,8 @@ const INVENTORY_STACK_MAX = 99;
 const INVENTORY_EXPANSION_MAX = 4;
 const COLLECTABLE_NODE_RESPAWN_MS = 60 * 1000;
 const MAX_ACTIVE_QUESTS = 5;
-const INCAPACITATED_MOB_DESPAWN_MS = 30 * 1000;
+const INCAPACITATED_MOB_REVIVE_MS = 30 * 1000;
+const MOB_HEALTH_REGEN_PER_SECOND = 0.01;
 const MOVEMENT_OXYGEN_INTERVAL_MS = 1 * 1000;
 const RESOURCE_QUESTION_OXYGEN_COST = 5;
 const ALIEN_ARTIFACT_ITEM_ID = "alien_artifact";
@@ -538,7 +539,7 @@ function getSpecialTokensEarnedForQuestCount(completedQuests: number) {
 function getScienceSkillForResource(baseItemKey: string): ScienceSkillKey | null {
   if (baseItemKey === "rock_sample") return "geology";
   if (baseItemKey === "plant_sample") return "botany";
-  if (baseItemKey === "herbivore_specimen") return "zoology";
+  if (baseItemKey === "herbivore_specimen" || baseItemKey.startsWith("animal_specimen_")) return "zoology";
   if (baseItemKey === "water_sample") return "chemistry";
   return null;
 }
@@ -583,6 +584,22 @@ const FOOD_WEB_TARGETS: Record<string, string[]> = {
   apex_predator_a: ["carnivore_a", "carnivore_b"],
   apex_predator_b: ["carnivore_c"]
 };
+
+const ANIMAL_SPECIMEN_DEFS: Record<string, { label: string; quality: ItemQuality }> = {
+  herbivore_a: { label: "Tardislug", quality: "common" },
+  herbivore_b: { label: "Lophelant", quality: "uncommon" },
+  herbivore_c: { label: "Bumblewing", quality: "rare" },
+  herbivore_d: { label: "Quacklynx", quality: "uncommon" },
+  carnivore_a: { label: "Shellkraken", quality: "rare" },
+  carnivore_b: { label: "Siphon Gnat", quality: "uncommon" },
+  carnivore_c: { label: "Prism Skink", quality: "epic" },
+  apex_predator_a: { label: "Mirebandit", quality: "epic" },
+  apex_predator_b: { label: "Azure Prowler", quality: "legendary" }
+};
+
+function getAnimalSpecimenBaseKey(speciesKey: string) {
+  return `animal_specimen_${ANIMAL_SPECIMEN_DEFS[speciesKey] ? speciesKey : "herbivore_a"}`;
+}
 
 function getItemQualityChancesForTier(tier: number, masterySteps = 0) {
   const table = ITEM_QUALITY_ROLLS_BY_TIER[tier] || ITEM_QUALITY_ROLLS_BY_TIER[1];
@@ -670,7 +687,11 @@ function getInventoryItemLabel(baseItemKey: string, quality: ItemQuality) {
     habitat_component: "Habitat Component"
   };
 
-  return `${qualityLabel} ${baseLabelMap[baseItemKey] || baseItemKey}`;
+  const speciesKey = baseItemKey.startsWith("animal_specimen_")
+    ? baseItemKey.slice("animal_specimen_".length)
+    : "";
+  const animalLabel = ANIMAL_SPECIMEN_DEFS[speciesKey]?.label;
+  return `${qualityLabel} ${animalLabel ? `${animalLabel} Specimen` : (baseLabelMap[baseItemKey] || baseItemKey)}`;
 }
 
 /*
@@ -3917,13 +3938,8 @@ updateCarnivoreMob(mob: RuntimeMobEntity, dt: number, now: number) {  if (mob.in
 
   updateRuntimeMobs(deltaTime: number) {
     const dt = (deltaTime * this.ecosystemTimeScale) / 1000;
+    const realDt = deltaTime / 1000;
     const now = Date.now();
-
-    this.runtimeMobEntities = this.runtimeMobEntities.filter((mob) => {
-      if (!mob.incapacitated) return true;
-      const incapacitatedAt = mob.incapacitatedAtEpochMs || now;
-      return now - incapacitatedAt < INCAPACITATED_MOB_DESPAWN_MS;
-    });
 
     const currentMobs = [...this.runtimeMobEntities];
 
@@ -3933,6 +3949,14 @@ updateCarnivoreMob(mob: RuntimeMobEntity, dt: number, now: number) {  if (mob.in
       }
 
       if (mob.incapacitated) {
+        const incapacitatedAt = mob.incapacitatedAtEpochMs || now;
+        if (now - incapacitatedAt >= INCAPACITATED_MOB_REVIVE_MS) {
+          mob.incapacitated = false;
+          mob.incapacitatedAtEpochMs = undefined;
+          mob.stamina = Math.max(1, Math.ceil(mob.maxStamina * 0.5));
+          mob.state = "wander";
+          mob.thinkAtEpochMs = now;
+        } else {
         mob.vx = 0;
         mob.vy = 0;
         mob.state = "idle";
@@ -3944,6 +3968,11 @@ updateCarnivoreMob(mob: RuntimeMobEntity, dt: number, now: number) {  if (mob.in
         mob.aggroMobId = "";
         mob.aggroMobUntilEpochMs = 0;
         return;
+        }
+      }
+
+      if (mob.stamina < mob.maxStamina && now - mob.lastHitAtEpochMs > 3000) {
+        mob.stamina = Math.min(mob.maxStamina, mob.stamina + mob.maxStamina * MOB_HEALTH_REGEN_PER_SECOND * realDt);
       }
 
       const isBeingEaten =
@@ -5276,13 +5305,13 @@ if (stillDistance > TILE_SIZE * 6) {
   return;
 }
 
-    const zoologyMastery = this.getScienceMasterySteps(stillPlayer, "zoology");
-    const rolledQuality = rollItemQualityForTier(liveMob.tier, zoologyMastery);
+    const specimenDef = ANIMAL_SPECIMEN_DEFS[liveMob.speciesKey] || ANIMAL_SPECIMEN_DEFS.herbivore_a;
+    const specimenBaseKey = getAnimalSpecimenBaseKey(liveMob.speciesKey);
 
     try {
       const granted = await this.awardInventoryItem(stillPlayer, {
-        baseItemKey: "herbivore_specimen",
-        quality: rolledQuality,
+        baseItemKey: specimenBaseKey,
+        quality: specimenDef.quality,
         quantity: 1
       });
 
@@ -5292,12 +5321,11 @@ if (stillDistance > TILE_SIZE * 6) {
       client.send("loot_feedback", {
         itemKey: granted.itemId,
         itemLabel: granted.itemLabel,
-        presentation: "resource_wheel",
+        presentation: "floating",
         resourceKind: "animal",
         resourceTier: liveMob.tier,
-        quality: rolledQuality,
-        cooldownMs: 2000,
-        rarityChances: getItemQualityChancesForTier(liveMob.tier, zoologyMastery)
+        quality: specimenDef.quality,
+        cooldownMs: 0
       });
 
       client.send("interaction_result", {
@@ -5314,6 +5342,57 @@ if (stillDistance > TILE_SIZE * 6) {
             ? "Your inventory is full."
             : "Collection succeeded, but inventory could not be saved."
       });
+    }
+  }
+
+  async handleAnimalSpecimenRelease(client: Client, message?: { itemId?: string }) {
+    const player = this.state.players.get(client.sessionId);
+    const itemId = String(message?.itemId || "").trim();
+    if (!player || !itemId) return;
+    const baseItemKey = itemId.split(":")[0];
+    const speciesKey = baseItemKey.startsWith("animal_specimen_")
+      ? baseItemKey.slice("animal_specimen_".length)
+      : "";
+    const specimenDef = ANIMAL_SPECIMEN_DEFS[speciesKey];
+    const speciesRows: Record<string, number> = {
+      herbivore_a: OBJECT_ROW_LEVEL1_HERBIVORE_A, herbivore_b: OBJECT_ROW_LEVEL1_HERBIVORE_B,
+      herbivore_c: OBJECT_ROW_LEVEL2_HERBIVORE_A, herbivore_d: OBJECT_ROW_LEVEL2_HERBIVORE_B,
+      carnivore_a: OBJECT_ROW_LEVEL1_CARNIVORE, carnivore_b: OBJECT_ROW_LEVEL2_CARNIVORE_A,
+      carnivore_c: OBJECT_ROW_LEVEL2_CARNIVORE_B, apex_predator_a: OBJECT_ROW_LEVEL2_APEX_PREDATOR,
+      apex_predator_b: OBJECT_ROW_LEVEL3_APEX_PREDATOR
+    };
+    const knownAnchor = this.runtimeMobSpawnAnchors.find((entry) => getMobSpeciesKeyForFrame(entry.anchorFrame) === speciesKey);
+    const anchor = knownAnchor || (speciesRows[speciesKey] !== undefined ? {
+      id: `${this.currentMapKey}:released:${speciesKey}`,
+      mapKey: this.currentMapKey,
+      anchorTileX: 0,
+      anchorTileY: 0,
+      anchorFrame: speciesRows[speciesKey] * OBJECT_SHEET_COLUMNS,
+      kind: getMobKindForFrame(speciesRows[speciesKey] * OBJECT_SHEET_COLUMNS)!,
+      tier: getObjectTierForFrame(speciesRows[speciesKey] * OBJECT_SHEET_COLUMNS),
+      spawnRadiusTiles: Math.max(this.getRoomTileWidth(), this.getRoomTileHeight()),
+      maxAlive: 1
+    } : null);
+    if (!specimenDef || !anchor || (player.inventory.get(itemId) || 0) < 1) {
+      client.send("interaction_result", { success: false, message: "That animal specimen cannot be released here." });
+      return;
+    }
+    try {
+      await this.removeInventoryItem(player, itemId, 1);
+      const mob = this.createRuntimeMobFromAnchor(anchor, Date.now() % 1000000);
+      mob.x = player.x + TILE_SIZE;
+      mob.y = player.y + TILE_SIZE;
+      mob.homeX = mob.x;
+      mob.homeY = mob.y;
+      mob.stamina = mob.maxStamina;
+      mob.incapacitated = false;
+      mob.incapacitatedAtEpochMs = undefined;
+      mob.state = "wander";
+      this.runtimeMobEntities.push(mob);
+      this.broadcastRuntimeMobSnapshot(true);
+      client.send("interaction_result", { success: true, message: `${specimenDef.label} returned to the wild at full health.` });
+    } catch (error) {
+      client.send("interaction_result", { success: false, message: "The specimen could not be released." });
     }
   }
 
@@ -7291,6 +7370,10 @@ if (stillDistance > TILE_SIZE * 6) {
 
     this.onMessage("delete_inventory_item", async (client, message: { itemId?: string }) => {
       await this.handleInventoryItemDelete(client, message);
+    });
+
+    this.onMessage("release_animal_specimen", async (client, message: { itemId?: string }) => {
+      await this.handleAnimalSpecimenRelease(client, message);
     });
 
     this.onMessage("collect_voxel_material", async (client, message: { baseItemKey?: string }) => {

@@ -598,6 +598,39 @@ const INVENTORY_ITEM_DEFS = [
   { key: "fish_sample", label: "Fish Sample", imageSrc: "assets/ui/inventory/water_sample.png" }
 ];
 
+const ANIMAL_SPECIMEN_DEFS = {
+  herbivore_a: { label: "Tardislug", quality: "common" }, herbivore_b: { label: "Lophelant", quality: "uncommon" },
+  herbivore_c: { label: "Bumblewing", quality: "rare" }, herbivore_d: { label: "Quacklynx", quality: "uncommon" },
+  carnivore_a: { label: "Shellkraken", quality: "rare" }, carnivore_b: { label: "Siphon Gnat", quality: "uncommon" },
+  carnivore_c: { label: "Prism Skink", quality: "epic" }, apex_predator_a: { label: "Mirebandit", quality: "epic" },
+  apex_predator_b: { label: "Azure Prowler", quality: "legendary" }
+};
+
+function getAnimalSpecimenItemKey(speciesKey) {
+  const safeSpeciesKey = ANIMAL_SPECIMEN_DEFS[speciesKey] ? speciesKey : "herbivore_a";
+  return `animal_specimen_${safeSpeciesKey}:${ANIMAL_SPECIMEN_DEFS[safeSpeciesKey].quality}`;
+}
+
+function isAnimalSpecimenItemKey(itemKey) {
+  return String(itemKey || "").split(":")[0].startsWith("animal_specimen_");
+}
+
+function releaseSelectedAnimalSpecimen() {
+  if (!isAnimalSpecimenItemKey(selectedInventoryKey) || (Number(latestInventoryCounts[selectedInventoryKey]) || 0) < 1) return false;
+  if (!standaloneWorld) {
+    sendRoomMessage("release_animal_specimen", { itemId: selectedInventoryKey });
+    return true;
+  }
+  const me = room?.state?.players?.get?.(myId);
+  if (!me) return false;
+  const speciesKey = selectedInventoryKey.split(":")[0].slice("animal_specimen_".length);
+  const speciesRows = { herbivore_a:OBJECT_ROW_LEVEL1_HERBIVORE_A,herbivore_b:OBJECT_ROW_LEVEL1_HERBIVORE_B,herbivore_c:OBJECT_ROW_LEVEL2_HERBIVORE_A,herbivore_d:OBJECT_ROW_LEVEL2_HERBIVORE_B,carnivore_a:OBJECT_ROW_LEVEL1_CARNIVORE,carnivore_b:OBJECT_ROW_LEVEL2_CARNIVORE_A,carnivore_c:OBJECT_ROW_LEVEL2_CARNIVORE_B,apex_predator_a:OBJECT_ROW_LEVEL2_APEX_PREDATOR,apex_predator_b:OBJECT_ROW_LEVEL3_APEX_PREDATOR };
+  const frame=(speciesRows[speciesKey]??OBJECT_ROW_LEVEL1_HERBIVORE_A)*OBJECT_SHEET_COLUMNS;
+  const tier=getObjectTierForFrame(frame);const maxHealth=80+Number(tier||1)*20;const x=Number(me.x)+TILE_SIZE;const y=Number(me.y)+TILE_SIZE;
+  const mob={id:`released-${speciesKey}-${Date.now()}`,mapKey:currentMapKey,anchorFrame:frame,kind:getMobKindForFrame(frame),tier,speciesKey,x,y,homeX:x,homeY:y,facing:"right",state:"walk",phase:Math.random()*Math.PI*2,stamina:maxHealth,maxStamina:maxHealth,health:maxHealth,maxHealth,incapacitated:false,esm:20,maxEsm:20,ecosystemState:"returned to the wild"};
+  latestRuntimeMobSnapshot[mob.id]=mob;latestInventoryCounts={...latestInventoryCounts,[selectedInventoryKey]:Math.max(0,(Number(latestInventoryCounts[selectedInventoryKey])||0)-1)};updateInventoryUI(latestInventoryCounts);applyRuntimeMobSnapshot({mapKey:currentMapKey,mobs:Object.values(latestRuntimeMobSnapshot)});showStatusMessage(`${ANIMAL_SPECIMEN_DEFS[speciesKey]?.label||"Animal"} returned to the wild at full health.`,true);return true;
+}
+
 const SCIENCE_SKILL_DEFS = {
   geology: { label: "Geology", resource: "mineral samples" },
   botany: { label: "Botany", resource: "plant samples" },
@@ -4409,7 +4442,7 @@ async function startStandaloneWorld(chosenName, mapKey = DEFAULT_MAP_KEY) {
     connection: { isOpen: true },
     state: { players: localPlayers },
     send(type, payload = {}) {
-      if(type==="interact"&&payload?.mobId){const mob=latestRuntimeMobSnapshot[payload.mobId];if(!mob)return;if(payload.action==="taser"||payload.action==="taser_artifact"){const next=Math.max(0,Number(mob.health??mob.stamina)-25);mob.health=next;mob.stamina=next;if(next<=0){mob.incapacitated=true;mob.state="defeated";}applyRuntimeMobSnapshot({mapKey:currentMapKey,mobs:Object.values(latestRuntimeMobSnapshot)});return;}if(payload.action==="collect_incapacitated_herbivore"&&mob.incapacitated){delete latestRuntimeMobSnapshot[mob.id];const itemKey="herbivore_specimen:common";latestInventoryCounts={...latestInventoryCounts,[itemKey]:(Number(latestInventoryCounts[itemKey])||0)+1};updateInventoryUI(latestInventoryCounts);showFloatingLootText(itemKey);applyRuntimeMobSnapshot({mapKey:currentMapKey,mobs:Object.values(latestRuntimeMobSnapshot)});return;}}
+      if(type==="interact"&&payload?.mobId){const mob=latestRuntimeMobSnapshot[payload.mobId];if(!mob)return;if(payload.action==="taser"||payload.action==="taser_artifact"){const next=Math.max(0,Number(mob.health??mob.stamina)-25);mob.health=next;mob.stamina=next;if(next<=0){mob.incapacitated=true;mob.incapacitatedAtEpochMs=Date.now();mob.state="defeated";}applyRuntimeMobSnapshot({mapKey:currentMapKey,mobs:Object.values(latestRuntimeMobSnapshot)});return;}if(payload.action==="collect_incapacitated_herbivore"&&mob.incapacitated){delete latestRuntimeMobSnapshot[mob.id];const itemKey=getAnimalSpecimenItemKey(mob.speciesKey);latestInventoryCounts={...latestInventoryCounts,[itemKey]:(Number(latestInventoryCounts[itemKey])||0)+1};updateInventoryUI(latestInventoryCounts);showFloatingLootText(itemKey);applyRuntimeMobSnapshot({mapKey:currentMapKey,mobs:Object.values(latestRuntimeMobSnapshot)});return;}}
       if (type !== "input") return;
       standaloneInput = { ...standaloneInput, ...payload };
       Object.assign(player, {
@@ -4451,7 +4484,7 @@ function updateStandaloneAnimals(elapsedSeconds) {
   if (!standaloneWorld) return;
   Object.values(latestRuntimeMobSnapshot).forEach((mob) => {
     if (!mob?.homeX && !mob?.homeY) return;
-    if(mob.incapacitated){mob.state="defeated";return;}
+    if(mob.incapacitated){if(Date.now()-(Number(mob.incapacitatedAtEpochMs)||Date.now())<30000){mob.state="defeated";return;}mob.incapacitated=false;mob.incapacitatedAtEpochMs=0;mob.health=Math.max(1,Math.ceil(Number(mob.maxHealth||mob.maxStamina)*.5));mob.stamina=mob.health;mob.state="walk";}
     const previous=Number(mob.lastMoveAt)||elapsedSeconds;const dt=Math.min(.05,Math.max(0,elapsedSeconds-previous));mob.lastMoveAt=elapsedSeconds;
     if(!Number.isFinite(mob.heading))mob.heading=Number(mob.phase)||0;
     const homeDx=mob.homeX-mob.x;const homeDy=mob.homeY-mob.y;const homeDistance=Math.hypot(homeDx,homeDy);const roamRadius=TILE_SIZE*(1.8+Number(mob.tier||1)*.3);
@@ -4461,6 +4494,7 @@ function updateStandaloneAnimals(elapsedSeconds) {
     if(Math.hypot(mob.x-beforeX,mob.y-beforeY)<step*.25)mob.heading+=Math.PI*.55;
     mob.facing = mob.x < beforeX ? "left" : "right";
     mob.state = "walk";
+    const maxHealth=Number(mob.maxHealth||mob.maxStamina)||1;if(Number(mob.health)<maxHealth){mob.health=Math.min(maxHealth,Number(mob.health)+maxHealth*.01*dt);mob.stamina=mob.health;}
   });
 }
 
@@ -5284,6 +5318,8 @@ function update() {
       return;
     }
 
+    if (releaseSelectedAnimalSpecimen()) return;
+
     if(getSelectedToolKey()!=="spacegun"&&blockSystem?.performSelectedAction?.())return;
 
     const selectedMob = getSelectedTargetSnapshot();
@@ -5297,24 +5333,10 @@ function update() {
           return;
         }
 
-        resourceCollectionSequence?.start({
-          resourceKind: "animal",
-          resourceLabel: "Animal Specimen",
-          tier: selectedMob.tier || 1,
-          requestCollection: () => {
-            faceLocalPlayerTowardActionCenter({
-              worldX: selectedMob.x,
-              worldY: selectedMob.y
-            });
-            startLocalPlayerActionAnimation("dig");
-            players[myId].activeActionUntil = sceneRef.time.now + 6000;
-            return sendRoomMessage("interact", {
-              source: "mob",
-              action: "collect_incapacitated_herbivore",
-              mobId: selectedMob.id
-            });
-          }
-        });
+        faceLocalPlayerTowardActionCenter({ worldX: selectedMob.x, worldY: selectedMob.y });
+        startLocalPlayerActionAnimation("dig");
+        players[myId].activeActionUntil = sceneRef.time.now + 6000;
+        sendRoomMessage("interact", { source: "mob", action: "collect_incapacitated_herbivore", mobId: selectedMob.id });
         return;
       }
 
@@ -14509,6 +14531,7 @@ function parseInventoryItemKey(itemKey) {
 function getInventoryBaseItemDef(itemKey) {
   const parsed = parseInventoryItemKey(itemKey);
   const defined=INVENTORY_ITEM_DEFS.find((item) => item.key === parsed.baseKey);if(defined)return defined;
+  if(parsed.baseKey.startsWith("animal_specimen_")){const speciesKey=parsed.baseKey.slice("animal_specimen_".length);const specimen=ANIMAL_SPECIMEN_DEFS[speciesKey];if(specimen)return {key:parsed.baseKey,label:`${specimen.label} Specimen`,imageSrc:"assets/ui/inventory/herbivore_specimen.png"};}
   if(parsed.baseKey.endsWith("_block")){const materialKey=parsed.baseKey.slice(0,-6);const material=BLOCK_MATERIALS.find((entry)=>entry.key===materialKey);const label=material?.label||materialKey.split("_").map((part)=>part.charAt(0).toUpperCase()+part.slice(1)).join(" ");let imageSrc=material?.asset||"";const texture=sceneRef?.textures?.get?.(`e3_block_${materialKey}`)?.getSourceImage?.();if(!imageSrc&&texture?.toDataURL){try{imageSrc=texture.toDataURL("image/png");}catch{imageSrc="";}}if(!imageSrc)imageSrc=materialKey==="water"?"assets/ui/inventory/water_sample.png":["bark","leaves","grass"].includes(materialKey)||materialKey.startsWith("flora")?"assets/ui/inventory/plant_sample.png":"assets/ui/inventory/rock_sample.png";return {key:parsed.baseKey,label:material?.label||`${label} Block`,imageSrc};}
   return null;
 }
