@@ -501,6 +501,7 @@ let currentInventorySlotCount = BASE_INVENTORY_SLOT_COUNT;
 let selectedInventoryKey = null;
 let selectedInventorySlotId = null;
 const pendingVoxelInventoryCounts = new Map();
+const pendingVoxelPlacementCounts = new Map();
 const HOTBAR_SLOT_COUNT = 9;
 
 const TOOL_DEFS = {
@@ -1418,8 +1419,7 @@ function applyDefaultHUDLayout() {
   const rightPanels = [profilePanel, inventoryPanel, questPanel].filter(Boolean);
   let rightTop = margin;
   rightPanels.forEach((panel) => {
-    const panelWidth=panel===inventoryPanel?Math.min(360,viewportWidth-margin*2):sideWidth;
-    setLockedPanelPosition(panel, { right: margin, top: rightTop, width: panelWidth });
+    setLockedPanelPosition(panel, { right: margin, top: rightTop, width: sideWidth });
     if (panel.style.display === "none") return;
     rightTop += Math.max(42, panel.getBoundingClientRect().height) + 8;
   });
@@ -4714,6 +4714,8 @@ function create() {
     getPlayer: () => room?.state?.players?.get?.(myId) || null,
     getPlayerDirection: () => players?.[myId]?.lastDirection || "down",
     getSelectedTool: getSelectedToolKey,
+    getInventoryMaterial: () => {const baseKey=String(selectedInventoryKey||"").split(":")[0];if(!baseKey.endsWith("_block"))return null;const materialKey=baseKey.slice(0,-6);return BLOCK_MATERIALS.some((entry)=>entry.key===materialKey)?materialKey:null;},
+    onPlaceInventoryBlock: (materialKey) => {const itemKey=`${materialKey}_block:common`;const current=Number(latestInventoryCounts[itemKey])||0;if(current<1)return false;const expectedCount=current-1;latestInventoryCounts={...latestInventoryCounts,[itemKey]:expectedCount};updateInventoryUI(latestInventoryCounts);if(joined&&!standaloneWorld){pendingVoxelPlacementCounts.set(itemKey,expectedCount);sendRoomMessage("place_voxel_material",{baseItemKey:`${materialKey}_block`});}return true;},
     syncWorldBlocks: (blocks) => worldPortalLayer?.setBlocks?.(blocks),
     onCollectSample: (baseKey) => {const itemKey=`${baseKey}:common`;const expectedCount=(Number(latestInventoryCounts[itemKey])||0)+1;latestInventoryCounts={...latestInventoryCounts,[itemKey]:expectedCount};updateInventoryUI(latestInventoryCounts);if(joined&&!standaloneWorld)pendingVoxelInventoryCounts.set(itemKey,expectedCount);showFloatingLootText(itemKey);if(joined&&!standaloneWorld)sendRoomMessage("collect_voxel_material",{baseItemKey:baseKey});},
     onToolAction: (actionName,details) => {startLocalPlayerActionAnimation(actionName);const display=tileToDisplayPosition(details.x,details.y);worldPortalLayer?.spawnDebris?.({x:display.x,y:display.y-(Math.max(1,details.z)-1)*32-20,type:details.debris});},
@@ -5401,7 +5403,7 @@ function update() {
           nearbyCollectable.kind === "rock"
             ? "Rock Sample"
             : nearbyCollectable.kind === "pond"
-              ? "Water Sample"
+              ? "Water Block"
               : nearbyCollectable.kind === "specimen"
                 ? "Alien Specimen"
               : "Plant Sample",
@@ -5454,7 +5456,7 @@ if (nearbyActionCenter) {
         actionResourceKind === "rock"
           ? "Rock Sample"
           : actionResourceKind === "pond"
-            ? "Water Sample"
+            ? "Water Block"
             : "Plant Sample",
       tier: 1,
       requestCollection: requestActionCenterCollection
@@ -12232,7 +12234,7 @@ function createInventoryUI() {
   inventoryPanelBody.id = "inventory-panel-body";
   inventoryPanelBody.className = "inventory-slot-scroller";
   inventoryPanelBody.style.display = "grid";
-  inventoryPanelBody.style.gridTemplateColumns = `repeat(${INVENTORY_COLUMNS}, 52px)`;
+  inventoryPanelBody.style.gridTemplateColumns = `repeat(${INVENTORY_COLUMNS}, minmax(0, 1fr))`;
   inventoryPanelBody.style.gap = "8px";
   inventoryPanelBody.style.justifyContent = "start";
   inventoryPanelBody.style.justifyItems = "center";
@@ -12979,12 +12981,13 @@ function createInventorySlot(index) {
   root.style.flexDirection = "column";
   root.style.alignItems = "center";
   root.style.gap = "6px";
+  root.style.width = "100%";
 
   const tile = document.createElement("div");
   tile.className = "inventory-slot-tile";
   tile.style.position = "relative";
-  tile.style.width = "52px";
-  tile.style.height = "52px";
+  tile.style.width = "100%";
+  tile.style.aspectRatio = "1";
   tile.style.borderRadius = "10px";
   tile.style.border = "1px solid rgba(255, 255, 255, 0.12)";
   tile.style.background = "rgba(16, 24, 36, 0.95)";
@@ -13188,6 +13191,10 @@ function updateInventoryUI(inventoryCounts = {}) {
   );
   pendingVoxelInventoryCounts.forEach((expectedCount, itemKey) => {
     if ((Number(syncedInventoryCounts[itemKey]) || 0) >= expectedCount) pendingVoxelInventoryCounts.delete(itemKey);
+    else syncedInventoryCounts[itemKey] = expectedCount;
+  });
+  pendingVoxelPlacementCounts.forEach((expectedCount, itemKey) => {
+    if ((Number(syncedInventoryCounts[itemKey]) || 0) <= expectedCount) pendingVoxelPlacementCounts.delete(itemKey);
     else syncedInventoryCounts[itemKey] = expectedCount;
   });
   const visibleInventoryCounts = syncedInventoryCounts;
@@ -15256,6 +15263,12 @@ lastEditorStatusMessage = "";
     });
 
     room.onMessage("interaction_result", (data) => {
+      if (data?.success && data?.itemKey && Number.isFinite(Number(data.quantity))) {
+        pendingVoxelInventoryCounts.delete(data.itemKey);
+        pendingVoxelPlacementCounts.delete(data.itemKey);
+        latestInventoryCounts = { ...latestInventoryCounts, [data.itemKey]: Number(data.quantity) };
+        updateInventoryUI(latestInventoryCounts);
+      }
       if (data && data.success === false) {
         resourceCollectionSequence?.handleFailure?.(data.message);
       }

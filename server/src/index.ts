@@ -684,6 +684,7 @@ function getInventoryItemLabel(baseItemKey: string, quality: ItemQuality) {
     crystal_ore: "Crystal Ore",
     wood_sample: "Wood",
     fish_sample: "Fish Sample",
+    water_block: "Water Block",
     habitat_component: "Habitat Component"
   };
 
@@ -5493,9 +5494,9 @@ if (stillDistance > TILE_SIZE * 6) {
         cooldownMs: 2000
       },
       fish: {
-        baseItemKey: "water_sample",
-        itemLabelBase: "Water Sample",
-        message: "collected a water sample.",
+        baseItemKey: "water_block",
+        itemLabelBase: "Water Block",
+        message: "collected a water block.",
         cooldownKey: "collect_fish",
         cooldownMs: 2000
       },
@@ -5648,8 +5649,9 @@ if (stillDistance > TILE_SIZE * 6) {
 
     const skillKey = getScienceSkillForResource(reward.baseItemKey);
     const masterySteps = skillKey ? this.getScienceMasterySteps(player, skillKey) : 0;
-    const rolledQuality = liveNode.guaranteedQuality ||
-      rollItemQualityForTier(liveNode.tier, masterySteps);
+    const rolledQuality: ItemQuality = reward.baseItemKey === "water_block"
+      ? "common"
+      : liveNode.guaranteedQuality || rollItemQualityForTier(liveNode.tier, masterySteps);
 
     try {
       const granted = await this.awardInventoryItem(player, {
@@ -5665,12 +5667,14 @@ if (stillDistance > TILE_SIZE * 6) {
       client.send("loot_feedback", {
         itemKey: granted.itemId,
         itemLabel: granted.itemLabel,
-        presentation: "resource_wheel",
+        presentation: reward.baseItemKey === "water_block" ? "floating" : "resource_wheel",
         resourceKind: liveNode.kind,
         resourceTier: liveNode.tier,
         quality: rolledQuality,
         cooldownMs: reward.cooldownMs,
-        rarityChances: liveNode.guaranteedQuality
+        rarityChances: reward.baseItemKey === "water_block"
+          ? [{ quality: "common", chance: 1 }]
+          : liveNode.guaranteedQuality
           ? [{ quality: liveNode.guaranteedQuality, chance: 1 }]
           : getItemQualityChancesForTier(liveNode.tier, masterySteps)
       });
@@ -7382,8 +7386,14 @@ if (stillDistance > TILE_SIZE * 6) {
       const allowed=new Set(["dirt_sample","rock_sample","iron_ore","crystal_ore","wood_sample","plant_sample","water_sample","fish_sample","habitat_component","bedrock_block","dirt_block","stone_block","iron_block","crystal_block","grass_block","bark_block","leaves_block","water_block","sand_block","panel_block","computer_block","crate_block","cave_block","alien_block","portal_block","biome_cyan_block","biome_violet_block","biome_coral_block","biome_indigo_block","tree_sprout_block","habitat_kit_block"]);
       ["supply_crate","power_generator","atmosphere_processor","water_recycler","communications_rack","oxygen_rack","liquid_tank","work_light","tool_cart","hose_bundle","maintenance_robot","glass","laboratory","command_console","habitat_wall"].forEach((key)=>allowed.add(`${key}_block`));
       if(!allowed.has(baseItemKey)&&!/^flora_(cyan|violet|coral|indigo)(_2)?_block$/.test(baseItemKey)){client.send("interaction_result",{success:false,message:"Unknown voxel material."});return;}
-      try{const granted=await this.awardInventoryItem(player,{baseItemKey,quality:"common",quantity:1});client.send("interaction_result",{success:true,message:`${granted.itemLabel} added to inventory.`,itemKey:granted.itemId});}
+      try{const granted=await this.awardInventoryItem(player,{baseItemKey,quality:"common",quantity:1});client.send("interaction_result",{success:true,message:`${granted.itemLabel} added to inventory.`,itemKey:granted.itemId,quantity:player.inventory.get(granted.itemId)||0});}
       catch(error){client.send("interaction_result",{success:false,message:error instanceof Error?error.message:"Could not store the collected material."});}
+    });
+
+    this.onMessage("place_voxel_material", async (client, message: { baseItemKey?: string }) => {
+      const player=this.state.players.get(client.sessionId);const baseItemKey=String(message?.baseItemKey||"");if(!player||!baseItemKey.endsWith("_block"))return;const itemId=`${baseItemKey}:common`;
+      try{const result=await this.removeInventoryItem(player,itemId,1);client.send("interaction_result",{success:true,message:"Block placed.",itemKey:itemId,quantity:result.quantityRemaining});}
+      catch{client.send("interaction_result",{success:false,message:"That block is no longer in your inventory."});}
     });
 
     this.onMessage("summon_alien_artifact", async (client) => {
@@ -7837,11 +7847,11 @@ if (stillDistance > TILE_SIZE * 6) {
         tier: 1
       },
       fish: {
-        baseItemKey: "water_sample",
-        message: "collected a water sample.",
+        baseItemKey: "water_block",
+        message: "collected a water block.",
         cooldownKey: "action_fish",
         cooldownMs: 3000,
-        useQualityRoll: true,
+        useQualityRoll: false,
         tier: 1
       },
       comm: {
