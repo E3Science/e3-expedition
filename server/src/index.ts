@@ -7203,6 +7203,8 @@ if (stillDistance > TILE_SIZE * 6) {
       class_id: player.classId,
       item_id: itemId,
       quantity
+    }, {
+      onConflict: "user_id,class_id,item_id"
     });
 
     if (error) {
