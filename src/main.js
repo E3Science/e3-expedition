@@ -616,6 +616,15 @@ function isAnimalSpecimenItemKey(itemKey) {
   return String(itemKey || "").split(":")[0].startsWith("animal_specimen_");
 }
 
+function setStandaloneInventoryCount(itemKey, quantity) {
+  if (!standaloneWorld || !itemKey) return;
+  const inventory = room?.state?.players?.get?.(myId)?.inventory;
+  if (!inventory) return;
+  const count = Math.max(0, Math.floor(Number(quantity) || 0));
+  if (count > 0) inventory.set(itemKey, count);
+  else inventory.delete(itemKey);
+}
+
 function releaseSelectedAnimalSpecimen() {
   if (!isAnimalSpecimenItemKey(selectedInventoryKey) || (Number(latestInventoryCounts[selectedInventoryKey]) || 0) < 1) return false;
   if (!standaloneWorld) {
@@ -629,7 +638,7 @@ function releaseSelectedAnimalSpecimen() {
   const frame=(speciesRows[speciesKey]??OBJECT_ROW_LEVEL1_HERBIVORE_A)*OBJECT_SHEET_COLUMNS;
   const tier=getObjectTierForFrame(frame);const maxHealth=80+Number(tier||1)*20;const x=Number(me.x)+TILE_SIZE;const y=Number(me.y)+TILE_SIZE;
   const mob={id:`released-${speciesKey}-${Date.now()}`,mapKey:currentMapKey,anchorFrame:frame,kind:getMobKindForFrame(frame),tier,speciesKey,x,y,homeX:x,homeY:y,facing:"right",state:"walk",phase:Math.random()*Math.PI*2,stamina:maxHealth,maxStamina:maxHealth,health:maxHealth,maxHealth,incapacitated:false,esm:20,maxEsm:20,ecosystemState:"returned to the wild"};
-  latestRuntimeMobSnapshot[mob.id]=mob;latestInventoryCounts={...latestInventoryCounts,[selectedInventoryKey]:Math.max(0,(Number(latestInventoryCounts[selectedInventoryKey])||0)-1)};updateInventoryUI(latestInventoryCounts);applyRuntimeMobSnapshot({mapKey:currentMapKey,mobs:Object.values(latestRuntimeMobSnapshot)});showStatusMessage(`${ANIMAL_SPECIMEN_DEFS[speciesKey]?.label||"Animal"} returned to the wild at full health.`,true);return true;
+  latestRuntimeMobSnapshot[mob.id]=mob;latestInventoryCounts={...latestInventoryCounts,[selectedInventoryKey]:Math.max(0,(Number(latestInventoryCounts[selectedInventoryKey])||0)-1)};setStandaloneInventoryCount(selectedInventoryKey,latestInventoryCounts[selectedInventoryKey]);updateInventoryUI(latestInventoryCounts);applyRuntimeMobSnapshot({mapKey:currentMapKey,mobs:Object.values(latestRuntimeMobSnapshot)});showStatusMessage(`${ANIMAL_SPECIMEN_DEFS[speciesKey]?.label||"Animal"} returned to the wild at full health.`,true);return true;
 }
 
 const SCIENCE_SKILL_DEFS = {
@@ -4442,7 +4451,8 @@ async function startStandaloneWorld(chosenName, mapKey = DEFAULT_MAP_KEY) {
     connection: { isOpen: true },
     state: { players: localPlayers },
     send(type, payload = {}) {
-      if(type==="interact"&&payload?.mobId){const mob=latestRuntimeMobSnapshot[payload.mobId];if(!mob)return;if(payload.action==="taser"||payload.action==="taser_artifact"){const next=Math.max(0,Number(mob.health??mob.stamina)-25);mob.health=next;mob.stamina=next;if(next<=0){mob.incapacitated=true;mob.incapacitatedAtEpochMs=Date.now();mob.state="defeated";}applyRuntimeMobSnapshot({mapKey:currentMapKey,mobs:Object.values(latestRuntimeMobSnapshot)});return;}if(payload.action==="collect_incapacitated_herbivore"&&mob.incapacitated){delete latestRuntimeMobSnapshot[mob.id];const itemKey=getAnimalSpecimenItemKey(mob.speciesKey);latestInventoryCounts={...latestInventoryCounts,[itemKey]:(Number(latestInventoryCounts[itemKey])||0)+1};updateInventoryUI(latestInventoryCounts);showFloatingLootText(itemKey);applyRuntimeMobSnapshot({mapKey:currentMapKey,mobs:Object.values(latestRuntimeMobSnapshot)});return;}}
+      if(type==="delete_inventory_item"&&payload?.itemId){const itemKey=String(payload.itemId);const next=Math.max(0,(Number(latestInventoryCounts[itemKey])||0)-1);latestInventoryCounts={...latestInventoryCounts,[itemKey]:next};setStandaloneInventoryCount(itemKey,next);updateInventoryUI(latestInventoryCounts);return;}
+      if(type==="interact"&&payload?.mobId){const mob=latestRuntimeMobSnapshot[payload.mobId];if(!mob)return;if(payload.action==="taser"||payload.action==="taser_artifact"){const next=Math.max(0,Number(mob.health??mob.stamina)-25);mob.health=next;mob.stamina=next;if(next<=0){mob.incapacitated=true;mob.incapacitatedAtEpochMs=Date.now();mob.state="defeated";}applyRuntimeMobSnapshot({mapKey:currentMapKey,mobs:Object.values(latestRuntimeMobSnapshot)});return;}if(payload.action==="collect_incapacitated_herbivore"&&mob.incapacitated){delete latestRuntimeMobSnapshot[mob.id];const itemKey=getAnimalSpecimenItemKey(mob.speciesKey);latestInventoryCounts={...latestInventoryCounts,[itemKey]:(Number(latestInventoryCounts[itemKey])||0)+1};setStandaloneInventoryCount(itemKey,latestInventoryCounts[itemKey]);updateInventoryUI(latestInventoryCounts);showFloatingLootText(itemKey);applyRuntimeMobSnapshot({mapKey:currentMapKey,mobs:Object.values(latestRuntimeMobSnapshot)});return;}}
       if (type !== "input") return;
       standaloneInput = { ...standaloneInput, ...payload };
       Object.assign(player, {
@@ -4715,9 +4725,9 @@ function create() {
     getPlayerDirection: () => players?.[myId]?.lastDirection || "down",
     getSelectedTool: getSelectedToolKey,
     getInventoryMaterial: () => {const baseKey=String(selectedInventoryKey||"").split(":")[0];if(!baseKey.endsWith("_block"))return null;const materialKey=baseKey.slice(0,-6);return BLOCK_MATERIALS.some((entry)=>entry.key===materialKey)?materialKey:null;},
-    onPlaceInventoryBlock: (materialKey) => {const itemKey=`${materialKey}_block:common`;const current=Number(latestInventoryCounts[itemKey])||0;if(current<1)return false;const expectedCount=current-1;latestInventoryCounts={...latestInventoryCounts,[itemKey]:expectedCount};updateInventoryUI(latestInventoryCounts);if(joined&&!standaloneWorld){pendingVoxelPlacementCounts.set(itemKey,expectedCount);sendRoomMessage("place_voxel_material",{baseItemKey:`${materialKey}_block`});}return true;},
+    onPlaceInventoryBlock: (materialKey) => {const itemKey=`${materialKey}_block:common`;const current=Number(latestInventoryCounts[itemKey])||0;if(current<1)return false;const expectedCount=current-1;latestInventoryCounts={...latestInventoryCounts,[itemKey]:expectedCount};setStandaloneInventoryCount(itemKey,expectedCount);updateInventoryUI(latestInventoryCounts);if(joined&&!standaloneWorld){pendingVoxelPlacementCounts.set(itemKey,expectedCount);sendRoomMessage("place_voxel_material",{baseItemKey:`${materialKey}_block`});}return true;},
     syncWorldBlocks: (blocks) => worldPortalLayer?.setBlocks?.(blocks),
-    onCollectSample: (baseKey) => {const itemKey=`${baseKey}:common`;const expectedCount=(Number(latestInventoryCounts[itemKey])||0)+1;latestInventoryCounts={...latestInventoryCounts,[itemKey]:expectedCount};updateInventoryUI(latestInventoryCounts);if(joined&&!standaloneWorld)pendingVoxelInventoryCounts.set(itemKey,expectedCount);showFloatingLootText(itemKey);if(joined&&!standaloneWorld)sendRoomMessage("collect_voxel_material",{baseItemKey:baseKey});},
+    onCollectSample: (baseKey) => {const itemKey=`${baseKey}:common`;const expectedCount=(Number(latestInventoryCounts[itemKey])||0)+1;latestInventoryCounts={...latestInventoryCounts,[itemKey]:expectedCount};setStandaloneInventoryCount(itemKey,expectedCount);updateInventoryUI(latestInventoryCounts);if(joined&&!standaloneWorld)pendingVoxelInventoryCounts.set(itemKey,expectedCount);showFloatingLootText(itemKey);if(joined&&!standaloneWorld)sendRoomMessage("collect_voxel_material",{baseItemKey:baseKey});},
     onToolAction: (actionName,details) => {startLocalPlayerActionAnimation(actionName);const display=tileToDisplayPosition(details.x,details.y);worldPortalLayer?.spawnDebris?.({x:display.x,y:display.y-(Math.max(1,details.z)-1)*32-20,type:details.debris});},
     onStatus: (message) => showStatusMessage(message,false),
     onEnterHabitat: () => {if(isMapTransitionInProgress)return;const previous=currentMapKey||DEFAULT_MAP_KEY;runMapTransitionFade(async()=>{setCurrentMapKey("lab_entrance");await rejoinCurrentMap(previous);});},
