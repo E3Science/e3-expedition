@@ -15263,11 +15263,16 @@ lastEditorStatusMessage = "";
     });
 
     room.onMessage("interaction_result", (data) => {
-      if (data?.success && data?.itemKey && Number.isFinite(Number(data.quantity))) {
+      if (data?.itemKey && Number.isFinite(Number(data.quantity))) {
         pendingVoxelInventoryCounts.delete(data.itemKey);
         pendingVoxelPlacementCounts.delete(data.itemKey);
         latestInventoryCounts = { ...latestInventoryCounts, [data.itemKey]: Number(data.quantity) };
         updateInventoryUI(latestInventoryCounts);
+        if (data.success && data.inventoryOperation === "collect") {
+          pendingVoxelInventoryCounts.set(data.itemKey, Number(data.quantity));
+        } else if (data.success && data.inventoryOperation === "place") {
+          pendingVoxelPlacementCounts.set(data.itemKey, Number(data.quantity));
+        }
       }
       if (data && data.success === false) {
         resourceCollectionSequence?.handleFailure?.(data.message);
