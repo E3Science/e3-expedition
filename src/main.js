@@ -4485,8 +4485,10 @@ function updateStandalonePlayer() {
   const startX=player.x;const startY=player.y;
   const minX=ROOM_OFFSET_X+TILE_SIZE/2;const minY=ROOM_OFFSET_Y+TILE_SIZE/2;
   const maxX=ROOM_OFFSET_X+getCurrentRoomWorldWidth()-TILE_SIZE/2;const maxY=ROOM_OFFSET_Y+getCurrentRoomWorldHeight()-TILE_SIZE/2;
-  const nextX = Math.min(maxX, Math.max(minX, startX + horizontal * distance));
-  const nextY = Math.min(maxY, Math.max(minY, startY + vertical * distance));
+  const rawNextX=startX+horizontal*distance;const rawNextY=startY+vertical*distance;
+  if(!isMapTransitionInProgress){const edge=rawNextX<minX?"west":rawNextX>maxX?"east":rawNextY<minY?"north":rawNextY>maxY?"south":null;if(edge){blockSystem?.notifyPlanetEdge?.(edge);return;}}
+  const nextX = Math.min(maxX, Math.max(minX, rawNextX));
+  const nextY = Math.min(maxY, Math.max(minY, rawNextY));
   if(!blockSystem){player.x=nextX;player.y=nextY;}else{const resolved=blockSystem.resolveMovement(startX,startY,nextX-startX,nextY-startY,blockSystem.isJumping());player.x=resolved.x;player.y=resolved.y;}
 }
 
@@ -4731,6 +4733,7 @@ function create() {
     onToolAction: (actionName,details) => {startLocalPlayerActionAnimation(actionName);const display=tileToDisplayPosition(details.x,details.y);worldPortalLayer?.spawnDebris?.({x:display.x,y:display.y-(Math.max(1,details.z)-1)*32-20,type:details.debris});},
     onStatus: (message) => showStatusMessage(message,false),
     onEnterHabitat: () => {if(isMapTransitionInProgress)return;const previous=currentMapKey||DEFAULT_MAP_KEY;runMapTransitionFade(async()=>{setCurrentMapKey("lab_entrance");await rejoinCurrentMap(previous);});},
+    onPlanetEdge: (edge) => transitionAcrossPlanetEdge(edge),
     enabled: () => joined && isIsometricMode() && !isGameplayModalActive()
   });
 
@@ -5175,6 +5178,8 @@ function update() {
       lastInput = { ...inputMessage };
     }
   }
+
+  if(!standaloneWorld&&!isMapTransitionInProgress){const player=room?.state?.players?.get?.(myId);if(player){const minX=ROOM_OFFSET_X+TILE_SIZE/2,minY=ROOM_OFFSET_Y+TILE_SIZE/2,maxX=ROOM_OFFSET_X+getCurrentRoomWorldWidth()-TILE_SIZE/2,maxY=ROOM_OFFSET_Y+getCurrentRoomWorldHeight()-TILE_SIZE/2;const edge=input.left&&player.x<=minX+1?"west":input.right&&player.x>=maxX-1?"east":input.up&&player.y<=minY+1?"north":input.down&&player.y>=maxY-1?"south":null;if(edge)transitionAcrossPlanetEdge(edge);}}
 
   updateStandalonePlayer();
   updateStandaloneAnimals((sceneRef?.time?.now || 0) / 1000);
@@ -8670,6 +8675,22 @@ function setCurrentMapKey(mapKey) {
     refreshTransitionDebugGraphics(sceneRef);
     blockSystem?.load?.();
   }
+}
+
+const CUBE_PLANET_EDGES={
+  default_room:{north:"cube_top",south:"cube_bottom",east:"cube_east",west:"cube_west"},
+  cube_north:{north:"cube_top",south:"cube_bottom",east:"cube_east",west:"cube_west"},
+  cube_east:{north:"cube_top",south:"cube_bottom",east:"cube_south",west:"default_room"},
+  cube_south:{north:"cube_top",south:"cube_bottom",east:"cube_west",west:"cube_east"},
+  cube_west:{north:"cube_top",south:"cube_bottom",east:"default_room",west:"cube_south"},
+  cube_top:{north:"cube_south",south:"default_room",east:"cube_east",west:"cube_west"},
+  cube_bottom:{north:"default_room",south:"cube_south",east:"cube_east",west:"cube_west"}
+};
+
+function transitionAcrossPlanetEdge(edge){
+  if(isMapTransitionInProgress)return;const source=currentMapKey||DEFAULT_MAP_KEY;const destination=CUBE_PLANET_EDGES[source]?.[edge];if(!destination)return;
+  const minX=ROOM_OFFSET_X+TILE_SIZE/2,minY=ROOM_OFFSET_Y+TILE_SIZE/2,maxX=ROOM_OFFSET_X+getCurrentRoomWorldWidth()-TILE_SIZE/2,maxY=ROOM_OFFSET_Y+getCurrentRoomWorldHeight()-TILE_SIZE/2;const player=room?.state?.players?.get?.(myId);const x=player?.x??(minX+maxX)/2,y=player?.y??(minY+maxY)/2;pendingSpawnX=edge==="east"?minX+2:edge==="west"?maxX-2:Math.max(minX+2,Math.min(maxX-2,x));pendingSpawnY=edge==="south"?minY+2:edge==="north"?maxY-2:Math.max(minY+2,Math.min(maxY-2,y));
+  runMapTransitionFade(async()=>{setCurrentMapKey(destination);await rejoinCurrentMap(source);});
 }
 
 /*
