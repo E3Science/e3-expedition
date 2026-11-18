@@ -8709,23 +8709,30 @@ async function rejoinCurrentMap(fallbackMapKey = DEFAULT_MAP_KEY, matchmakingCla
   if (!authUser) return false;
 
   if (standaloneWorld) {
-    setCurrentMapKey(fallbackMapKey || DEFAULT_MAP_KEY);
+    const destinationMapKey = currentMapKey || DEFAULT_MAP_KEY;
     try {
-      await loadStandaloneMap(currentMapKey);
+      await loadStandaloneMap(destinationMapKey);
+      blockSystem?.load?.();
     } catch (error) {
       console.error("Could not load the local destination map.", error);
       appendSystemChatLine(`System: Local map could not load: ${error?.message || error}`, "#ff6666");
+      setCurrentMapKey(fallbackMapKey || DEFAULT_MAP_KEY);
+      pendingSpawnX = null;
+      pendingSpawnY = null;
       return false;
     }
     const player = room?.state?.players?.get?.(myId);
     const spawn = findSpawnMarkerTile();
-    if (player && spawn) {
-      player.x = pendingSpawnX ?? tileToWorldX(spawn.tileX) + TILE_SIZE / 2;
-      player.y = pendingSpawnY ?? tileToWorldY(spawn.tileY) + TILE_SIZE / 2;
+    if (player) {
+      const fallbackX = spawn ? tileToWorldX(spawn.tileX) + TILE_SIZE / 2 : ROOM_OFFSET_X + getCurrentRoomWorldWidth() / 2;
+      const fallbackY = spawn ? tileToWorldY(spawn.tileY) + TILE_SIZE / 2 : ROOM_OFFSET_Y + getCurrentRoomWorldHeight() / 2;
+      const minX=ROOM_OFFSET_X+TILE_SIZE/2,minY=ROOM_OFFSET_Y+TILE_SIZE/2,maxX=ROOM_OFFSET_X+getCurrentRoomWorldWidth()-TILE_SIZE/2,maxY=ROOM_OFFSET_Y+getCurrentRoomWorldHeight()-TILE_SIZE/2;
+      player.x = Math.max(minX,Math.min(maxX,pendingSpawnX ?? fallbackX));
+      player.y = Math.max(minY,Math.min(maxY,pendingSpawnY ?? fallbackY));
     }
     pendingSpawnX = null;
     pendingSpawnY = null;
-    appendSystemChatLine(`System: Switched to local map "${currentMapKey}".`, "#7CFC00");
+    appendSystemChatLine(`System: Switched to local map "${destinationMapKey}".`, "#7CFC00");
     return true;
   }
 
