@@ -4730,6 +4730,7 @@ function create() {
     getInventoryMaterial: () => {const baseKey=String(selectedInventoryKey||"").split(":")[0];if(!baseKey.endsWith("_block"))return null;const materialKey=baseKey.slice(0,-6);return BLOCK_MATERIALS.some((entry)=>entry.key===materialKey)?materialKey:null;},
     onPlaceInventoryBlock: (materialKey) => {const itemKey=`${materialKey}_block:common`;const current=Number(latestInventoryCounts[itemKey])||0;if(current<1)return false;const expectedCount=current-1;latestInventoryCounts={...latestInventoryCounts,[itemKey]:expectedCount};setStandaloneInventoryCount(itemKey,expectedCount);updateInventoryUI(latestInventoryCounts);if(joined&&!standaloneWorld){pendingVoxelPlacementCounts.set(itemKey,expectedCount);sendRoomMessage("place_voxel_material",{baseItemKey:`${materialKey}_block`});}return true;},
     syncWorldBlocks: (blocks) => worldPortalLayer?.setBlocks?.(blocks),
+    syncCoreTimers: (timers) => worldPortalLayer?.setCoreTimers?.(timers),
     onCollectSample: (baseKey) => {const itemKey=`${baseKey}:common`;const expectedCount=(Number(latestInventoryCounts[itemKey])||0)+1;latestInventoryCounts={...latestInventoryCounts,[itemKey]:expectedCount};setStandaloneInventoryCount(itemKey,expectedCount);updateInventoryUI(latestInventoryCounts);if(joined&&!standaloneWorld)pendingVoxelInventoryCounts.set(itemKey,expectedCount);showFloatingLootText(itemKey);if(joined&&!standaloneWorld)sendRoomMessage("collect_voxel_material",{baseItemKey:baseKey});},
     onToolAction: (actionName,details) => {startLocalPlayerActionAnimation(actionName);const display=tileToDisplayPosition(details.x,details.y);worldPortalLayer?.spawnDebris?.({x:display.x,y:display.y-(Math.max(1,details.z)-1)*32-20,type:details.debris});},
     onStatus: (message) => showStatusMessage(message,false),
@@ -5163,7 +5164,8 @@ function update() {
     editorMode,
     speedScale: isScreenDiagonal ? 1.12 : 1
   };
-  if(!input.left&&!input.right&&!input.up&&!input.down)planetEdgeTransitionArmed=true;
+  const rawMovementHeld=!!(cursors?.left?.isDown||cursors?.right?.isDown||cursors?.up?.isDown||cursors?.down?.isDown||movementKeys?.left?.isDown||movementKeys?.right?.isDown||movementKeys?.up?.isDown||movementKeys?.down?.isDown);
+  if(!isMapTransitionInProgress&&!rawMovementHeld)planetEdgeTransitionArmed=true;
 
   if (
     !isMapTransitionInProgress &&
@@ -8692,7 +8694,8 @@ const CUBE_PLANET_EDGES={
 function transitionAcrossPlanetEdge(edge){
   if(isMapTransitionInProgress)return;const source=currentMapKey||DEFAULT_MAP_KEY;const destination=CUBE_PLANET_EDGES[source]?.[edge];if(!destination)return;
   planetEdgeTransitionArmed=false;const minX=ROOM_OFFSET_X+TILE_SIZE/2,minY=ROOM_OFFSET_Y+TILE_SIZE/2,maxX=ROOM_OFFSET_X+getCurrentRoomWorldWidth()-TILE_SIZE/2,maxY=ROOM_OFFSET_Y+getCurrentRoomWorldHeight()-TILE_SIZE/2;const inset=TILE_SIZE*.6;const player=room?.state?.players?.get?.(myId);const x=player?.x??(minX+maxX)/2,y=player?.y??(minY+maxY)/2;pendingSpawnX=edge==="east"?minX+inset:edge==="west"?maxX-inset:Math.max(minX+inset,Math.min(maxX-inset,x));pendingSpawnY=edge==="south"?minY+inset:edge==="north"?maxY-inset:Math.max(minY+inset,Math.min(maxY-inset,y));
-  runMapTransitionFade(async()=>{setCurrentMapKey(destination);await rejoinCurrentMap(source);});
+  isMapTransitionInProgress=true;standaloneInput={...standaloneInput,left:false,right:false,up:false,down:false};sendRoomMessage("input",{left:false,right:false,up:false,down:false,editorMode:false,speedScale:1});showStatusMessage("Loading the next planet face…",false);
+  Promise.resolve().then(async()=>{try{setCurrentMapKey(destination);await rejoinCurrentMap(source);}catch(error){console.error("Planet edge transition failed:",error);setCurrentMapKey(source);}finally{sceneRef?.cameras?.main?.resetFX?.();isMapTransitionInProgress=false;}});
 }
 
 /*

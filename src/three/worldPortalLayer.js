@@ -88,6 +88,9 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
   scene.add(blockRoot);
   const overlayRoot = new THREE.Group();
   scene.add(overlayRoot);
+  const coreTimerRoot = new THREE.Group();
+  scene.add(coreTimerRoot);
+  const coreTimerEntries = new Map();
   const debrisRoot = new THREE.Group();
   scene.add(debrisRoot);
 
@@ -283,6 +286,12 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       blockRoot.add(sprite);
       material.alphaHash=!!block.transparent&&improvedTransparencyEnabled;blockEntries.set(block.id, { sprite, material, baseOpacity, isTransparent:!!block.transparent, preview:!!block.preview, ditherBounds:block.ditherBounds||null, animated:!!block.animated, phase:block.materialKey==="portal"?Math.PI:0, startY, targetY:block.y, fallStartedAt:performance.now(), duration:Math.min(850,300+Math.abs(block.y-startY)*7) });
     });
+  }
+
+  function setCoreTimers(timers = []) {
+    const nextIds=new Set(timers.map((timer)=>timer.id));
+    coreTimerEntries.forEach((entry,id)=>{if(nextIds.has(id))return;entry.sprite.removeFromParent();entry.texture.dispose();entry.material.dispose();coreTimerEntries.delete(id);});
+    timers.forEach((timer)=>{let entry=coreTimerEntries.get(timer.id);if(!entry){const canvas=document.createElement("canvas");canvas.width=canvas.height=96;const overlay=createOverlaySprite(canvas,42,42,3200);overlay.sprite.position.z=1900;coreTimerRoot.add(overlay.sprite);entry={...overlay,canvas};coreTimerEntries.set(timer.id,entry);}const ctx=entry.canvas.getContext("2d");ctx.clearRect(0,0,96,96);ctx.lineCap="round";ctx.lineWidth=12;ctx.strokeStyle="rgba(7,20,28,.72)";ctx.beginPath();ctx.arc(48,48,34,0,Math.PI*2);ctx.stroke();ctx.strokeStyle="#ff9e2f";ctx.beginPath();ctx.arc(48,48,34,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.max(0,Math.min(1,timer.progress||0)));ctx.stroke();ctx.lineWidth=3;ctx.strokeStyle="#e8ffff";ctx.beginPath();ctx.arc(48,48,43,0,Math.PI*2);ctx.stroke();entry.texture.needsUpdate=true;entry.sprite.position.set(timer.x,-timer.y,1900);});
   }
 
   function updateBlocks(){const now=performance.now();blockEntries.forEach((entry)=>{if(entry.animated){entry.material.map.offset.x=Math.sin(now*.0022+entry.phase)*.045;entry.material.map.offset.y=Math.cos(now*.0017+entry.phase)*.018;}if(entry.startY===entry.targetY)return;const progress=Math.min(1,(now-entry.fallStartedAt)/entry.duration);const eased=progress*progress;const screenY=THREE.MathUtils.lerp(entry.startY,entry.targetY,eased);entry.sprite.position.y=-screenY+32;if(progress===1)entry.startY=entry.targetY;});}
@@ -520,6 +529,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
     setPortals,
     setPlayers,
     setBlocks,
+    setCoreTimers,
     setMobs,
     setResources,
     setInteractionState,
@@ -538,6 +548,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       resourceEntries.forEach((entry) => disposeModel(entry.model.root));
       resourceEntries.clear();
       setBlocks([]);
+      setCoreTimers([]);
       debrisEntries.splice(0).forEach((entry)=>{entry.sprite.removeFromParent();entry.material.dispose();});
       timer.dispose();
       renderer.dispose();
