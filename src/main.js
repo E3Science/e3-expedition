@@ -2448,6 +2448,9 @@ function getCurrentRoomWorldHeight() {
   return getCurrentRoomTileHeight() * TILE_SIZE;
 }
 
+function getCurrentRoomLogicalWidth(){return getCurrentRoomTileWidth()*TILE_SIZE;}
+function getCurrentRoomLogicalHeight(){return getCurrentRoomTileHeight()*TILE_SIZE;}
+
 const TILE_HOVER_CURSOR_COLOR = 0xffff66;
 const TILE_HOVER_CURSOR_ALPHA = 0.9;
 
@@ -4388,6 +4391,11 @@ function createStandaloneAnimalsFromMap() {
 }
 
 async function loadStandaloneMap(mapKey) {
+  if(CUBE_PLANET_MAP_KEYS.has(mapKey)){
+    const generatedLayout=cloneLayeredRoomLayout(DEFAULT_ROOM_LAYOUT);
+    if(!applyRoomLayout(sceneRef,generatedLayout))throw new Error("The generated planet-face layout is invalid.");
+    currentLayoutKey=mapKey;createStandaloneAnimalsFromMap();return true;
+  }
   const { data, error } = await supabase
     .from("room_layouts")
     .select("layout_key,base_layer,detail_layer,overhead_layer,object_layer")
@@ -4485,7 +4493,7 @@ function updateStandalonePlayer() {
   const distance = projectedMagnitude ? 35 * deltaSeconds * (Number(standaloneInput.speedScale) || 1) * jumpScale / projectedMagnitude : 0;
   const startX=player.x;const startY=player.y;
   const minX=ROOM_OFFSET_X+TILE_SIZE/2;const minY=ROOM_OFFSET_Y+TILE_SIZE/2;
-  const maxX=ROOM_OFFSET_X+getCurrentRoomWorldWidth()-TILE_SIZE/2;const maxY=ROOM_OFFSET_Y+getCurrentRoomWorldHeight()-TILE_SIZE/2;
+  const maxX=ROOM_OFFSET_X+getCurrentRoomLogicalWidth()-TILE_SIZE/2;const maxY=ROOM_OFFSET_Y+getCurrentRoomLogicalHeight()-TILE_SIZE/2;
   const rawNextX=startX+horizontal*distance;const rawNextY=startY+vertical*distance;
   if(planetEdgeTransitionArmed&&!isMapTransitionInProgress){const edge=rawNextX<minX?"west":rawNextX>maxX?"east":rawNextY<minY?"north":rawNextY>maxY?"south":null;if(edge){blockSystem?.notifyPlanetEdge?.(edge);return;}}
   const nextX = Math.min(maxX, Math.max(minX, rawNextX));
@@ -5183,7 +5191,7 @@ function update() {
     }
   }
 
-  if(!standaloneWorld&&planetEdgeTransitionArmed&&!isMapTransitionInProgress){const player=room?.state?.players?.get?.(myId);if(player){const minX=ROOM_OFFSET_X+TILE_SIZE/2,minY=ROOM_OFFSET_Y+TILE_SIZE/2,maxX=ROOM_OFFSET_X+getCurrentRoomWorldWidth()-TILE_SIZE/2,maxY=ROOM_OFFSET_Y+getCurrentRoomWorldHeight()-TILE_SIZE/2;const edge=input.left&&player.x<=minX+1?"west":input.right&&player.x>=maxX-1?"east":input.up&&player.y<=minY+1?"north":input.down&&player.y>=maxY-1?"south":null;if(edge)transitionAcrossPlanetEdge(edge);}}
+  if(!standaloneWorld&&planetEdgeTransitionArmed&&!isMapTransitionInProgress){const player=room?.state?.players?.get?.(myId);if(player){const minX=ROOM_OFFSET_X+TILE_SIZE/2,minY=ROOM_OFFSET_Y+TILE_SIZE/2,maxX=ROOM_OFFSET_X+getCurrentRoomLogicalWidth()-TILE_SIZE/2,maxY=ROOM_OFFSET_Y+getCurrentRoomLogicalHeight()-TILE_SIZE/2;const edge=input.left&&player.x<=minX+1?"west":input.right&&player.x>=maxX-1?"east":input.up&&player.y<=minY+1?"north":input.down&&player.y>=maxY-1?"south":null;if(edge)transitionAcrossPlanetEdge(edge);}}
 
   updateStandalonePlayer();
   updateStandaloneAnimals((sceneRef?.time?.now || 0) / 1000);
@@ -8681,6 +8689,7 @@ function setCurrentMapKey(mapKey) {
   }
 }
 
+const CUBE_PLANET_MAP_KEYS=new Set(["cube_north","cube_east","cube_south","cube_west","cube_top","cube_bottom"]);
 const CUBE_PLANET_EDGES={
   default_room:{north:"cube_top",south:"cube_bottom",east:"cube_east",west:"cube_west"},
   cube_north:{north:"cube_top",south:"cube_bottom",east:"cube_east",west:"cube_west"},
@@ -8693,7 +8702,7 @@ const CUBE_PLANET_EDGES={
 
 function transitionAcrossPlanetEdge(edge){
   if(isMapTransitionInProgress)return;const source=currentMapKey||DEFAULT_MAP_KEY;const destination=CUBE_PLANET_EDGES[source]?.[edge];if(!destination)return;
-  planetEdgeTransitionArmed=false;const minX=ROOM_OFFSET_X+TILE_SIZE/2,minY=ROOM_OFFSET_Y+TILE_SIZE/2,maxX=ROOM_OFFSET_X+getCurrentRoomWorldWidth()-TILE_SIZE/2,maxY=ROOM_OFFSET_Y+getCurrentRoomWorldHeight()-TILE_SIZE/2;const inset=TILE_SIZE*.6;const player=room?.state?.players?.get?.(myId);const x=player?.x??(minX+maxX)/2,y=player?.y??(minY+maxY)/2;pendingSpawnX=edge==="east"?minX+inset:edge==="west"?maxX-inset:Math.max(minX+inset,Math.min(maxX-inset,x));pendingSpawnY=edge==="south"?minY+inset:edge==="north"?maxY-inset:Math.max(minY+inset,Math.min(maxY-inset,y));
+  planetEdgeTransitionArmed=false;const minX=ROOM_OFFSET_X+TILE_SIZE/2,minY=ROOM_OFFSET_Y+TILE_SIZE/2,maxX=ROOM_OFFSET_X+getCurrentRoomLogicalWidth()-TILE_SIZE/2,maxY=ROOM_OFFSET_Y+getCurrentRoomLogicalHeight()-TILE_SIZE/2;const inset=TILE_SIZE*.6;const player=room?.state?.players?.get?.(myId);const x=player?.x??(minX+maxX)/2,y=player?.y??(minY+maxY)/2;pendingSpawnX=edge==="east"?minX+inset:edge==="west"?maxX-inset:Math.max(minX+inset,Math.min(maxX-inset,x));pendingSpawnY=edge==="south"?minY+inset:edge==="north"?maxY-inset:Math.max(minY+inset,Math.min(maxY-inset,y));
   isMapTransitionInProgress=true;standaloneInput={...standaloneInput,left:false,right:false,up:false,down:false};sendRoomMessage("input",{left:false,right:false,up:false,down:false,editorMode:false,speedScale:1});showStatusMessage("Loading the next planet face…",false);
   Promise.resolve().then(async()=>{try{setCurrentMapKey(destination);await rejoinCurrentMap(source);}catch(error){console.error("Planet edge transition failed:",error);setCurrentMapKey(source);}finally{sceneRef?.cameras?.main?.resetFX?.();isMapTransitionInProgress=false;}});
 }
@@ -8729,9 +8738,9 @@ async function rejoinCurrentMap(fallbackMapKey = DEFAULT_MAP_KEY, matchmakingCla
     const player = room?.state?.players?.get?.(myId);
     const spawn = findSpawnMarkerTile();
     if (player) {
-      const fallbackX = spawn ? tileToWorldX(spawn.tileX) + TILE_SIZE / 2 : ROOM_OFFSET_X + getCurrentRoomWorldWidth() / 2;
-      const fallbackY = spawn ? tileToWorldY(spawn.tileY) + TILE_SIZE / 2 : ROOM_OFFSET_Y + getCurrentRoomWorldHeight() / 2;
-      const minX=ROOM_OFFSET_X+TILE_SIZE/2,minY=ROOM_OFFSET_Y+TILE_SIZE/2,maxX=ROOM_OFFSET_X+getCurrentRoomWorldWidth()-TILE_SIZE/2,maxY=ROOM_OFFSET_Y+getCurrentRoomWorldHeight()-TILE_SIZE/2;
+      const fallbackX = spawn ? tileToWorldX(spawn.tileX) + TILE_SIZE / 2 : ROOM_OFFSET_X + getCurrentRoomLogicalWidth() / 2;
+      const fallbackY = spawn ? tileToWorldY(spawn.tileY) + TILE_SIZE / 2 : ROOM_OFFSET_Y + getCurrentRoomLogicalHeight() / 2;
+      const minX=ROOM_OFFSET_X+TILE_SIZE/2,minY=ROOM_OFFSET_Y+TILE_SIZE/2,maxX=ROOM_OFFSET_X+getCurrentRoomLogicalWidth()-TILE_SIZE/2,maxY=ROOM_OFFSET_Y+getCurrentRoomLogicalHeight()-TILE_SIZE/2;
       player.x = Math.max(minX,Math.min(maxX,pendingSpawnX ?? fallbackX));
       player.y = Math.max(minY,Math.min(maxY,pendingSpawnY ?? fallbackY));
     }
