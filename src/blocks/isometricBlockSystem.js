@@ -43,7 +43,7 @@ export const BLOCK_MATERIALS = [
   {key:"fossil_plant",label:"Ancient plant fossil",frame:2,solid:true,kind:"fossil"},
   {key:"fossil_creature",label:"Ancient creature fossil",frame:2,solid:true,kind:"fossil"},
   {key:"seismograph",label:"Seismograph",frame:10,solid:true,kind:"furniture",nonStackable:true},
-  {key:"core_sampler",label:"Core sampler",frame:10,solid:true,kind:"coreSampler",nonStackable:true},
+  {key:"core_sampler",label:"Core sampler",frame:10,solid:true,kind:"coreSampler",nonStackable:true,asset:"assets/blocks/core-sampler-v2.png"},
   {key:"core_clearance",label:"Core sampler clearance",frame:10,solid:true,kind:"invisible",nonStackable:true,hidden:true}
   ,{key:"kayak_kit",label:"3×1 kayak",frame:10,solid:true,kind:"vehicleKit"}
   ,{key:"boat_kit",label:"3×6×2 boat",frame:10,solid:true,kind:"vehicleKit"}
@@ -55,6 +55,31 @@ const materialByKey = new Map(BLOCK_MATERIALS.map((entry) => [entry.key, entry])
 const blockKey = (x, y, z) => `${x}:${y}:${z}`;
 
 function drawContainedAsset(ctx,asset,padding=2){const probe=document.createElement("canvas");probe.width=asset.width;probe.height=asset.height;const probeCtx=probe.getContext("2d");probeCtx.drawImage(asset,0,0);const pixels=probeCtx.getImageData(0,0,probe.width,probe.height).data;let minX=probe.width,minY=probe.height,maxX=-1,maxY=-1;for(let y=0;y<probe.height;y+=1){for(let x=0;x<probe.width;x+=1){if(pixels[(y*probe.width+x)*4+3]>8){minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);}}}if(maxX<minX)return;const width=maxX-minX+1;const height=maxY-minY+1;const scale=Math.min((BLOCK_SIZE-padding*2)/width,(BLOCK_SIZE-padding*2)/height);const drawWidth=width*scale;const drawHeight=height*scale;ctx.drawImage(asset,minX,minY,width,height,(BLOCK_SIZE-drawWidth)/2,(BLOCK_SIZE-drawHeight)/2,drawWidth,drawHeight);}
+
+function createCoreSamplerPartTexture(scene,block){
+  const part=Math.max(0,Math.min(2,Number(block.corePart)||0));
+  const key=`e3_core_sampler_part_${part}`;
+  if(scene.textures.exists(key))return key;
+  const canvas=document.createElement("canvas");canvas.width=canvas.height=BLOCK_SIZE;
+  const ctx=canvas.getContext("2d");ctx.imageSmoothingEnabled=true;
+  const asset=scene.textures.get("e3_block_asset_core_sampler")?.getSourceImage?.();
+  if(!asset){scene.textures.addCanvas(key,canvas);return key;}
+  // The source is one continuous machine. Each crop deliberately overlaps the
+  // neighboring crop so the drill column remains visually joined when stacked.
+  const crops=[
+    {x:.035,y:.515,w:.93,h:.485,pad:0},
+    {x:.29,y:.255,w:.50,h:.43,pad:9},
+    {x:.32,y:0,w:.46,h:.34,pad:10}
+  ];
+  const crop=crops[part];
+  const sx=Math.round(asset.width*crop.x),sy=Math.round(asset.height*crop.y);
+  const sw=Math.round(asset.width*crop.w),sh=Math.round(asset.height*crop.h);
+  const available=BLOCK_SIZE-crop.pad*2;
+  const scale=Math.min(available/sw,BLOCK_SIZE/sh);
+  const dw=sw*scale,dh=sh*scale;
+  ctx.drawImage(asset,sx,sy,sw,sh,(BLOCK_SIZE-dw)/2,BLOCK_SIZE-dh,dw,dh);
+  scene.textures.addCanvas(key,canvas);return key;
+}
 
 function paintBiomeTexture(ctx,key){ctx.clearRect(0,0,32,32);if(key==="biome_cyan"){ctx.fillStyle="#075f67";ctx.fillRect(0,0,32,32);for(let i=0;i<18;i+=1){const x=(i*11+3)%31,y=(i*7+5)%31,r=2+(i%3);ctx.fillStyle=i%2?"#098b8d":"#19c8bd";ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.fillStyle="#75f0dc";ctx.fillRect(x,y,1,1);}ctx.strokeStyle="#06434e";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,23);ctx.bezierCurveTo(8,15,15,29,32,18);ctx.stroke();return;}if(key==="biome_violet"){ctx.fillStyle="#25205e";ctx.fillRect(0,0,32,32);for(let y=1;y<32;y+=5){for(let x=(y%3);x<32;x+=6){ctx.fillStyle=(x+y)%2?"#3e2b83":"#7250bd";ctx.fillRect(x,y,5,3);ctx.fillStyle="#b378e0";ctx.fillRect(x+1,y,2,1);}}ctx.strokeStyle="#9c65d2";ctx.lineWidth=1;for(let i=0;i<4;i+=1){ctx.beginPath();ctx.arc(5+i*8,15+(i%2)*7,4,0,Math.PI*1.6);ctx.stroke();}return;}if(key==="biome_coral"){ctx.fillStyle="#873a3f";ctx.fillRect(0,0,32,32);for(let i=0;i<14;i+=1){const x=(i*13+2)%30,y=(i*9+4)%29,size=2+(i%3);ctx.fillStyle=i%2?"#ed704d":"#bd4b42";ctx.beginPath();ctx.moveTo(x,y-size);ctx.lineTo(x+size,y);ctx.lineTo(x,y+size);ctx.lineTo(x-size,y);ctx.closePath();ctx.fill();if(i%3===0){ctx.fillStyle="#ffb34f";ctx.fillRect(x,y-1,1,2);}}return;}ctx.fillStyle="#11183f";ctx.fillRect(0,0,32,32);for(let y=0;y<32;y+=4){ctx.fillStyle=y%8?"#23245f":"#343487";ctx.fillRect(0,y,32,3);}ctx.strokeStyle="#20a9c2";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(5,0);ctx.lineTo(10,8);ctx.lineTo(7,16);ctx.lineTo(16,23);ctx.lineTo(13,32);ctx.moveTo(25,0);ctx.lineTo(21,10);ctx.lineTo(27,18);ctx.lineTo(23,32);ctx.stroke();ctx.fillStyle="#67e5e6";ctx.fillRect(9,8,1,3);ctx.fillRect(26,17,1,3);}
 
@@ -271,7 +296,7 @@ export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGrid
     for(let y=0;y<size.height;y+=1){for(let x=0;x<size.width;x+=1){const display=tileToDisplayPosition(x,y);const groundTexture=blocks.get(blockKey(x,y,1))?.material==="water"?stoneGroundTexture:dirtGroundTexture;const ground=scene.add.image(display.x,display.y,groundTexture);ground.setOrigin(.5,1);ground.setDepth(1+(x+y)*.01);groundSprites.push(ground);}}
     [...blocks.values()].sort((a,b)=>(a.x+a.y)-(b.x+b.y)||a.z-b.z).forEach((block) => {
       const material=materialByKey.get(block.material);if(!material)return;const display=tileToDisplayPosition(block.x,block.y);
-      const textureKey=block.habitatId?createHabitatPartTexture(scene,block):createBlockTexture(scene,atlasKey,material);const sprite=scene.add.image(display.x,display.y-(block.z-1)*BLOCK_RISE,textureKey);sprite.setOrigin(.5,1);sprite.setDepth(10+display.y*.001+block.z*.0001);sprite.setAlpha(material.kind==="invisible"?0:syncWorldBlocks?0.001:1);sprite.setData("e3Block",block);sprites.set(blockKey(block.x,block.y,block.z),sprite);
+      const textureKey=block.habitatId?createHabitatPartTexture(scene,block):block.material==="core_sampler"?createCoreSamplerPartTexture(scene,block):createBlockTexture(scene,atlasKey,material);const sprite=scene.add.image(display.x,display.y-(block.z-1)*BLOCK_RISE,textureKey);sprite.setOrigin(.5,1);sprite.setDepth(10+display.y*.001+block.z*.0001);sprite.setAlpha(material.kind==="invisible"?0:syncWorldBlocks?0.001:1);sprite.setData("e3Block",block);sprites.set(blockKey(block.x,block.y,block.z),sprite);
     });
     if(active&&selectedMaterial==="habitat_kit"&&habitatPreview){const center=tileToDisplayPosition(habitatPreview.x+2,habitatPreview.y+2);const bottom=tileToDisplayPosition(habitatPreview.x+4,habitatPreview.y+4);const previewBlock={x:habitatPreview.x,y:habitatPreview.y,z:2,material:"habitat_kit",previewHabitat:true,megaHabitat:true,orientation:habitatOrientation};const sprite=scene.add.image(center.x,bottom.y-BLOCK_RISE,createHabitatPreviewTexture(scene));sprite.setOrigin(.5,1);sprite.setDepth(2000);sprite.setAlpha(syncWorldBlocks?0.001:1);sprite.setData("e3Block",previewBlock);sprites.set("habitat-preview",sprite);}
     coreTimers.forEach((timer)=>{const display=tileToDisplayPosition(timer.x,timer.y);const progress=Math.min(1,(Date.now()-timer.startedAt)/10000);const graphic=scene.add.graphics();graphic.lineStyle(4,0x74efe8,.95);graphic.beginPath();graphic.arc(display.x,display.y-150,15,-Math.PI/2,-Math.PI/2+Math.PI*2*progress,false);graphic.strokePath();graphic.setDepth(4000);timerGraphics.push(graphic);});
