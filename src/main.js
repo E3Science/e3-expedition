@@ -4391,14 +4391,9 @@ function createStandaloneAnimalsFromMap() {
 }
 
 async function loadStandaloneMap(mapKey) {
-  if(CUBE_PLANET_MAP_KEYS.has(mapKey)){
-    const generatedLayout=cloneLayeredRoomLayout(DEFAULT_ROOM_LAYOUT);
-    if(!applyRoomLayout(sceneRef,generatedLayout))throw new Error("The generated planet-face layout is invalid.");
-    currentLayoutKey=mapKey;createStandaloneAnimalsFromMap();return true;
-  }
   const { data, error } = await supabase
     .from("room_layouts")
-    .select("layout_key,base_layer,detail_layer,overhead_layer,object_layer")
+    .select("layout_key,base_layer,detail_layer,overhead_layer,object_layer,voxel_blocks")
     .eq("layout_key", mapKey || DEFAULT_MAP_KEY)
     .maybeSingle();
   if (error) throw error;
@@ -4415,6 +4410,8 @@ async function loadStandaloneMap(mapKey) {
   };
   const expanded = expandRoomLayoutToSize(layout, DEFAULT_ROOM_TILE_WIDTH, DEFAULT_ROOM_TILE_HEIGHT);
   if (!applyRoomLayout(sceneRef, expanded)) throw new Error("The saved map layout is invalid.");
+  if(Array.isArray(data.voxel_blocks))blockSystem?.loadSnapshot?.(data.voxel_blocks);
+  else if(CUBE_PLANET_MAP_KEYS.has(mapKey))blockSystem?.regenerate?.();
   currentLayoutKey = data.layout_key;
   createStandaloneAnimalsFromMap();
   return true;
@@ -9479,7 +9476,8 @@ async function saveCurrentRoomLayout() {
           base_layer: layout.base,
           detail_layer: layout.detail,
           overhead_layer: layout.overhead,
-          object_layer: layout.objects
+          object_layer: layout.objects,
+          voxel_blocks: blockSystem?.getSnapshot?.() || []
         },
         {
           onConflict: "layout_key"
@@ -9499,6 +9497,7 @@ async function saveCurrentRoomLayout() {
     // against the previous room snapshot.
     sendRoomMessage("save_layout", {
       ...layout,
+      voxelBlocks: blockSystem?.getSnapshot?.() || [],
       metadata: metadataRows
     });
 
@@ -15293,6 +15292,7 @@ lastEditorStatusMessage = "";
         );
 
         const applied = applyRoomLayout(sceneRef, expandedLayout);
+        if(Array.isArray(data.voxelBlocks))blockSystem?.loadSnapshot?.(data.voxelBlocks);
 
         if (applied) {
           appendSystemChatLine(

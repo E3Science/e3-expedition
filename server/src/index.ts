@@ -24,6 +24,8 @@ type LayeredRoomLayout = {
   objects: number[][];
 };
 
+type VoxelBlockSnapshot = Record<string, unknown>;
+
 type TilesetFrameMetadataRow = {
   frame_index: number;
   collision: boolean;
@@ -1168,6 +1170,7 @@ class ClassRoom extends Room {
   currentLayoutKey: string | null = null;
   currentMapKey: string = DEFAULT_MAP_KEY;
   currentRoomLayout: LayeredRoomLayout | null = null;
+  currentVoxelBlocks: VoxelBlockSnapshot[] = [];
   currentTilesetMetadata: TilesetFrameMetadataRow[] = [];
   playerInputSpeedScales = new Map<string, number>();
   playerInputEditorModes = new Map<string, boolean>();
@@ -8698,6 +8701,7 @@ if (stillDistance > TILE_SIZE * 6) {
       DEFAULT_ROOM_TILE_WIDTH,
       DEFAULT_ROOM_TILE_HEIGHT
     );
+    this.currentVoxelBlocks = loadedLayout.voxelBlocks || [];
 
     if (!this.currentTilesetMetadata.length) {
       this.currentTilesetMetadata = await this.loadTilesetFrameMetadata();
@@ -8772,6 +8776,7 @@ player.maxHealth = 100;
       layoutKey: this.currentLayoutKey,
       mapKey: this.currentMapKey,
       layout: this.currentRoomLayout,
+      voxelBlocks: this.currentVoxelBlocks,
       tilesetMetadata: this.currentTilesetMetadata
     });
 
@@ -8895,7 +8900,7 @@ player.maxHealth = 100;
   async loadRoomLayoutRow(layoutKey: string) {
     const { data, error } = await supabaseAdmin
       .from("room_layouts")
-      .select("layout_key, base_layer, detail_layer, overhead_layer, object_layer")
+      .select("layout_key, base_layer, detail_layer, overhead_layer, object_layer, voxel_blocks")
       .eq("layout_key", layoutKey)
       .single();
 
@@ -8932,7 +8937,8 @@ player.maxHealth = 100;
 
     return {
       layoutKey: data.layout_key as string,
-      layout
+      layout,
+      voxelBlocks: Array.isArray(data.voxel_blocks) ? data.voxel_blocks as VoxelBlockSnapshot[] : null
     };
   }
 
@@ -8964,7 +8970,8 @@ player.maxHealth = 100;
 
     return {
       layoutKey: mapKey,
-      layout: fallbackLayout
+      layout: fallbackLayout,
+      voxelBlocks: null
     };
   }
     async loadTilesetFrameMetadata() {
@@ -8984,7 +8991,8 @@ player.maxHealth = 100;
   async saveRoomLayoutForClass(
     classId: string,
     _classCode: string,
-    layout: LayeredRoomLayout
+    layout: LayeredRoomLayout,
+    voxelBlocks: VoxelBlockSnapshot[] = []
   ) {
     const layoutKey = this.getGlobalLayoutKey();
 
@@ -8997,7 +9005,8 @@ player.maxHealth = 100;
         base_layer: layout.base,
         detail_layer: layout.detail,
         overhead_layer: layout.overhead,
-        object_layer: layout.objects
+        object_layer: layout.objects,
+        voxel_blocks: voxelBlocks
       }, {
         onConflict: "layout_key"
       });
@@ -9008,6 +9017,7 @@ player.maxHealth = 100;
 
     this.currentLayoutKey = layoutKey;
     this.currentRoomLayout = layout;
+    this.currentVoxelBlocks = voxelBlocks;
   }
 
     /*
@@ -9092,6 +9102,7 @@ player.maxHealth = 100;
       detail?: number[][];
       overhead?: number[][];
       objects?: number[][];
+      voxelBlocks?: VoxelBlockSnapshot[];
       metadata?: TilesetFrameMetadataRow[];
     }
   ) {
@@ -9121,6 +9132,7 @@ player.maxHealth = 100;
       overhead: message.overhead ?? [],
       objects: message.objects ?? []
     };
+    const voxelBlocks=Array.isArray(message.voxelBlocks)?message.voxelBlocks.filter((block)=>block&&typeof block==="object").slice(0,50000):[];
 
     if (!this.isValidRoomLayout(layout)) {
       client.send("chat_result", {
@@ -9135,7 +9147,8 @@ player.maxHealth = 100;
       await this.saveRoomLayoutForClass(
         this.roomClassId,
         this.roomClassCode,
-        layout
+        layout,
+        voxelBlocks
       );
 
       const metadataRows = Array.isArray(message.metadata)
