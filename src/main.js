@@ -4400,6 +4400,7 @@ async function loadStandaloneMap(mapKey) {
   if (error) throw error;
   if (!data) {
     console.warn(`No saved map was found for ${mapKey}; keeping the bundled fallback map.`);
+    if(CUBE_PLANET_MAP_KEYS.has(mapKey))blockSystem?.regenerate?.();
     createStandaloneAnimalsFromMap();
     return false;
   }
@@ -8703,18 +8704,18 @@ const CUBE_MINIMAP_VIEWS=[
 ];
 let cubeMinimapRoot=null,cubeMinimapView=0;
 
-function renderCubeMinimap(){if(!cubeMinimapRoot)return;const maps=CUBE_MINIMAP_VIEWS[cubeMinimapView]||CUBE_MINIMAP_VIEWS[0];cubeMinimapRoot.querySelectorAll("[data-cube-face]").forEach((button,index)=>{const mapKey=maps[index];button.dataset.mapKey=mapKey;button.textContent=CUBE_FACE_LABELS[mapKey];button.classList.toggle("active",mapKey===(currentMapKey||DEFAULT_MAP_KEY));});}
+function renderCubeMinimap(){if(!cubeMinimapRoot)return;const maps=CUBE_MINIMAP_VIEWS[cubeMinimapView]||CUBE_MINIMAP_VIEWS[0];cubeMinimapRoot.querySelectorAll("[data-cube-face]").forEach((button,index)=>{const mapKey=maps[index];button.dataset.mapKey=mapKey;button.textContent=CUBE_FACE_LABELS[mapKey];button.classList.toggle("active",mapKey===(currentMapKey||DEFAULT_MAP_KEY));button.classList.toggle("polar",mapKey==="cube_top"||mapKey==="cube_bottom");});}
 function ensureCubeMinimap(){if(cubeMinimapRoot)return;const root=document.createElement("aside");root.className="cube-minimap";root.innerHTML=`<button type="button" class="cube-minimap-arrow" data-cube-left aria-label="Rotate cube left">‹</button><div class="cube-minimap-body" aria-label="Cube planet minimap"><button type="button" data-cube-face="top"></button><button type="button" data-cube-face="left"></button><button type="button" data-cube-face="right"></button></div><button type="button" class="cube-minimap-arrow" data-cube-right aria-label="Rotate cube right">›</button>`;document.body.appendChild(root);cubeMinimapRoot=root;root.querySelector("[data-cube-left]").addEventListener("click",()=>{cubeMinimapView=(cubeMinimapView-1+CUBE_MINIMAP_VIEWS.length)%CUBE_MINIMAP_VIEWS.length;renderCubeMinimap();});root.querySelector("[data-cube-right]").addEventListener("click",()=>{cubeMinimapView=(cubeMinimapView+1)%CUBE_MINIMAP_VIEWS.length;renderCubeMinimap();});root.querySelectorAll("[data-cube-face]").forEach((button)=>button.addEventListener("click",()=>teleportToCubeFace(button.dataset.mapKey)));renderCubeMinimap();}
 
 async function teleportToCubeFace(mapKey){if(!CUBE_PLANET_MAP_KEYS.has(mapKey)||isMapTransitionInProgress)return;const previous=currentMapKey||DEFAULT_MAP_KEY;pendingSpawnX=null;pendingSpawnY=null;pendingTeleportToSpawn=true;await runMapTransitionFade(async()=>{setCurrentMapKey(mapKey);const success=await rejoinCurrentMap(previous);if(!success)pendingTeleportToSpawn=false;});renderCubeMinimap();}
 const CUBE_PLANET_EDGES={
   default_room:{north:"cube_top",south:"cube_bottom",east:"cube_east",west:"cube_west"},
   cube_north:{north:"cube_top",south:"cube_bottom",east:"cube_east",west:"cube_west"},
-  cube_east:{north:"cube_top",south:"cube_bottom",east:"cube_south",west:"default_room"},
+  cube_east:{north:"cube_top",south:"cube_bottom",east:"cube_south",west:"cube_north"},
   cube_south:{north:"cube_top",south:"cube_bottom",east:"cube_west",west:"cube_east"},
-  cube_west:{north:"cube_top",south:"cube_bottom",east:"default_room",west:"cube_south"},
-  cube_top:{north:"cube_south",south:"default_room",east:"cube_east",west:"cube_west"},
-  cube_bottom:{north:"default_room",south:"cube_south",east:"cube_east",west:"cube_west"}
+  cube_west:{north:"cube_top",south:"cube_bottom",east:"cube_north",west:"cube_south"},
+  cube_top:{north:"cube_south",south:"cube_north",east:"cube_east",west:"cube_west"},
+  cube_bottom:{north:"cube_north",south:"cube_south",east:"cube_east",west:"cube_west"}
 };
 
 function transitionAcrossPlanetEdge(edge){
@@ -9376,6 +9377,7 @@ function handleTilePointerMove(pointer) {
 }
 
 function handleTilePointerUp() {
+  blockSystem?.handlePointerUp?.();
   isTilePaintDragging = false;
   isTileEraseDragging = false;
   isPatternPaintDragging = false;
