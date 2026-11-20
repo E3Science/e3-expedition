@@ -8705,25 +8705,26 @@ const CUBE_MINIMAP_VIEWS=[
 ];
 let cubeMinimapRoot=null,cubeMinimapView=0;
 
-const CUBE_ARROW_ROTATIONS={up:0,right_up:45,right:90,right_down:135,down:180,left_down:225,left:270,left_up:315};
-function updateCubePlayerMarker(direction=players?.[myId]?.lastDirection||"down"){if(!cubeMinimapRoot)return;const rotation=CUBE_ARROW_ROTATIONS[direction]??180;cubeMinimapRoot.querySelectorAll(".cube-player-marker").forEach((marker)=>{marker.style.transform=`translate(-50%,-50%) rotate(${rotation}deg)`;});}
+const CUBE_ARROW_VECTORS={up:[0,-1],right_up:[1,-1],right:[1,0],right_down:[1,1],down:[0,1],left_down:[-1,1],left:[-1,0],left_up:[-1,-1]};
+function updateCubePlayerMarker(direction=players?.[myId]?.lastDirection||"down"){if(!cubeMinimapRoot)return;const [dx,dy]=CUBE_ARROW_VECTORS[direction]||[0,1];cubeMinimapRoot.querySelectorAll(".cube-player-marker").forEach((marker)=>{const slot=marker.closest("[data-cube-face]")?.dataset.cubeFace;let vx=dx,vy=dy;if(slot==="left")vy=dy+dx*.53;else if(slot==="right")vy=dy-dx*.53;const rotation=Math.atan2(vx,-vy)*180/Math.PI;marker.style.transform=`translate(-50%,-50%) rotate(${rotation}deg)`;});}
 function renderCubeMinimap(){if(!cubeMinimapRoot)return;const maps=CUBE_MINIMAP_VIEWS[cubeMinimapView]||CUBE_MINIMAP_VIEWS[0],activeMap=currentMapKey===DEFAULT_MAP_KEY?"cube_north":currentMapKey;cubeMinimapRoot.querySelectorAll("[data-cube-face]").forEach((button,index)=>{const mapKey=maps[index],active=mapKey===activeMap;button.dataset.mapKey=mapKey;button.className=`planet-${mapKey.replace("cube_","")}${active?" active":""}`;button.innerHTML=`<span class="cube-planet-land" aria-hidden="true"></span><span class="cube-face-label">${CUBE_FACE_LABELS[mapKey]}</span>${active?'<i class="cube-player-marker" aria-label="Current location"></i>':""}`;});updateCubePlayerMarker();}
 function ensureCubeMinimap(){if(cubeMinimapRoot)return;const root=document.createElement("aside");root.className="cube-minimap";root.innerHTML=`<button type="button" class="cube-minimap-arrow" data-cube-left aria-label="Rotate cube left">‹</button><div class="cube-minimap-body" aria-label="Cube planet minimap"><button type="button" data-cube-face="top"></button><button type="button" data-cube-face="left"></button><button type="button" data-cube-face="right"></button></div><button type="button" class="cube-minimap-arrow" data-cube-right aria-label="Rotate cube right">›</button>`;document.body.appendChild(root);cubeMinimapRoot=root;root.querySelector("[data-cube-left]").addEventListener("click",()=>{cubeMinimapView=(cubeMinimapView-1+CUBE_MINIMAP_VIEWS.length)%CUBE_MINIMAP_VIEWS.length;renderCubeMinimap();});root.querySelector("[data-cube-right]").addEventListener("click",()=>{cubeMinimapView=(cubeMinimapView+1)%CUBE_MINIMAP_VIEWS.length;renderCubeMinimap();});root.querySelectorAll("[data-cube-face]").forEach((button)=>button.addEventListener("click",()=>teleportToCubeFace(button.dataset.mapKey)));renderCubeMinimap();}
 
 async function teleportToCubeFace(mapKey){if(!CUBE_PLANET_MAP_KEYS.has(mapKey)||isMapTransitionInProgress)return;const previous=currentMapKey||DEFAULT_MAP_KEY;pendingSpawnX=null;pendingSpawnY=null;pendingTeleportToSpawn=true;await runMapTransitionFade(async()=>{setCurrentMapKey(mapKey);const success=await rejoinCurrentMap(previous);if(!success)pendingTeleportToSpawn=false;});renderCubeMinimap();}
+const seam=(map,entry,reverse=false)=>({map,entry,reverse});
 const CUBE_PLANET_EDGES={
-  default_room:{north:"cube_top",south:"cube_bottom",east:"cube_east",west:"cube_west"},
-  cube_north:{north:"cube_top",south:"cube_bottom",east:"cube_east",west:"cube_west"},
-  cube_east:{north:"cube_top",south:"cube_bottom",east:"cube_south",west:"cube_north"},
-  cube_south:{north:"cube_top",south:"cube_bottom",east:"cube_west",west:"cube_east"},
-  cube_west:{north:"cube_top",south:"cube_bottom",east:"cube_north",west:"cube_south"},
-  cube_top:{north:"cube_south",south:"cube_north",east:"cube_east",west:"cube_west"},
-  cube_bottom:{north:"cube_north",south:"cube_south",east:"cube_east",west:"cube_west"}
+  default_room:{north:seam("cube_top","south"),south:seam("cube_bottom","north"),east:seam("cube_east","west"),west:seam("cube_west","east")},
+  cube_north:{north:seam("cube_top","south"),south:seam("cube_bottom","north"),east:seam("cube_east","west"),west:seam("cube_west","east")},
+  cube_east:{north:seam("cube_top","east",true),south:seam("cube_bottom","east"),east:seam("cube_south","west"),west:seam("cube_north","east")},
+  cube_south:{north:seam("cube_top","north",true),south:seam("cube_bottom","south",true),east:seam("cube_west","west"),west:seam("cube_east","east")},
+  cube_west:{north:seam("cube_top","west"),south:seam("cube_bottom","west",true),east:seam("cube_north","west"),west:seam("cube_south","east")},
+  cube_top:{north:seam("cube_south","north",true),south:seam("cube_north","north"),east:seam("cube_east","north",true),west:seam("cube_west","north")},
+  cube_bottom:{north:seam("cube_north","south"),south:seam("cube_south","south",true),east:seam("cube_east","south"),west:seam("cube_west","south",true)}
 };
 
 function transitionAcrossPlanetEdge(edge){
-  if(isMapTransitionInProgress)return;const source=currentMapKey||DEFAULT_MAP_KEY;const destination=CUBE_PLANET_EDGES[source]?.[edge];if(!destination)return;
-  planetEdgeTransitionArmed=false;pendingTeleportToSpawn=false;const minX=ROOM_OFFSET_X+TILE_SIZE/2,minY=ROOM_OFFSET_Y+TILE_SIZE/2,maxX=ROOM_OFFSET_X+getCurrentRoomLogicalWidth()-TILE_SIZE/2,maxY=ROOM_OFFSET_Y+getCurrentRoomLogicalHeight()-TILE_SIZE/2;const inset=TILE_SIZE*.6;const player=room?.state?.players?.get?.(myId);const x=player?.x??(minX+maxX)/2,y=player?.y??(minY+maxY)/2;pendingSpawnX=edge==="east"?minX+inset:edge==="west"?maxX-inset:Math.max(minX+inset,Math.min(maxX-inset,x));pendingSpawnY=edge==="south"?minY+inset:edge==="north"?maxY-inset:Math.max(minY+inset,Math.min(maxY-inset,y));
+  if(isMapTransitionInProgress)return;const source=currentMapKey||DEFAULT_MAP_KEY;const crossing=CUBE_PLANET_EDGES[source]?.[edge];if(!crossing)return;const destination=crossing.map;
+  planetEdgeTransitionArmed=false;pendingTeleportToSpawn=false;const minX=ROOM_OFFSET_X+TILE_SIZE/2,minY=ROOM_OFFSET_Y+TILE_SIZE/2,maxX=ROOM_OFFSET_X+getCurrentRoomLogicalWidth()-TILE_SIZE/2,maxY=ROOM_OFFSET_Y+getCurrentRoomLogicalHeight()-TILE_SIZE/2;const inset=TILE_SIZE*.6;const player=room?.state?.players?.get?.(myId);const x=player?.x??(minX+maxX)/2,y=player?.y??(minY+maxY)/2;const sourceT=(edge==="north"||edge==="south")?(x-minX)/(maxX-minX):(y-minY)/(maxY-minY);const t=Math.max(0,Math.min(1,crossing.reverse?1-sourceT:sourceT)),mappedX=minX+t*(maxX-minX),mappedY=minY+t*(maxY-minY);pendingSpawnX=crossing.entry==="west"?minX+inset:crossing.entry==="east"?maxX-inset:mappedX;pendingSpawnY=crossing.entry==="north"?minY+inset:crossing.entry==="south"?maxY-inset:mappedY;
   standaloneInput={...standaloneInput,left:false,right:false,up:false,down:false};sendRoomMessage("input",{left:false,right:false,up:false,down:false,editorMode:false,speedScale:1});showStatusMessage("Loading the next planet face…",false);
   runMapTransitionFade(async()=>{try{setCurrentMapKey(destination);await rejoinCurrentMap(source);}catch(error){console.error("Planet edge transition failed:",error);setCurrentMapKey(source);}}).then(renderCubeMinimap);
 }
