@@ -355,6 +355,7 @@ let playerDebugGraphics = null;
 let lastTriggeredTransitionKey = "";
 let lastTriggeredTransitionAt = 0;
 let isMapTransitionInProgress = false;
+let pendingTeleportToSpawn = false;
 let planetEdgeTransitionArmed = true;
 let roomReconnectInProgress = false;
 let activatingPortalKey = null;
@@ -4750,6 +4751,7 @@ function create() {
     onPlanetEdge: (edge) => transitionAcrossPlanetEdge(edge),
     enabled: () => joined && isIsometricMode() && !isGameplayModalActive()
   });
+  ensureCubeMinimap();
 
   infoText = this.add.text(20, 20, "E3 Prototype Room", {
     color: "#ffffff",
@@ -8694,6 +8696,17 @@ function setCurrentMapKey(mapKey) {
 }
 
 const CUBE_PLANET_MAP_KEYS=new Set(["cube_north","cube_east","cube_south","cube_west","cube_top","cube_bottom"]);
+const CUBE_FACE_LABELS={cube_north:"North",cube_east:"East",cube_south:"South",cube_west:"West",cube_top:"Top",cube_bottom:"Bottom"};
+const CUBE_MINIMAP_VIEWS=[
+  ["cube_top","cube_north","cube_east"],["cube_top","cube_east","cube_south"],["cube_top","cube_south","cube_west"],
+  ["cube_north","cube_bottom","cube_east"],["cube_bottom","cube_south","cube_east"],["cube_top","cube_west","cube_north"]
+];
+let cubeMinimapRoot=null,cubeMinimapView=0;
+
+function renderCubeMinimap(){if(!cubeMinimapRoot)return;const maps=CUBE_MINIMAP_VIEWS[cubeMinimapView]||CUBE_MINIMAP_VIEWS[0];cubeMinimapRoot.querySelectorAll("[data-cube-face]").forEach((button,index)=>{const mapKey=maps[index];button.dataset.mapKey=mapKey;button.textContent=CUBE_FACE_LABELS[mapKey];button.classList.toggle("active",mapKey===(currentMapKey||DEFAULT_MAP_KEY));});}
+function ensureCubeMinimap(){if(cubeMinimapRoot)return;const root=document.createElement("aside");root.className="cube-minimap";root.innerHTML=`<button type="button" class="cube-minimap-arrow" data-cube-left aria-label="Rotate cube left">‹</button><div class="cube-minimap-body" aria-label="Cube planet minimap"><button type="button" data-cube-face="top"></button><button type="button" data-cube-face="left"></button><button type="button" data-cube-face="right"></button></div><button type="button" class="cube-minimap-arrow" data-cube-right aria-label="Rotate cube right">›</button>`;document.body.appendChild(root);cubeMinimapRoot=root;root.querySelector("[data-cube-left]").addEventListener("click",()=>{cubeMinimapView=(cubeMinimapView-1+CUBE_MINIMAP_VIEWS.length)%CUBE_MINIMAP_VIEWS.length;renderCubeMinimap();});root.querySelector("[data-cube-right]").addEventListener("click",()=>{cubeMinimapView=(cubeMinimapView+1)%CUBE_MINIMAP_VIEWS.length;renderCubeMinimap();});root.querySelectorAll("[data-cube-face]").forEach((button)=>button.addEventListener("click",()=>teleportToCubeFace(button.dataset.mapKey)));renderCubeMinimap();}
+
+async function teleportToCubeFace(mapKey){if(!CUBE_PLANET_MAP_KEYS.has(mapKey)||isMapTransitionInProgress)return;const previous=currentMapKey||DEFAULT_MAP_KEY;pendingSpawnX=null;pendingSpawnY=null;pendingTeleportToSpawn=true;await runMapTransitionFade(async()=>{setCurrentMapKey(mapKey);const success=await rejoinCurrentMap(previous);if(!success)pendingTeleportToSpawn=false;});renderCubeMinimap();}
 const CUBE_PLANET_EDGES={
   default_room:{north:"cube_top",south:"cube_bottom",east:"cube_east",west:"cube_west"},
   cube_north:{north:"cube_top",south:"cube_bottom",east:"cube_east",west:"cube_west"},
@@ -8706,9 +8719,9 @@ const CUBE_PLANET_EDGES={
 
 function transitionAcrossPlanetEdge(edge){
   if(isMapTransitionInProgress)return;const source=currentMapKey||DEFAULT_MAP_KEY;const destination=CUBE_PLANET_EDGES[source]?.[edge];if(!destination)return;
-  planetEdgeTransitionArmed=false;const minX=ROOM_OFFSET_X+TILE_SIZE/2,minY=ROOM_OFFSET_Y+TILE_SIZE/2,maxX=ROOM_OFFSET_X+getCurrentRoomLogicalWidth()-TILE_SIZE/2,maxY=ROOM_OFFSET_Y+getCurrentRoomLogicalHeight()-TILE_SIZE/2;const inset=TILE_SIZE*.6;const player=room?.state?.players?.get?.(myId);const x=player?.x??(minX+maxX)/2,y=player?.y??(minY+maxY)/2;pendingSpawnX=edge==="east"?minX+inset:edge==="west"?maxX-inset:Math.max(minX+inset,Math.min(maxX-inset,x));pendingSpawnY=edge==="south"?minY+inset:edge==="north"?maxY-inset:Math.max(minY+inset,Math.min(maxY-inset,y));
-  isMapTransitionInProgress=true;standaloneInput={...standaloneInput,left:false,right:false,up:false,down:false};sendRoomMessage("input",{left:false,right:false,up:false,down:false,editorMode:false,speedScale:1});showStatusMessage("Loading the next planet face…",false);
-  Promise.resolve().then(async()=>{try{setCurrentMapKey(destination);await rejoinCurrentMap(source);}catch(error){console.error("Planet edge transition failed:",error);setCurrentMapKey(source);}finally{sceneRef?.cameras?.main?.resetFX?.();isMapTransitionInProgress=false;}});
+  planetEdgeTransitionArmed=false;pendingTeleportToSpawn=false;const minX=ROOM_OFFSET_X+TILE_SIZE/2,minY=ROOM_OFFSET_Y+TILE_SIZE/2,maxX=ROOM_OFFSET_X+getCurrentRoomLogicalWidth()-TILE_SIZE/2,maxY=ROOM_OFFSET_Y+getCurrentRoomLogicalHeight()-TILE_SIZE/2;const inset=TILE_SIZE*.6;const player=room?.state?.players?.get?.(myId);const x=player?.x??(minX+maxX)/2,y=player?.y??(minY+maxY)/2;pendingSpawnX=edge==="east"?minX+inset:edge==="west"?maxX-inset:Math.max(minX+inset,Math.min(maxX-inset,x));pendingSpawnY=edge==="south"?minY+inset:edge==="north"?maxY-inset:Math.max(minY+inset,Math.min(maxY-inset,y));
+  standaloneInput={...standaloneInput,left:false,right:false,up:false,down:false};sendRoomMessage("input",{left:false,right:false,up:false,down:false,editorMode:false,speedScale:1});showStatusMessage("Loading the next planet face…",false);
+  runMapTransitionFade(async()=>{try{setCurrentMapKey(destination);await rejoinCurrentMap(source);}catch(error){console.error("Planet edge transition failed:",error);setCurrentMapKey(source);}}).then(renderCubeMinimap);
 }
 
 /*
@@ -8740,7 +8753,7 @@ async function rejoinCurrentMap(fallbackMapKey = DEFAULT_MAP_KEY, matchmakingCla
       return false;
     }
     const player = room?.state?.players?.get?.(myId);
-    const spawn = findSpawnMarkerTile();
+    const spawn = pendingTeleportToSpawn?(blockSystem?.getSpawnPoint?.()||findSpawnMarkerTile()):findSpawnMarkerTile();
     if (player) {
       const fallbackX = spawn ? tileToWorldX(spawn.tileX) + TILE_SIZE / 2 : ROOM_OFFSET_X + getCurrentRoomLogicalWidth() / 2;
       const fallbackY = spawn ? tileToWorldY(spawn.tileY) + TILE_SIZE / 2 : ROOM_OFFSET_Y + getCurrentRoomLogicalHeight() / 2;
@@ -8750,6 +8763,7 @@ async function rejoinCurrentMap(fallbackMapKey = DEFAULT_MAP_KEY, matchmakingCla
     }
     pendingSpawnX = null;
     pendingSpawnY = null;
+    pendingTeleportToSpawn = false;
     appendSystemChatLine(`System: Switched to local map "${destinationMapKey}".`, "#7CFC00");
     return true;
   }
@@ -8894,6 +8908,10 @@ function runMapTransitionFade(asyncWork) {
       } catch (error) {
         console.error("Map transition work failed:", error);
       }
+
+      const localDisplay=players?.[myId]?.container;
+      if(localDisplay){camera.startFollow(localDisplay,true,1,1);camera.centerOn(localDisplay.x,localDisplay.y);}
+      await new Promise((next)=>requestAnimationFrame(()=>requestAnimationFrame(next)));
 
       camera.fadeIn(250, 0, 0, 0);
 
@@ -15637,7 +15655,7 @@ lastEditorStatusMessage = "";
         delete players[id];
       }
 
-      const mapSpawnMarker = findSpawnMarkerTile();
+      const mapSpawnMarker = pendingTeleportToSpawn?(blockSystem?.getSpawnPoint?.()||findSpawnMarkerTile()):findSpawnMarkerTile();
       const mapSpawnWorldX = mapSpawnMarker ? tileToWorldX(mapSpawnMarker.tileX) + TILE_SIZE / 2 : null;
       const mapSpawnWorldY = mapSpawnMarker ? tileToWorldY(mapSpawnMarker.tileY) + TILE_SIZE / 2 : null;
 
@@ -15708,6 +15726,7 @@ lastEditorStatusMessage = "";
         startFollowingLocalPlayer();
         pendingSpawnX = null;
         pendingSpawnY = null;
+        pendingTeleportToSpawn = false;
       }
     });
 

@@ -298,6 +298,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
     const textureByCanvas=new Map();
     blocks.forEach((block) => {
       if(block.vehicleType==="kayak")return;
+      if(block.materialKey==="spawn_point")return;
       if (!block.canvas) return;
       let texture=textureByCanvas.get(block.canvas);if(!texture){texture = new THREE.CanvasTexture(block.canvas);texture.colorSpace = THREE.SRGBColorSpace;texture.magFilter = THREE.NearestFilter;texture.minFilter = THREE.NearestFilter;textureByCanvas.set(block.canvas,texture);}
       const baseOpacity=Number.isFinite(block.opacity)?block.opacity:(block.transparent ? .68 : 1);const material = new THREE.SpriteMaterial({ map: texture, transparent:true,opacity:baseOpacity,depthWrite:!block.transparent,alphaTest:block.transparent?0:.02 });
