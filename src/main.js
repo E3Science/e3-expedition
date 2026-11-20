@@ -4484,8 +4484,11 @@ function updateStandalonePlayer() {
   const horizontal = Number(!!standaloneInput.right) - Number(!!standaloneInput.left);
   const vertical = Number(!!standaloneInput.down) - Number(!!standaloneInput.up);
   if (!horizontal && !vertical) return;
-  const vehicleMove=blockSystem?.isVehicleMounted?.()?blockSystem.driveVehicle(horizontal,vertical,Number(standaloneInput.speedScale)>1):null;
-  if(vehicleMove){player.x=vehicleMove.x;player.y=vehicleMove.y;return;}
+  if(blockSystem?.isVehicleMounted?.()){
+    const vehicleMove=blockSystem.driveVehicle(horizontal,vertical,Number(standaloneInput.speedScale)>1);
+    if(vehicleMove){player.x=vehicleMove.x;player.y=vehicleMove.y;}
+    return;
+  }
   const deltaSeconds = Math.min(0.05, Math.max(0, Number(sceneRef.game?.loop?.delta) || 16.67) / 1000);
   const projectedMagnitude = Math.hypot((horizontal-vertical)*0.5,(horizontal+vertical)*0.25);
   const jumpScale = blockSystem?.isJumping?.() ? 0.68 : 1;

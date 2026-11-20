@@ -1,10 +1,10 @@
 import * as THREE from "three";
-import { createAstronautModel } from "./astronautModel";
+import { createBlockAstronaut } from "./animatedAstronautModel";
 
 export function createKayakModel() {
   const root = new THREE.Group();
   const presentation = new THREE.Group();
-  presentation.rotation.x = -Math.PI / 7;
+  presentation.rotation.x = -Math.PI / 5.5;
   root.add(presentation);
   const white = new THREE.MeshStandardMaterial({ color: 0xf2f4f5, roughness: 0.36, metalness: 0.08 });
   const pale = new THREE.MeshStandardMaterial({ color: 0xbfc8cf, roughness: 0.48, metalness: 0.12 });
@@ -33,11 +33,12 @@ export function createKayakModel() {
   const seat = add(new THREE.BoxGeometry(.82, .86, .18, 2, 2, 1), black, [-.15, 1.08, .2], [-.36, 0, 0]);
   seat.geometry.translate(0, .3, 0);
 
-  const rider = createAstronautModel(true);
-  rider.root.position.set(-.12, 1.18, 0);
-  rider.root.scale.setScalar(.82);
-  rider.limbs.legs.forEach((leg)=>{leg.visible=false;});
-  rider.limbs.arms.forEach((arm,index)=>{arm.rotation.x=-.62;arm.rotation.z=(index===0?-1:1)*.48;});
+  const rider = createBlockAstronaut(true);
+  rider.root.position.set(-.12, .92, 0);
+  rider.root.scale.setScalar(.72);
+  rider.limbs.leftLeg.visible=false;rider.limbs.rightLeg.visible=false;
+  rider.limbs.leftArm.rotation.x=-.62;rider.limbs.leftArm.rotation.z=-.48;
+  rider.limbs.rightArm.rotation.x=-.62;rider.limbs.rightArm.rotation.z=.48;
   presentation.add(rider.root);
   return {
     root,
@@ -45,7 +46,7 @@ export function createKayakModel() {
     setRiderVisible(value){rider.root.visible=!!value;},
     dispose() {
       root.traverse((object) => object.geometry?.dispose?.());
-      const riderMaterials=new Set();rider.root.traverse((object)=>{const list=Array.isArray(object.material)?object.material:[object.material];list.filter(Boolean).forEach((material)=>riderMaterials.add(material));});riderMaterials.forEach((material)=>material.dispose());
+      rider.geometries.forEach((geometry)=>geometry.dispose());rider.materials.forEach((material)=>material.dispose());
       materials.forEach((material) => material.dispose());
     }
   };

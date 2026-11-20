@@ -18,7 +18,7 @@ function addBox(parent, geometries, size, position, material, name) {
   return mesh;
 }
 
-function createBlockAstronaut(isLocalPlayer) {
+export function createBlockAstronaut(isLocalPlayer = true) {
   const root = new THREE.Group();
   root.name = "e3_block_astronaut";
   const geometries = [];
