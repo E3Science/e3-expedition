@@ -3,6 +3,7 @@ import { acquireGLTFAsset } from "./gltfAssetCache";
 import { loadAnimatedAstronaut } from "./models/animatedAstronautModel";
 import { createMobModel } from "./models/mobModels";
 import { createResourceModel } from "./models/resourceModels";
+import { createKayakModel } from "./models/kayakModel";
 
 const ISOMETRIC_DEPTH_BASE = -100;
 const ISOMETRIC_DEPTH_STEP = 0.1;
@@ -86,6 +87,8 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
   scene.add(resourceRoot);
   const blockRoot = new THREE.Group();
   scene.add(blockRoot);
+  const vehicleRoot = new THREE.Group();
+  scene.add(vehicleRoot);
   const overlayRoot = new THREE.Group();
   scene.add(overlayRoot);
   const coreTimerRoot = new THREE.Group();
@@ -105,6 +108,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
   const mobEntries = new Map();
   const resourceEntries = new Map();
   const blockEntries = new Map();
+  const vehicleEntries = new Map();
   const debrisEntries=[];
   let ditheringEnabled = localStorage.getItem("e3:player-mob-dithering") !== "false";
   let improvedTransparencyEnabled = localStorage.getItem("e3:improved-transparency") !== "false";
@@ -197,7 +201,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
         playerRoot.add(root);
         const shadow=createPlayerShadow();const nameplate=createPlayerNameplate(player.name);
         overlayRoot.add(shadow.sprite,nameplate.sprite);
-        entry = { root, model: null, shadow, nameplate, name: player.name, x: player.x, y: player.y, surfaceY:player.surfaceY??player.y, direction: player.direction || "down", moving: false, actionActive: false, actionName:null };
+        entry = { root, model: null, shadow, nameplate, name: player.name, x: player.x, y: player.y, surfaceY:player.surfaceY??player.y, direction: player.direction || "down", moving: false, actionActive: false, actionName:null, mountedVehicle:null };
         playerEntries.set(player.id, entry);
         loadAnimatedAstronaut({ isLocalPlayer: !!player.isLocalPlayer }).then((model) => {
           if (disposed || playerEntries.get(player.id) !== entry) {
@@ -220,6 +224,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       entry.sortY = player.sortY ?? entry.y;
       entry.elevation = player.elevation ?? 0;
       entry.surfaceY = player.surfaceY ?? entry.y;
+      entry.mountedVehicle = player.mountedVehicle || null;
       if(entry.name!==player.name){entry.name=player.name;entry.nameplate.draw(player.name);}
     });
   }
@@ -231,6 +236,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       const modelBottom = -2.14;
       entry.root.position.x = entry.x;
       entry.root.position.y = -entry.y - modelBottom * scale;
+      if(entry.mountedVehicle?.type === "kayak")entry.root.position.y += Math.sin(elapsed * 2.2 + entry.x * .01) * 2;
       entry.root.position.z = ISOMETRIC_DEPTH_BASE + (entry.sortY || entry.y) * ISOMETRIC_DEPTH_STEP + entry.elevation * 0.1 + 0.05;
       entry.root.scale.set(scale, scale, 0.5);
       entry.shadow.sprite.position.set(entry.x,-entry.surfaceY-4,entry.root.position.z-0.01);
@@ -247,8 +253,10 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
         right: Math.PI / 2,
         right_down: Math.PI / 4
       };
-      const targetRotation = directionRotations[entry.direction] ?? 0;
+      const targetRotation = entry.mountedVehicle?.type === "kayak" ? (entry.mountedVehicle.orientation || 0) * Math.PI / 4 : directionRotations[entry.direction] ?? 0;
       if (!entry.model) return;
+      entry.model.root.position.y = entry.mountedVehicle?.type === "kayak" ? -.9 : 0;
+      entry.model.root.scale.y = 1;
       entry.model.root.traverse((object)=>{if(!object.material)return;object.material.transparent=clipped;object.material.opacity=clipped ? .68 : 1;object.material.alphaHash=clipped;});
       const angleDelta = Math.atan2(
         Math.sin(targetRotation - entry.model.root.rotation.y),
@@ -256,7 +264,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       );
       entry.model.root.rotation.y += angleDelta * 0.24;
       entry.model.animator.update(elapsed, {
-        moving: entry.moving,
+        moving: entry.mountedVehicle?.type === "kayak" ? false : entry.moving,
         actionActive: entry.actionActive,
         actionName: entry.actionName
       });
@@ -273,8 +281,14 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
     oldTextures.forEach((texture)=>texture.dispose());
     blockEntries.clear();
     blockRoot.clear();
+    vehicleEntries.forEach((entry)=>entry.model.dispose());
+    vehicleEntries.clear();vehicleRoot.clear();
+    const kayakGroups=new Map();
+    blocks.forEach((block)=>{if(block.vehicleType!=="kayak"||!block.vehicleId)return;const group=kayakGroups.get(block.vehicleId)||[];group.push(block);kayakGroups.set(block.vehicleId,group);});
+    kayakGroups.forEach((parts,id)=>{const center=parts.find((part)=>part.vehicleLength===0)||parts[0];const forward=parts.find((part)=>part.vehicleLength===1);if(!center)return;const model=createKayakModel();const angle=forward?Math.atan2(-(forward.y-center.y),forward.x-center.x):0;const baseY=-center.y+22;model.root.position.set(center.x,baseY,ISOMETRIC_DEPTH_BASE+center.sortY*ISOMETRIC_DEPTH_STEP+(center.z||1)*.1+.03);model.root.rotation.z=angle;model.root.scale.set(13,13,.52);vehicleRoot.add(model.root);vehicleEntries.set(id,{model,baseY,phase:center.x*.01});});
     const textureByCanvas=new Map();
     blocks.forEach((block) => {
+      if(block.vehicleType==="kayak")return;
       if (!block.canvas) return;
       let texture=textureByCanvas.get(block.canvas);if(!texture){texture = new THREE.CanvasTexture(block.canvas);texture.colorSpace = THREE.SRGBColorSpace;texture.magFilter = THREE.NearestFilter;texture.minFilter = THREE.NearestFilter;textureByCanvas.set(block.canvas,texture);}
       const baseOpacity=Number.isFinite(block.opacity)?block.opacity:(block.transparent ? .68 : 1);const material = new THREE.SpriteMaterial({ map: texture, transparent:true,opacity:baseOpacity,depthWrite:!block.transparent,alphaTest:block.transparent?0:.02 });
@@ -294,7 +308,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
     timers.forEach((timer)=>{let entry=coreTimerEntries.get(timer.id);if(!entry){const canvas=document.createElement("canvas");canvas.width=canvas.height=96;const overlay=createOverlaySprite(canvas,42,42,3200);overlay.sprite.position.z=1900;coreTimerRoot.add(overlay.sprite);entry={...overlay,canvas};coreTimerEntries.set(timer.id,entry);}const ctx=entry.canvas.getContext("2d");ctx.clearRect(0,0,96,96);ctx.lineCap="round";ctx.lineWidth=12;ctx.strokeStyle="rgba(7,20,28,.72)";ctx.beginPath();ctx.arc(48,48,34,0,Math.PI*2);ctx.stroke();ctx.strokeStyle="#ff9e2f";ctx.beginPath();ctx.arc(48,48,34,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.max(0,Math.min(1,timer.progress||0)));ctx.stroke();ctx.lineWidth=3;ctx.strokeStyle="#e8ffff";ctx.beginPath();ctx.arc(48,48,43,0,Math.PI*2);ctx.stroke();entry.texture.needsUpdate=true;entry.sprite.position.set(timer.x,-timer.y,1900);});
   }
 
-  function updateBlocks(){const now=performance.now();blockEntries.forEach((entry)=>{if(entry.animated){entry.material.map.offset.x=Math.sin(now*.0022+entry.phase)*.045;entry.material.map.offset.y=Math.cos(now*.0017+entry.phase)*.018;}const bob=entry.waterBob?Math.sin(now*.0022+entry.phase)*2:0;if(entry.startY===entry.targetY){entry.sprite.position.y=-entry.targetY+32+bob;return;}const progress=Math.min(1,(now-entry.fallStartedAt)/entry.duration);const eased=progress*progress;const screenY=THREE.MathUtils.lerp(entry.startY,entry.targetY,eased);entry.sprite.position.y=-screenY+32+bob;if(progress===1)entry.startY=entry.targetY;});}
+  function updateBlocks(){const now=performance.now();blockEntries.forEach((entry)=>{if(entry.animated){entry.material.map.offset.x=Math.sin(now*.0022+entry.phase)*.045;entry.material.map.offset.y=Math.cos(now*.0017+entry.phase)*.018;}const bob=entry.waterBob?Math.sin(now*.0022+entry.phase)*2:0;if(entry.startY===entry.targetY){entry.sprite.position.y=-entry.targetY+32+bob;return;}const progress=Math.min(1,(now-entry.fallStartedAt)/entry.duration);const eased=progress*progress;const screenY=THREE.MathUtils.lerp(entry.startY,entry.targetY,eased);entry.sprite.position.y=-screenY+32+bob;if(progress===1)entry.startY=entry.targetY;});vehicleEntries.forEach((entry)=>{entry.model.root.position.y=entry.baseY+Math.sin(now*.0022+entry.phase)*2;});}
 
   function spawnDebris({x=0,y=0,type="dark"}={}){const color=type==="light"?0xb9f3f4:0x4a3429;for(let index=0;index<8;index+=1){const material=new THREE.SpriteMaterial({color,transparent:true,opacity:.95,depthTest:false,depthWrite:false});const sprite=new THREE.Sprite(material);const size=2+Math.random()*3;sprite.scale.set(size,size,1);sprite.position.set(x+(Math.random()-.5)*18,-y+(Math.random()-.5)*10,1900);sprite.renderOrder=2600;debrisRoot.add(sprite);debrisEntries.push({sprite,material,vx:(Math.random()-.5)*42,vy:28+Math.random()*42,gravity:90,life:0,maxLife:.45+Math.random()*.3});}}
   function updateDebris(delta){for(let index=debrisEntries.length-1;index>=0;index-=1){const entry=debrisEntries[index];entry.life+=delta;entry.vy-=entry.gravity*delta;entry.sprite.position.x+=entry.vx*delta;entry.sprite.position.y+=entry.vy*delta;entry.material.opacity=Math.max(0,1-entry.life/entry.maxLife);entry.material.rotation+=delta*5;if(entry.life<entry.maxLife)continue;entry.sprite.removeFromParent();entry.material.dispose();debrisEntries.splice(index,1);}}

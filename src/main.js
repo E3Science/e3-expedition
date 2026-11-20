@@ -4559,6 +4559,7 @@ function syncWorld3DPlayers() {
       moving: isPlayerMoving(player),
       actionActive: isServerPlayerActionActive(player) || isPlayerActionActive(entry),
       actionName: isServerPlayerActionActive(player)?player.actionName:(isPlayerActionActive(entry)?entry.activeActionName:null),
+      mountedVehicle: offsets.mountedVehicle || null,
       isLocalPlayer: id === myId
     });
   });
