@@ -197,7 +197,7 @@ function createHabitatPreviewTexture(scene) {
   scene.textures.addCanvas(key,canvas);return key;
 }
 
-export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGridSize, tileToDisplayPosition, tileToLogicalPosition, pointerToTilePosition, logicalWorldToTilePosition, getPlayer, getPlayerDirection, getSelectedTool, getInventoryMaterial, onPlaceInventoryBlock, syncWorldBlocks, syncCoreTimers, onCollectSample, onToolAction, onStatus, onEnterHabitat, onPlanetEdge, enabled = () => true }) {
+export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGridSize, tileToDisplayPosition, tileToLogicalPosition, pointerToTilePosition, logicalWorldToTilePosition, getPlayer, getPlayerDirection, getSelectedTool, getInventoryMaterial, onPlaceInventoryBlock, syncWorldBlocks, syncWorldVehicles, syncCoreTimers, onCollectSample, onToolAction, onStatus, onEnterHabitat, onPlanetEdge, enabled = () => true }) {
   const blocks = new Map();
   const sprites = new Map();
   const entityPhysics = new Map();
@@ -214,6 +214,7 @@ export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGrid
   const coreTimers = new Map();
   const timerGraphics = [];
   const vehicleDriveState = new Map();
+  let lastStaticRenderSignature = "";
   let mountedVehicleId = null;
   let nearbyKayakId = null;
   let lastKayakExitAt = 0;
@@ -296,6 +297,9 @@ export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGrid
   const refreshToolbar = () => { toolbar.querySelector(".block-builder-status").textContent=(materialByKey.get(selectedMaterial)?.label||selectedMaterial)+(selectedMaterial==="habitat_kit"?` · door ${habitatOrientation.toUpperCase()}`:"");toolbar.querySelectorAll("[data-material]").forEach((button)=>button.classList.toggle("active",button.dataset.material===selectedMaterial)); };
 
   function render() {
+    const staticSignature=[...blocks.values()].filter((block)=>!block.vehicleId).map((block)=>`${block.x}:${block.y}:${block.z}:${block.material}:${block.fallFromZ||0}`).sort().join("|")+`|${active}:${selectedMaterial}:${habitatPreview?.x??""}:${habitatPreview?.y??""}`;
+    if(staticSignature===lastStaticRenderSignature&&sprites.size){syncWorldVehicles?.([...blocks.values()].filter((block)=>block.vehicleId).map((block)=>{const display=tileToDisplayPosition(block.x,block.y);return {id:blockKey(block.x,block.y,block.z),x:display.x,y:display.y-(block.z-1)*BLOCK_RISE,z:block.z,sortY:display.y,vehicleId:block.vehicleId,vehicleType:block.vehicleType,vehicleOrientation:block.vehicleOrientation??0,vehicleLength:block.vehicleLength??null,vehicleWidth:block.vehicleWidth??null};}));return;}
+    lastStaticRenderSignature=staticSignature;
     sprites.forEach((sprite) => sprite.destroy());sprites.clear();
     timerGraphics.forEach((graphic)=>graphic.destroy());timerGraphics.length=0;
     groundSprites.forEach((sprite) => sprite.destroy());groundSprites.length=0;

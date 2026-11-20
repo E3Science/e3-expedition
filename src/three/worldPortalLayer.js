@@ -109,6 +109,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
   const resourceEntries = new Map();
   const blockEntries = new Map();
   const vehicleEntries = new Map();
+  let mountedVehicleIds = new Set();
   const debrisEntries=[];
   let ditheringEnabled = localStorage.getItem("e3:player-mob-dithering") !== "false";
   let improvedTransparencyEnabled = localStorage.getItem("e3:improved-transparency") !== "false";
@@ -184,6 +185,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
   }
 
   function setPlayers(players = []) {
+    mountedVehicleIds = new Set(players.map((player)=>player.mountedVehicle?.id).filter(Boolean));
     const nextIds = new Set(players.map((player) => player.id));
     playerEntries.forEach((entry, id) => {
       if (nextIds.has(id)) return;
@@ -227,6 +229,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       entry.mountedVehicle = player.mountedVehicle || null;
       if(entry.name!==player.name){entry.name=player.name;entry.nameplate.draw(player.name);}
     });
+    vehicleEntries.forEach((entry,id)=>entry.model.setRiderVisible(mountedVehicleIds.has(id)));
   }
 
   function updatePlayers(elapsed) {
@@ -255,8 +258,10 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       };
       const targetRotation = entry.mountedVehicle?.type === "kayak" ? (entry.mountedVehicle.orientation || 0) * Math.PI / 4 : directionRotations[entry.direction] ?? 0;
       if (!entry.model) return;
-      entry.model.root.position.y = entry.mountedVehicle?.type === "kayak" ? -.9 : 0;
-      entry.model.root.scale.y = 1;
+      const mounted=entry.mountedVehicle?.type === "kayak";
+      entry.model.root.visible=!mounted;
+      entry.shadow.sprite.visible=!mounted;
+      entry.model.root.position.y=0;entry.model.root.scale.y=1;
       entry.model.root.traverse((object)=>{if(!object.material)return;object.material.transparent=clipped;object.material.opacity=clipped ? .68 : 1;object.material.alphaHash=clipped;});
       const angleDelta = Math.atan2(
         Math.sin(targetRotation - entry.model.root.rotation.y),
@@ -271,6 +276,14 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
     });
   }
 
+  function setVehicles(blocks = []) {
+    const kayakGroups=new Map();
+    blocks.forEach((block)=>{if(block.vehicleType!=="kayak"||!block.vehicleId)return;const group=kayakGroups.get(block.vehicleId)||[];group.push(block);kayakGroups.set(block.vehicleId,group);});
+    const nextVehicleIds=new Set(kayakGroups.keys());
+    vehicleEntries.forEach((entry,id)=>{if(nextVehicleIds.has(id))return;entry.model.root.removeFromParent();entry.model.dispose();vehicleEntries.delete(id);});
+    kayakGroups.forEach((parts,id)=>{const center=parts.find((part)=>part.vehicleLength===0)||parts[0];if(!center)return;let entry=vehicleEntries.get(id);if(!entry){const model=createKayakModel();vehicleRoot.add(model.root);entry={model,baseY:0,phase:center.x*.01};vehicleEntries.set(id,entry);}entry.baseY=-center.y+22;entry.phase=center.x*.01;entry.model.root.position.set(center.x,entry.baseY,ISOMETRIC_DEPTH_BASE+center.sortY*ISOMETRIC_DEPTH_STEP+(center.z||1)*.1+.03);entry.model.root.rotation.y=(Number(center.vehicleOrientation)||0)*Math.PI/4;entry.model.root.scale.set(13,13,.72);entry.model.setRiderVisible(mountedVehicleIds.has(id));});
+  }
+
   function setBlocks(blocks = []) {
     const oldTextures=new Set();
     blockEntries.forEach((entry) => {
@@ -281,11 +294,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
     oldTextures.forEach((texture)=>texture.dispose());
     blockEntries.clear();
     blockRoot.clear();
-    vehicleEntries.forEach((entry)=>entry.model.dispose());
-    vehicleEntries.clear();vehicleRoot.clear();
-    const kayakGroups=new Map();
-    blocks.forEach((block)=>{if(block.vehicleType!=="kayak"||!block.vehicleId)return;const group=kayakGroups.get(block.vehicleId)||[];group.push(block);kayakGroups.set(block.vehicleId,group);});
-    kayakGroups.forEach((parts,id)=>{const center=parts.find((part)=>part.vehicleLength===0)||parts[0];if(!center)return;const model=createKayakModel();const baseY=-center.y+22;model.root.position.set(center.x,baseY,ISOMETRIC_DEPTH_BASE+center.sortY*ISOMETRIC_DEPTH_STEP+(center.z||1)*.1+.03);model.root.rotation.y=(Number(center.vehicleOrientation)||0)*Math.PI/4;model.root.scale.set(13,13,.52);vehicleRoot.add(model.root);vehicleEntries.set(id,{model,baseY,phase:center.x*.01});});
+    setVehicles(blocks);
     const textureByCanvas=new Map();
     blocks.forEach((block) => {
       if(block.vehicleType==="kayak")return;
@@ -543,6 +552,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
     setPortals,
     setPlayers,
     setBlocks,
+    setVehicles,
     setCoreTimers,
     setMobs,
     setResources,

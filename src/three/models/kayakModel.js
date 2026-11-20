@@ -1,7 +1,11 @@
 import * as THREE from "three";
+import { createAstronautModel } from "./astronautModel";
 
 export function createKayakModel() {
   const root = new THREE.Group();
+  const presentation = new THREE.Group();
+  presentation.rotation.x = -Math.PI / 7;
+  root.add(presentation);
   const white = new THREE.MeshStandardMaterial({ color: 0xf2f4f5, roughness: 0.36, metalness: 0.08 });
   const pale = new THREE.MeshStandardMaterial({ color: 0xbfc8cf, roughness: 0.48, metalness: 0.12 });
   const orange = new THREE.MeshStandardMaterial({ color: 0xf47b20, roughness: 0.42, metalness: 0.04 });
@@ -10,7 +14,7 @@ export function createKayakModel() {
 
   const add = (geometry, material, position, rotation = [0, 0, 0], scale = [1, 1, 1]) => {
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.position.set(...position);mesh.rotation.set(...rotation);mesh.scale.set(...scale);root.add(mesh);return mesh;
+    mesh.position.set(...position);mesh.rotation.set(...rotation);mesh.scale.set(...scale);presentation.add(mesh);return mesh;
   };
 
   // Faceted 3-block hull with pointed bow and stern.
@@ -29,11 +33,19 @@ export function createKayakModel() {
   const seat = add(new THREE.BoxGeometry(.82, .86, .18, 2, 2, 1), black, [-.15, 1.08, .2], [-.36, 0, 0]);
   seat.geometry.translate(0, .3, 0);
 
-  root.userData.riderPosition = new THREE.Vector3(-.12, 1.18, 0);
+  const rider = createAstronautModel(true);
+  rider.root.position.set(-.12, 1.18, 0);
+  rider.root.scale.setScalar(.82);
+  rider.limbs.legs.forEach((leg)=>{leg.visible=false;});
+  rider.limbs.arms.forEach((arm,index)=>{arm.rotation.x=-.62;arm.rotation.z=(index===0?-1:1)*.48;});
+  presentation.add(rider.root);
   return {
     root,
+    rider: rider.root,
+    setRiderVisible(value){rider.root.visible=!!value;},
     dispose() {
       root.traverse((object) => object.geometry?.dispose?.());
+      const riderMaterials=new Set();rider.root.traverse((object)=>{const list=Array.isArray(object.material)?object.material:[object.material];list.filter(Boolean).forEach((material)=>riderMaterials.add(material));});riderMaterials.forEach((material)=>material.dispose());
       materials.forEach((material) => material.dispose());
     }
   };
