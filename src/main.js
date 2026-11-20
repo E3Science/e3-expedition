@@ -4582,6 +4582,7 @@ function updatePlayerSprite(scene, entry, player, id) {
 
   if (moveDirection) {
     entry.lastDirection = moveDirection;
+    if(id===myId)updateCubePlayerMarker(moveDirection);
   }
 
   let actionName = moving ? "walk" : "idle";
@@ -8704,7 +8705,9 @@ const CUBE_MINIMAP_VIEWS=[
 ];
 let cubeMinimapRoot=null,cubeMinimapView=0;
 
-function renderCubeMinimap(){if(!cubeMinimapRoot)return;const maps=CUBE_MINIMAP_VIEWS[cubeMinimapView]||CUBE_MINIMAP_VIEWS[0];cubeMinimapRoot.querySelectorAll("[data-cube-face]").forEach((button,index)=>{const mapKey=maps[index];button.dataset.mapKey=mapKey;button.textContent=CUBE_FACE_LABELS[mapKey];button.classList.toggle("active",mapKey===(currentMapKey||DEFAULT_MAP_KEY));button.classList.toggle("polar",mapKey==="cube_top"||mapKey==="cube_bottom");});}
+const CUBE_ARROW_ROTATIONS={up:0,right_up:45,right:90,right_down:135,down:180,left_down:225,left:270,left_up:315};
+function updateCubePlayerMarker(direction=players?.[myId]?.lastDirection||"down"){if(!cubeMinimapRoot)return;const rotation=CUBE_ARROW_ROTATIONS[direction]??180;cubeMinimapRoot.querySelectorAll(".cube-player-marker").forEach((marker)=>{marker.style.transform=`translate(-50%,-50%) rotate(${rotation}deg)`;});}
+function renderCubeMinimap(){if(!cubeMinimapRoot)return;const maps=CUBE_MINIMAP_VIEWS[cubeMinimapView]||CUBE_MINIMAP_VIEWS[0],activeMap=currentMapKey===DEFAULT_MAP_KEY?"cube_north":currentMapKey;cubeMinimapRoot.querySelectorAll("[data-cube-face]").forEach((button,index)=>{const mapKey=maps[index],active=mapKey===activeMap;button.dataset.mapKey=mapKey;button.className=`planet-${mapKey.replace("cube_","")}${active?" active":""}`;button.innerHTML=`<span class="cube-planet-land" aria-hidden="true"></span><span class="cube-face-label">${CUBE_FACE_LABELS[mapKey]}</span>${active?'<i class="cube-player-marker" aria-label="Current location"></i>':""}`;});updateCubePlayerMarker();}
 function ensureCubeMinimap(){if(cubeMinimapRoot)return;const root=document.createElement("aside");root.className="cube-minimap";root.innerHTML=`<button type="button" class="cube-minimap-arrow" data-cube-left aria-label="Rotate cube left">‹</button><div class="cube-minimap-body" aria-label="Cube planet minimap"><button type="button" data-cube-face="top"></button><button type="button" data-cube-face="left"></button><button type="button" data-cube-face="right"></button></div><button type="button" class="cube-minimap-arrow" data-cube-right aria-label="Rotate cube right">›</button>`;document.body.appendChild(root);cubeMinimapRoot=root;root.querySelector("[data-cube-left]").addEventListener("click",()=>{cubeMinimapView=(cubeMinimapView-1+CUBE_MINIMAP_VIEWS.length)%CUBE_MINIMAP_VIEWS.length;renderCubeMinimap();});root.querySelector("[data-cube-right]").addEventListener("click",()=>{cubeMinimapView=(cubeMinimapView+1)%CUBE_MINIMAP_VIEWS.length;renderCubeMinimap();});root.querySelectorAll("[data-cube-face]").forEach((button)=>button.addEventListener("click",()=>teleportToCubeFace(button.dataset.mapKey)));renderCubeMinimap();}
 
 async function teleportToCubeFace(mapKey){if(!CUBE_PLANET_MAP_KEYS.has(mapKey)||isMapTransitionInProgress)return;const previous=currentMapKey||DEFAULT_MAP_KEY;pendingSpawnX=null;pendingSpawnY=null;pendingTeleportToSpawn=true;await runMapTransitionFade(async()=>{setCurrentMapKey(mapKey);const success=await rejoinCurrentMap(previous);if(!success)pendingTeleportToSpawn=false;});renderCubeMinimap();}
