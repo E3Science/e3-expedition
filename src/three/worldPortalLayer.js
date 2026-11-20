@@ -285,7 +285,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
     vehicleEntries.clear();vehicleRoot.clear();
     const kayakGroups=new Map();
     blocks.forEach((block)=>{if(block.vehicleType!=="kayak"||!block.vehicleId)return;const group=kayakGroups.get(block.vehicleId)||[];group.push(block);kayakGroups.set(block.vehicleId,group);});
-    kayakGroups.forEach((parts,id)=>{const center=parts.find((part)=>part.vehicleLength===0)||parts[0];const forward=parts.find((part)=>part.vehicleLength===1);if(!center)return;const model=createKayakModel();const angle=forward?Math.atan2(-(forward.y-center.y),forward.x-center.x):0;const baseY=-center.y+22;model.root.position.set(center.x,baseY,ISOMETRIC_DEPTH_BASE+center.sortY*ISOMETRIC_DEPTH_STEP+(center.z||1)*.1+.03);model.root.rotation.z=angle;model.root.scale.set(13,13,.52);vehicleRoot.add(model.root);vehicleEntries.set(id,{model,baseY,phase:center.x*.01});});
+    kayakGroups.forEach((parts,id)=>{const center=parts.find((part)=>part.vehicleLength===0)||parts[0];if(!center)return;const model=createKayakModel();const baseY=-center.y+22;model.root.position.set(center.x,baseY,ISOMETRIC_DEPTH_BASE+center.sortY*ISOMETRIC_DEPTH_STEP+(center.z||1)*.1+.03);model.root.rotation.y=(Number(center.vehicleOrientation)||0)*Math.PI/4;model.root.scale.set(13,13,.52);vehicleRoot.add(model.root);vehicleEntries.set(id,{model,baseY,phase:center.x*.01});});
     const textureByCanvas=new Map();
     blocks.forEach((block) => {
       if(block.vehicleType==="kayak")return;
