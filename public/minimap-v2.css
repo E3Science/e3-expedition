@@ -1,0 +1,37 @@
+.cube-minimap {
+  top: 8px;
+  left: 16px;
+  gap: 5px;
+  transform: none;
+}
+
+.cube-minimap-arrow {
+  width: 28px;
+  height: 38px;
+  padding: 0;
+}
+
+.cube-minimap-body {
+  width: 210px;
+  height: 142px;
+}
+
+.cube-minimap-body [data-cube-face] {
+  width: 80px;
+  height: 44px;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+.cube-minimap-body [data-cube-face="north"] { left: 25px; top: 29px; }
+.cube-minimap-body [data-cube-face="east"] { left: 105px; top: 29px; }
+.cube-minimap-body [data-cube-face="center"] { left: 65px; top: 51px; z-index: 5; }
+.cube-minimap-body [data-cube-face="south"] { left: 105px; top: 73px; }
+.cube-minimap-body [data-cube-face="west"] { left: 25px; top: 73px; }
+
+.cube-minimap-body [data-cube-face="center"]::after {
+  box-shadow: inset 0 0 0 2px #ffd15a;
+}
+
+.cube-minimap-body [data-cube-face="center"] .cube-player-marker {
+  top: 65%;
+}

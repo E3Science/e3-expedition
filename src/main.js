@@ -1408,7 +1408,7 @@ function applyDefaultHUDLayout() {
     Math.min(360, availableSideWidth, viewportWidth - margin * 2)
   );
 
-  let leftTop = margin;
+  let leftTop = margin + 145;
   setLockedPanelPosition(oxygenPanel, { left: margin, top: leftTop, width: sideWidth });
   leftTop += Math.max(42, oxygenPanel?.getBoundingClientRect?.().height || 130) + 8;
   setLockedPanelPosition(animalVitalsPanel, { left: margin, top: leftTop, width: sideWidth });
@@ -4582,7 +4582,7 @@ function updatePlayerSprite(scene, entry, player, id) {
 
   if (moveDirection) {
     entry.lastDirection = moveDirection;
-    if(id===myId)updateCubePlayerMarker(moveDirection);
+    if(id===myId){if(moving&&cubeMinimapView!==0){cubeMinimapView=0;renderCubeMinimap();}else updateCubePlayerMarker(moveDirection);}
   }
 
   let actionName = moving ? "walk" : "idle";
@@ -8699,16 +8699,12 @@ function setCurrentMapKey(mapKey) {
 
 const CUBE_PLANET_MAP_KEYS=new Set(["cube_north","cube_east","cube_south","cube_west","cube_top","cube_bottom"]);
 const CUBE_FACE_LABELS={cube_north:"North",cube_east:"East",cube_south:"South",cube_west:"West",cube_top:"Top",cube_bottom:"Bottom"};
-const CUBE_MINIMAP_VIEWS=[
-  ["cube_top","cube_north","cube_east"],["cube_top","cube_east","cube_south"],["cube_top","cube_south","cube_west"],
-  ["cube_north","cube_bottom","cube_east"],["cube_bottom","cube_south","cube_east"],["cube_top","cube_west","cube_north"]
-];
 let cubeMinimapRoot=null,cubeMinimapView=0;
 
 const CUBE_ARROW_VECTORS={up:[0,-1],right_up:[1,-1],right:[1,0],right_down:[1,1],down:[0,1],left_down:[-1,1],left:[-1,0],left_up:[-1,-1]};
-function updateCubePlayerMarker(direction=players?.[myId]?.lastDirection||"down"){if(!cubeMinimapRoot)return;const [dx,dy]=CUBE_ARROW_VECTORS[direction]||[0,1];cubeMinimapRoot.querySelectorAll(".cube-player-marker").forEach((marker)=>{const slot=marker.closest("[data-cube-face]")?.dataset.cubeFace;let vx=dx,vy=dy;if(slot==="left")vy=dy+dx*.53;else if(slot==="right")vy=dy-dx*.53;const rotation=Math.atan2(vx,-vy)*180/Math.PI;marker.style.transform=`translate(-50%,-50%) rotate(${rotation}deg)`;});}
-function renderCubeMinimap(){if(!cubeMinimapRoot)return;const maps=CUBE_MINIMAP_VIEWS[cubeMinimapView]||CUBE_MINIMAP_VIEWS[0],activeMap=currentMapKey===DEFAULT_MAP_KEY?"cube_north":currentMapKey;cubeMinimapRoot.querySelectorAll("[data-cube-face]").forEach((button,index)=>{const mapKey=maps[index],active=mapKey===activeMap;button.dataset.mapKey=mapKey;button.className=`planet-${mapKey.replace("cube_","")}${active?" active":""}`;button.innerHTML=`<span class="cube-planet-land" aria-hidden="true"></span><span class="cube-face-label">${CUBE_FACE_LABELS[mapKey]}</span>${active?'<i class="cube-player-marker" aria-label="Current location"></i>':""}`;});updateCubePlayerMarker();}
-function ensureCubeMinimap(){if(cubeMinimapRoot)return;const root=document.createElement("aside");root.className="cube-minimap";root.innerHTML=`<button type="button" class="cube-minimap-arrow" data-cube-left aria-label="Rotate cube left">‹</button><div class="cube-minimap-body" aria-label="Cube planet minimap"><button type="button" data-cube-face="top"></button><button type="button" data-cube-face="left"></button><button type="button" data-cube-face="right"></button></div><button type="button" class="cube-minimap-arrow" data-cube-right aria-label="Rotate cube right">›</button>`;document.body.appendChild(root);cubeMinimapRoot=root;root.querySelector("[data-cube-left]").addEventListener("click",()=>{cubeMinimapView=(cubeMinimapView-1+CUBE_MINIMAP_VIEWS.length)%CUBE_MINIMAP_VIEWS.length;renderCubeMinimap();});root.querySelector("[data-cube-right]").addEventListener("click",()=>{cubeMinimapView=(cubeMinimapView+1)%CUBE_MINIMAP_VIEWS.length;renderCubeMinimap();});root.querySelectorAll("[data-cube-face]").forEach((button)=>button.addEventListener("click",()=>teleportToCubeFace(button.dataset.mapKey)));renderCubeMinimap();}
+function updateCubePlayerMarker(direction=players?.[myId]?.lastDirection||"down"){if(!cubeMinimapRoot)return;const [vx,vy]=CUBE_ARROW_VECTORS[direction]||[0,1],rotation=Math.atan2(vx,-vy)*180/Math.PI;cubeMinimapRoot.querySelectorAll(".cube-player-marker").forEach((marker)=>{marker.style.transform=`translate(-50%,-50%) rotate(${rotation}deg)`;});}
+function renderCubeMinimap(){if(!cubeMinimapRoot||typeof CUBE_PLANET_EDGES==="undefined")return;const activeMap=currentMapKey===DEFAULT_MAP_KEY?"cube_north":currentMapKey,edges=CUBE_PLANET_EDGES[activeMap]||CUBE_PLANET_EDGES.cube_north,edgeNames=["north","east","south","west"],slots=["north","east","south","west"];cubeMinimapRoot.querySelector('[data-cube-face="center"]').dataset.mapKey=activeMap;cubeMinimapRoot.querySelectorAll("[data-cube-face]").forEach((button)=>{const slot=button.dataset.cubeFace,mapKey=slot==="center"?activeMap:edges[edgeNames[(slots.indexOf(slot)+cubeMinimapView)%4]]?.map,active=slot==="center";button.dataset.mapKey=mapKey;button.className=`planet-${String(mapKey).replace("cube_","")}${active?" active":""}`;button.innerHTML=`<span class="cube-planet-land" aria-hidden="true"></span><span class="cube-face-label">${CUBE_FACE_LABELS[mapKey]||mapKey}</span>${active?'<i class="cube-player-marker" aria-label="Current location"></i>':""}`;});updateCubePlayerMarker();}
+function ensureCubeMinimap(){if(cubeMinimapRoot)return;const root=document.createElement("aside");root.className="cube-minimap";root.innerHTML=`<button type="button" class="cube-minimap-arrow" data-cube-left aria-label="Rotate map left">‹</button><div class="cube-minimap-body" aria-label="Cube planet minimap"><button type="button" data-cube-face="north"></button><button type="button" data-cube-face="west"></button><button type="button" data-cube-face="center"></button><button type="button" data-cube-face="east"></button><button type="button" data-cube-face="south"></button></div><button type="button" class="cube-minimap-arrow" data-cube-right aria-label="Rotate map right">›</button>`;document.body.appendChild(root);cubeMinimapRoot=root;root.querySelector("[data-cube-left]").addEventListener("click",()=>{cubeMinimapView=(cubeMinimapView+3)%4;renderCubeMinimap();});root.querySelector("[data-cube-right]").addEventListener("click",()=>{cubeMinimapView=(cubeMinimapView+1)%4;renderCubeMinimap();});root.querySelectorAll("[data-cube-face]").forEach((button)=>button.addEventListener("click",()=>teleportToCubeFace(button.dataset.mapKey)));renderCubeMinimap();}
 
 async function teleportToCubeFace(mapKey){if(!CUBE_PLANET_MAP_KEYS.has(mapKey)||isMapTransitionInProgress)return;const previous=currentMapKey||DEFAULT_MAP_KEY;pendingSpawnX=null;pendingSpawnY=null;pendingTeleportToSpawn=true;await runMapTransitionFade(async()=>{setCurrentMapKey(mapKey);const success=await rejoinCurrentMap(previous);if(!success)pendingTeleportToSpawn=false;});renderCubeMinimap();}
 const seam=(map,entry,reverse=false)=>({map,entry,reverse});
@@ -8748,7 +8744,6 @@ async function rejoinCurrentMap(fallbackMapKey = DEFAULT_MAP_KEY, matchmakingCla
     const destinationMapKey = currentMapKey || DEFAULT_MAP_KEY;
     try {
       await loadStandaloneMap(destinationMapKey);
-      blockSystem?.load?.();
     } catch (error) {
       console.error("Could not load the local destination map.", error);
       appendSystemChatLine(`System: Local map could not load: ${error?.message || error}`, "#ff6666");

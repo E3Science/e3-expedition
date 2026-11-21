@@ -1673,6 +1673,12 @@ static async onAuth(
   }
 
   findSpawnMarkerTile() {
+    const voxelSpawn = this.currentVoxelBlocks?.find((block) => block?.material === "spawn_point");
+    const voxelX = Number(voxelSpawn?.x);
+    const voxelY = Number(voxelSpawn?.y);
+    if (Number.isInteger(voxelX) && Number.isInteger(voxelY)) {
+      return { tileX: voxelX, tileY: voxelY };
+    }
     if (!this.currentRoomLayout?.objects) return null;
 
     for (let row = 0; row < this.currentRoomLayout.objects.length; row++) {
