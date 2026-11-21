@@ -1673,12 +1673,6 @@ static async onAuth(
   }
 
   findSpawnMarkerTile() {
-    const voxelSpawn = this.currentVoxelBlocks?.find((block) => block?.material === "spawn_point");
-    const voxelX = Number(voxelSpawn?.x);
-    const voxelY = Number(voxelSpawn?.y);
-    if (Number.isInteger(voxelX) && Number.isInteger(voxelY)) {
-      return { tileX: voxelX, tileY: voxelY };
-    }
     if (!this.currentRoomLayout?.objects) return null;
 
     for (let row = 0; row < this.currentRoomLayout.objects.length; row++) {
@@ -8645,21 +8639,6 @@ if (stillDistance > TILE_SIZE * 6) {
       joiningClassCode: auth.classCode
     });
 
-    const spawnPoints = [
-      { x: 120, y: 120 },
-      { x: 220, y: 120 },
-      { x: 320, y: 120 },
-      { x: 420, y: 120 },
-      { x: 520, y: 120 },
-      { x: 120, y: 220 },
-      { x: 220, y: 220 },
-      { x: 320, y: 220 },
-      { x: 420, y: 220 },
-      { x: 520, y: 220 }
-    ];
-
-    const spawn = spawnPoints[this.clients.length % spawnPoints.length];
-
     const { data: profileRows } = await supabaseAdmin
       .from("profiles")
       .select("display_name")
@@ -8731,10 +8710,6 @@ if (stillDistance > TILE_SIZE * 6) {
       liveMobCount: this.runtimeMobEntities.length
     });
 
-    const spawnMarkerTile = this.findSpawnMarkerTile();
-    const spawnMarkerWorld = spawnMarkerTile
-      ? this.tileToWorldPosition(spawnMarkerTile.tileX, spawnMarkerTile.tileY)
-      : null;
     const bounds=this.getRoomWorldBounds();
     const transitionSpawnX=Number(options.transitionSpawnX);
     const transitionSpawnY=Number(options.transitionSpawnY);
@@ -8746,8 +8721,8 @@ player.userId = auth.userId;
 player.classId = auth.classId;
 player.isAdmin = auth.isAdmin;
 player.name = savedName;
-player.x = hasTransitionSpawn?Math.max(bounds.minX+TILE_SIZE/2,Math.min(bounds.maxX-TILE_SIZE/2,transitionSpawnX)):spawnMarkerWorld?.x ?? spawn.x;
-player.y = hasTransitionSpawn?Math.max(bounds.minY+TILE_SIZE/2,Math.min(bounds.maxY-TILE_SIZE/2,transitionSpawnY)):spawnMarkerWorld?.y ?? spawn.y;
+player.x = hasTransitionSpawn?Math.max(bounds.minX+TILE_SIZE/2,Math.min(bounds.maxX-TILE_SIZE/2,transitionSpawnX)):(bounds.minX+bounds.maxX)/2;
+player.y = hasTransitionSpawn?Math.max(bounds.minY+TILE_SIZE/2,Math.min(bounds.maxY-TILE_SIZE/2,transitionSpawnY)):(bounds.minY+bounds.maxY)/2;
 player.stamina = 100;
 player.maxStamina = 100;
 player.health = 100;

@@ -4410,7 +4410,7 @@ async function loadStandaloneMap(mapKey) {
     overhead: data.overhead_layer || [],
     objects: data.object_layer || []
   };
-  const expanded = expandRoomLayoutToSize(layout, DEFAULT_ROOM_TILE_WIDTH, DEFAULT_ROOM_TILE_HEIGHT);
+  const expanded = makeVoxelOnlyPlanetLayout(expandRoomLayoutToSize(layout, DEFAULT_ROOM_TILE_WIDTH, DEFAULT_ROOM_TILE_HEIGHT),mapKey);
   if (!applyRoomLayout(sceneRef, expanded)) throw new Error("The saved map layout is invalid.");
   if(Array.isArray(data.voxel_blocks))blockSystem?.loadSnapshot?.(data.voxel_blocks);
   else if(CUBE_PLANET_MAP_KEYS.has(mapKey))blockSystem?.regenerate?.();
@@ -4439,11 +4439,10 @@ async function startStandaloneWorld(chosenName, mapKey = DEFAULT_MAP_KEY) {
     appendSystemChatLine(`System: Saved map could not load: ${error?.message || error}`, "#ffcc88");
     createStandaloneAnimalsFromMap();
   }
-  const spawn = findSpawnMarkerTile();
   const player = {
     name: chosenName || "Explorer",
-    x: spawn ? tileToWorldX(spawn.tileX) + TILE_SIZE / 2 : 100,
-    y: spawn ? tileToWorldY(spawn.tileY) + TILE_SIZE / 2 : 100,
+    x: ROOM_OFFSET_X + getCurrentRoomLogicalWidth() / 2,
+    y: ROOM_OFFSET_Y + getCurrentRoomLogicalHeight() / 2,
     left: false,
     right: false,
     up: false,
@@ -4743,13 +4742,13 @@ function create() {
     getSelectedTool: getSelectedToolKey,
     getInventoryMaterial: () => {const baseKey=String(selectedInventoryKey||"").split(":")[0];if(!baseKey.endsWith("_block"))return null;const materialKey=baseKey.slice(0,-6);return BLOCK_MATERIALS.some((entry)=>entry.key===materialKey)?materialKey:null;},
     onPlaceInventoryBlock: (materialKey) => {const itemKey=`${materialKey}_block:common`;const current=Number(latestInventoryCounts[itemKey])||0;if(current<1)return false;const expectedCount=current-1;latestInventoryCounts={...latestInventoryCounts,[itemKey]:expectedCount};setStandaloneInventoryCount(itemKey,expectedCount);updateInventoryUI(latestInventoryCounts);if(joined&&!standaloneWorld){pendingVoxelPlacementCounts.set(itemKey,expectedCount);sendRoomMessage("place_voxel_material",{baseItemKey:`${materialKey}_block`});}return true;},
-    syncWorldBlocks: (blocks) => worldPortalLayer?.setBlocks?.(blocks.filter((block)=>block.materialKey!=="spawn_point"||blockSystem?.isActive?.())),
+    syncWorldBlocks: (blocks) => worldPortalLayer?.setBlocks?.(blocks),
     syncWorldVehicles: (vehicles) => worldPortalLayer?.setVehicles?.(vehicles),
     syncCoreTimers: (timers) => worldPortalLayer?.setCoreTimers?.(timers),
     onCollectSample: (baseKey) => {const itemKey=`${baseKey}:common`;const expectedCount=(Number(latestInventoryCounts[itemKey])||0)+1;latestInventoryCounts={...latestInventoryCounts,[itemKey]:expectedCount};setStandaloneInventoryCount(itemKey,expectedCount);updateInventoryUI(latestInventoryCounts);if(joined&&!standaloneWorld)pendingVoxelInventoryCounts.set(itemKey,expectedCount);showFloatingLootText(itemKey);if(joined&&!standaloneWorld)sendRoomMessage("collect_voxel_material",{baseItemKey:baseKey});},
     onToolAction: (actionName,details) => {startLocalPlayerActionAnimation(actionName);const display=tileToDisplayPosition(details.x,details.y);worldPortalLayer?.spawnDebris?.({x:display.x,y:display.y-(Math.max(1,details.z)-1)*32-20,type:details.debris});},
     onStatus: (message) => showStatusMessage(message,false),
-    onEnterHabitat: () => {if(isMapTransitionInProgress)return;const previous=currentMapKey||DEFAULT_MAP_KEY;runMapTransitionFade(async()=>{setCurrentMapKey("lab_entrance");await rejoinCurrentMap(previous);});},
+    onEnterHabitat: () => {},
     onPlanetEdge: (edge) => transitionAcrossPlanetEdge(edge),
     enabled: () => joined && isIsometricMode() && !isGameplayModalActive()
   });
@@ -8699,6 +8698,7 @@ function setCurrentMapKey(mapKey) {
 
 const CUBE_PLANET_MAP_KEYS=new Set(["default_room","cube_east","cube_south","cube_west","cube_top","cube_bottom"]);
 const CUBE_FACE_LABELS={default_room:"Prime Meridian",cube_north:"Prime Meridian",cube_east:"90° East",cube_south:"Antimeridian",cube_west:"90° West",cube_top:"North Polar",cube_bottom:"South Polar"};
+function makeVoxelOnlyPlanetLayout(layout,mapKey){if(!CUBE_PLANET_MAP_KEYS.has(mapKey))return layout;const height=layout?.base?.length||DEFAULT_ROOM_TILE_HEIGHT,width=layout?.base?.[0]?.length||DEFAULT_ROOM_TILE_WIDTH,empty=()=>Array.from({length:height},()=>Array(width).fill(TILE_EMPTY));return {base:empty(),detail:empty(),overhead:empty(),objects:empty()};}
 let cubeMinimapRoot=null,cubeMinimapView=0;
 
 const CUBE_ARROW_VECTORS={up:[0,-1],right_up:[1,-1],right:[1,0],right_down:[1,1],down:[0,1],left_down:[-1,1],left:[-1,0],left_up:[-1,-1]};
@@ -8706,15 +8706,15 @@ function updateCubePlayerMarker(direction=players?.[myId]?.lastDirection||"down"
 function renderCubeMinimap(){if(!cubeMinimapRoot||typeof CUBE_PLANET_EDGES==="undefined")return;const activeMap=currentMapKey==="cube_north"?DEFAULT_MAP_KEY:(currentMapKey||DEFAULT_MAP_KEY),edges=CUBE_PLANET_EDGES[activeMap]||CUBE_PLANET_EDGES.default_room,edgeNames=["west","north","east","south"],slots=["north","east","south","west"];cubeMinimapRoot.querySelector('[data-cube-face="center"]').dataset.mapKey=activeMap;cubeMinimapRoot.querySelectorAll("[data-cube-face]").forEach((button)=>{const slot=button.dataset.cubeFace,mapKey=slot==="center"?activeMap:edges[edgeNames[(slots.indexOf(slot)+cubeMinimapView)%4]]?.map,active=slot==="center";button.dataset.mapKey=mapKey;button.className=`planet-${String(mapKey).replace("cube_","")}${active?" active":""}`;button.innerHTML=`<span class="cube-planet-land" aria-hidden="true"></span><span class="cube-face-label">${CUBE_FACE_LABELS[mapKey]||mapKey}</span>${active?'<i class="cube-player-marker" aria-label="Current location"></i>':""}`;});updateCubePlayerMarker();}
 function ensureCubeMinimap(){if(cubeMinimapRoot)return;const root=document.createElement("aside");root.className="cube-minimap";root.innerHTML=`<button type="button" class="cube-minimap-arrow" data-cube-left aria-label="Rotate map left">‹</button><div class="cube-minimap-body" aria-label="Cube planet minimap"><button type="button" data-cube-face="north"></button><button type="button" data-cube-face="west"></button><button type="button" data-cube-face="center"></button><button type="button" data-cube-face="east"></button><button type="button" data-cube-face="south"></button></div><button type="button" class="cube-minimap-arrow" data-cube-right aria-label="Rotate map right">›</button>`;document.body.appendChild(root);cubeMinimapRoot=root;root.querySelector("[data-cube-left]").addEventListener("click",()=>{cubeMinimapView=(cubeMinimapView+3)%4;renderCubeMinimap();});root.querySelector("[data-cube-right]").addEventListener("click",()=>{cubeMinimapView=(cubeMinimapView+1)%4;renderCubeMinimap();});root.querySelectorAll("[data-cube-face]").forEach((button)=>button.addEventListener("click",()=>teleportToCubeFace(button.dataset.mapKey)));renderCubeMinimap();}
 
-async function teleportToCubeFace(mapKey){if(!CUBE_PLANET_MAP_KEYS.has(mapKey)||isMapTransitionInProgress)return;const previous=currentMapKey||DEFAULT_MAP_KEY;pendingSpawnX=null;pendingSpawnY=null;pendingTeleportToSpawn=true;await runMapTransitionFade(async()=>{setCurrentMapKey(mapKey);const success=await rejoinCurrentMap(previous);if(!success)pendingTeleportToSpawn=false;});renderCubeMinimap();}
+async function teleportToCubeFace(mapKey){if(!CUBE_PLANET_MAP_KEYS.has(mapKey)||isMapTransitionInProgress)return;const previous=currentMapKey||DEFAULT_MAP_KEY;pendingSpawnX=ROOM_OFFSET_X+getCurrentRoomLogicalWidth()/2;pendingSpawnY=ROOM_OFFSET_Y+getCurrentRoomLogicalHeight()/2;pendingTeleportToSpawn=false;await runMapTransitionFade(async()=>{setCurrentMapKey(mapKey);await rejoinCurrentMap(previous);});renderCubeMinimap();}
 const seam=(map,entry,reverse=false)=>({map,entry,reverse});
 const CUBE_PLANET_EDGES={
-  default_room:{north:seam("cube_top","south"),south:seam("cube_bottom","north"),east:seam("cube_east","west"),west:seam("cube_west","east")},
+  default_room:{north:seam("cube_top","south"),south:seam("cube_bottom","north"),east:seam("cube_east","west"),west:seam("cube_west","north")},
   cube_north:{north:seam("cube_top","south"),south:seam("cube_bottom","north"),east:seam("cube_east","west"),west:seam("cube_west","east")},
   cube_east:{north:seam("cube_top","east",true),south:seam("cube_bottom","east"),east:seam("cube_south","west"),west:seam("default_room","east")},
   cube_south:{north:seam("cube_top","north",true),south:seam("cube_bottom","south",true),east:seam("cube_west","west"),west:seam("cube_east","east")},
-  cube_west:{north:seam("cube_top","west"),south:seam("cube_bottom","west",true),east:seam("default_room","west"),west:seam("cube_south","east")},
-  cube_top:{north:seam("cube_south","north",true),south:seam("default_room","north"),east:seam("cube_east","north",true),west:seam("cube_west","north")},
+  cube_west:{north:seam("default_room","west"),south:seam("cube_bottom","west",true),east:seam("cube_top","west"),west:seam("cube_south","east")},
+  cube_top:{north:seam("cube_south","north",true),south:seam("default_room","north"),east:seam("cube_east","north",true),west:seam("cube_west","east")},
   cube_bottom:{north:seam("default_room","south"),south:seam("cube_south","south",true),east:seam("cube_east","south"),west:seam("cube_west","south",true)}
 };
 
@@ -8753,10 +8753,9 @@ async function rejoinCurrentMap(fallbackMapKey = DEFAULT_MAP_KEY, matchmakingCla
       return false;
     }
     const player = room?.state?.players?.get?.(myId);
-    const spawn = pendingTeleportToSpawn?(blockSystem?.getSpawnPoint?.()||findSpawnMarkerTile()):findSpawnMarkerTile();
     if (player) {
-      const fallbackX = spawn ? tileToWorldX(spawn.tileX) + TILE_SIZE / 2 : ROOM_OFFSET_X + getCurrentRoomLogicalWidth() / 2;
-      const fallbackY = spawn ? tileToWorldY(spawn.tileY) + TILE_SIZE / 2 : ROOM_OFFSET_Y + getCurrentRoomLogicalHeight() / 2;
+      const fallbackX = ROOM_OFFSET_X + getCurrentRoomLogicalWidth() / 2;
+      const fallbackY = ROOM_OFFSET_Y + getCurrentRoomLogicalHeight() / 2;
       const minX=ROOM_OFFSET_X+TILE_SIZE/2,minY=ROOM_OFFSET_Y+TILE_SIZE/2,maxX=ROOM_OFFSET_X+getCurrentRoomLogicalWidth()-TILE_SIZE/2,maxY=ROOM_OFFSET_Y+getCurrentRoomLogicalHeight()-TILE_SIZE/2;
       player.x = Math.max(minX,Math.min(maxX,pendingSpawnX ?? fallbackX));
       player.y = Math.max(minY,Math.min(maxY,pendingSpawnY ?? fallbackY));
@@ -15318,11 +15317,11 @@ lastEditorStatusMessage = "";
           baseCols: data.layout.base?.[0]?.length || 0
         });
 
-        const expandedLayout = expandRoomLayoutToSize(
+        const expandedLayout = makeVoxelOnlyPlanetLayout(expandRoomLayoutToSize(
           data.layout,
           DEFAULT_ROOM_TILE_WIDTH,
           DEFAULT_ROOM_TILE_HEIGHT
-        );
+        ),data.mapKey||currentMapKey);
 
         const applied = applyRoomLayout(sceneRef, expandedLayout);
         if(Array.isArray(data.voxelBlocks))blockSystem?.loadSnapshot?.(data.voxelBlocks);
@@ -15664,18 +15663,14 @@ lastEditorStatusMessage = "";
         delete players[id];
       }
 
-      const mapSpawnMarker = pendingTeleportToSpawn?(blockSystem?.getSpawnPoint?.()||findSpawnMarkerTile()):findSpawnMarkerTile();
-      const mapSpawnWorldX = mapSpawnMarker ? tileToWorldX(mapSpawnMarker.tileX) + TILE_SIZE / 2 : null;
-      const mapSpawnWorldY = mapSpawnMarker ? tileToWorldY(mapSpawnMarker.tileY) + TILE_SIZE / 2 : null;
-
       const startX =
         id === myId
-          ? (pendingSpawnX ?? mapSpawnWorldX ?? (player.x ?? 100))
+          ? (pendingSpawnX ?? (player.x ?? ROOM_OFFSET_X + getCurrentRoomLogicalWidth() / 2))
           : (player.x ?? 100);
 
       const startY =
         id === myId
-          ? (pendingSpawnY ?? mapSpawnWorldY ?? (player.y ?? 100))
+          ? (pendingSpawnY ?? (player.y ?? ROOM_OFFSET_Y + getCurrentRoomLogicalHeight() / 2))
           : (player.y ?? 100);
 
       const isLocalPlayer = id === myId;
