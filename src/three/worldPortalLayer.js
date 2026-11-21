@@ -4,6 +4,7 @@ import { loadAnimatedAstronaut } from "./models/animatedAstronautModel";
 import { createMobModel } from "./models/mobModels";
 import { createResourceModel } from "./models/resourceModels";
 import { createKayakModel } from "./models/kayakModel";
+import { createAstronautTravelModels } from "./models/astronautTravelModels";
 
 const ISOMETRIC_DEPTH_BASE = -100;
 const ISOMETRIC_DEPTH_STEP = 0.1;
@@ -188,7 +189,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
     const nextIds = new Set(players.map((player) => player.id));
     playerEntries.forEach((entry, id) => {
       if (nextIds.has(id)) return;
-      entry.model?.dispose();
+      entry.travelModels?.dispose();entry.model?.dispose();
       [entry.shadow,entry.nameplate].forEach((overlay)=>{overlay?.sprite.removeFromParent();overlay?.texture.dispose();overlay?.material.dispose();});
       entry.root.removeFromParent();
       playerEntries.delete(id);
@@ -202,7 +203,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
         playerRoot.add(root);
         const shadow=createPlayerShadow();const nameplate=createPlayerNameplate(player.name);
         overlayRoot.add(shadow.sprite,nameplate.sprite);
-        entry = { root, model: null, shadow, nameplate, name: player.name, x: player.x, y: player.y, surfaceY:player.surfaceY??player.y, direction: player.direction || "down", moving: false, actionActive: false, actionName:null, mountedVehicle:null };
+        entry = { root, model: null, travelModels:null, shadow, nameplate, name: player.name, x: player.x, y: player.y, surfaceY:player.surfaceY??player.y, direction: player.direction || "down", moving: false, actionActive: false, actionName:null, mountedVehicle:null, travelMode:null };
         playerEntries.set(player.id, entry);
         loadAnimatedAstronaut({ isLocalPlayer: !!player.isLocalPlayer }).then((model) => {
           if (disposed || playerEntries.get(player.id) !== entry) {
@@ -211,6 +212,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
           }
           entry.model = model;
           root.add(model.root);
+          entry.travelModels=createAstronautTravelModels();model.root.add(entry.travelModels.root);
         }).catch((error) => {
           if (!disposed) console.warn("Could not load world astronaut.", error);
         });
@@ -226,6 +228,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       entry.elevation = player.elevation ?? 0;
       entry.surfaceY = player.surfaceY ?? entry.y;
       entry.mountedVehicle = player.mountedVehicle || null;
+      entry.travelMode = player.travelMode || null;
       if(entry.name!==player.name){entry.name=player.name;entry.nameplate.draw(player.name);}
     });
     vehicleEntries.forEach((entry,id)=>entry.model.setRiderVisible(mountedVehicleIds.has(id)));
@@ -261,6 +264,8 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       entry.model.root.visible=!mounted;
       entry.shadow.sprite.visible=!mounted;
       entry.model.root.position.y=0;entry.model.root.scale.y=1;
+      entry.travelModels?.setMode(entry.travelMode);
+      entry.model.root.traverse((object)=>{if(object.name==="left_leg"||object.name==="right_leg")object.visible=!entry.travelMode;});
       entry.model.root.traverse((object)=>{if(!object.material)return;object.material.transparent=clipped;object.material.opacity=clipped ? .68 : 1;object.material.alphaHash=clipped;});
       const angleDelta = Math.atan2(
         Math.sin(targetRotation - entry.model.root.rotation.y),
@@ -268,7 +273,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       );
       entry.model.root.rotation.y += angleDelta * 0.24;
       entry.model.animator.update(elapsed, {
-        moving: entry.mountedVehicle?.type === "kayak" ? false : entry.moving,
+        moving: entry.mountedVehicle?.type === "kayak"||!!entry.travelMode ? false : entry.moving,
         actionActive: entry.actionActive,
         actionName: entry.actionName
       });

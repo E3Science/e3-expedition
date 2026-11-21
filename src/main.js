@@ -512,9 +512,11 @@ const TOOL_DEFS = {
   pickaxe: { label: "Pickaxe", abbreviation: "PX", imageSrc: "assets/ui/tools/pickaxe.svg", action: "mine" },
   hoe: { label: "Hoe", abbreviation: "HO", imageSrc: "assets/ui/tools/hoe.svg", action: "hoe" },
   spacegun: { label: "Spacegun", abbreviation: "SG", imageSrc: "assets/ui/tools/spacegun.svg", action: "shoot" },
-  fishing_pole: { label: "Fishing Pole", abbreviation: "FP", imageSrc: "assets/ui/tools/fishing-pole.svg", action: "fish" }
+  fishing_pole: { label: "Fishing Pole", abbreviation: "FP", imageSrc: "assets/ui/tools/fishing-pole.svg", action: "fish" },
+  buggy: { label: "Astronaut Buggy", abbreviation: "BG", imageSrc: "assets/blocks/expedition-kit/buggy.png", action: "drive" },
+  jetski: { label: "Astronaut Jetski", abbreviation: "JS", imageSrc: "assets/blocks/expedition-kit/jetski.png", action: "ride" }
 };
-const DEFAULT_TOOL_HOTBAR = ["axe", "shovel", "pickaxe", "hoe", "spacegun", "fishing_pole"];
+const DEFAULT_TOOL_HOTBAR = ["axe", "shovel", "pickaxe", "hoe", "spacegun", "fishing_pole", "buggy", "jetski"];
 
 const ITEM_QUALITY_DEFS = {
   common: {
@@ -4485,6 +4487,9 @@ function updateStandalonePlayer() {
   const horizontal = Number(!!standaloneInput.right) - Number(!!standaloneInput.left);
   const vertical = Number(!!standaloneInput.down) - Number(!!standaloneInput.up);
   if (!horizontal && !vertical) return;
+  const travelMode=["buggy","jetski"].includes(getSelectedToolKey())?getSelectedToolKey():null;
+  const inWater=!!blockSystem?.isWaterAt?.(player.x,player.y);
+  if(travelMode==="jetski"&&!inWater)return;
   if(blockSystem?.isVehicleMounted?.()){
     const vehicleMove=blockSystem.driveVehicle(horizontal,vertical,Number(standaloneInput.speedScale)>1);
     if(vehicleMove){player.x=vehicleMove.x;player.y=vehicleMove.y;}
@@ -4564,6 +4569,7 @@ function syncWorld3DPlayers() {
       actionActive: isServerPlayerActionActive(player) || isPlayerActionActive(entry),
       actionName: isServerPlayerActionActive(player)?player.actionName:(isPlayerActionActive(entry)?entry.activeActionName:null),
       mountedVehicle: offsets.mountedVehicle || null,
+      travelMode: id===myId&&["buggy","jetski"].includes(getSelectedToolKey())?getSelectedToolKey():null,
       isLocalPlayer: id === myId
     });
   });
@@ -4742,6 +4748,8 @@ function create() {
     getSelectedTool: getSelectedToolKey,
     getInventoryMaterial: () => {const baseKey=String(selectedInventoryKey||"").split(":")[0];if(!baseKey.endsWith("_block"))return null;const materialKey=baseKey.slice(0,-6);return BLOCK_MATERIALS.some((entry)=>entry.key===materialKey)?materialKey:null;},
     onPlaceInventoryBlock: (materialKey) => {const itemKey=`${materialKey}_block:common`;const current=Number(latestInventoryCounts[itemKey])||0;if(current<1)return false;const expectedCount=current-1;latestInventoryCounts={...latestInventoryCounts,[itemKey]:expectedCount};setStandaloneInventoryCount(itemKey,expectedCount);updateInventoryUI(latestInventoryCounts);if(joined&&!standaloneWorld){pendingVoxelPlacementCounts.set(itemKey,expectedCount);sendRoomMessage("place_voxel_material",{baseItemKey:`${materialKey}_block`});}return true;},
+    onProcessInventory: () => {const preferred=String(selectedInventoryKey||"");const itemKey=preferred.split(":")[0].endsWith("_block")&&Number(latestInventoryCounts[preferred])>0?preferred:Object.keys(latestInventoryCounts).find((key)=>key.split(":")[0].endsWith("_block")&&Number(latestInventoryCounts[key])>0);if(!itemKey)return null;const next=Math.max(0,Number(latestInventoryCounts[itemKey])-1);latestInventoryCounts={...latestInventoryCounts,[itemKey]:next};setStandaloneInventoryCount(itemKey,next);updateInventoryUI(latestInventoryCounts);return getInventoryItemDefByKey(itemKey)?.label||"block";},
+    onPlantSeed: () => {const preferred=String(selectedInventoryKey||"");const itemKey=preferred.split(":")[0].endsWith("_seed")&&Number(latestInventoryCounts[preferred])>0?preferred:Object.keys(latestInventoryCounts).find((key)=>key.split(":")[0].endsWith("_seed")&&Number(latestInventoryCounts[key])>0);if(!itemKey)return null;const next=Math.max(0,Number(latestInventoryCounts[itemKey])-1);latestInventoryCounts={...latestInventoryCounts,[itemKey]:next};setStandaloneInventoryCount(itemKey,next);updateInventoryUI(latestInventoryCounts);return itemKey.split(":")[0];},
     syncWorldBlocks: (blocks) => worldPortalLayer?.setBlocks?.(blocks),
     syncWorldVehicles: (vehicles) => worldPortalLayer?.setVehicles?.(vehicles),
     syncCoreTimers: (timers) => worldPortalLayer?.setCoreTimers?.(timers),
@@ -5174,10 +5182,12 @@ function update() {
   const editorMode =
     isAdminUser() &&
     (tileEditorEnabled || metadataEditorEnabled || objectEditorEnabled);
+  const selectedTravelMode=["buggy","jetski"].includes(getSelectedToolKey())?getSelectedToolKey():null;
+  const localPlayer=room?.state?.players?.get?.(myId);const localInWater=!!localPlayer&&!!blockSystem?.isWaterAt?.(localPlayer.x,localPlayer.y);
   const inputMessage = {
     ...input,
     editorMode,
-    speedScale: isScreenDiagonal ? 1.12 : 1
+    speedScale: (isScreenDiagonal ? 1.12 : 1)*(selectedTravelMode?1.5:localInWater ? .72 : 1)
   };
   const rawMovementHeld=!!(cursors?.left?.isDown||cursors?.right?.isDown||cursors?.up?.isDown||cursors?.down?.isDown||movementKeys?.left?.isDown||movementKeys?.right?.isDown||movementKeys?.up?.isDown||movementKeys?.down?.isDown);
   if(!isMapTransitionInProgress&&!rawMovementHeld)planetEdgeTransitionArmed=true;
@@ -14616,6 +14626,7 @@ function getInventoryBaseItemDef(itemKey) {
   const defined=INVENTORY_ITEM_DEFS.find((item) => item.key === parsed.baseKey);if(defined)return defined;
   if(parsed.baseKey.startsWith("animal_specimen_")){const speciesKey=parsed.baseKey.slice("animal_specimen_".length);const specimen=ANIMAL_SPECIMEN_DEFS[speciesKey];if(specimen)return {key:parsed.baseKey,label:`${specimen.label} Specimen`,imageSrc:"assets/ui/inventory/herbivore_specimen.png"};}
   if(parsed.baseKey.endsWith("_block")){const materialKey=parsed.baseKey.slice(0,-6);const material=BLOCK_MATERIALS.find((entry)=>entry.key===materialKey);const label=material?.label||materialKey.split("_").map((part)=>part.charAt(0).toUpperCase()+part.slice(1)).join(" ");let imageSrc=material?.asset||"";const texture=sceneRef?.textures?.get?.(`e3_block_${materialKey}`)?.getSourceImage?.();if(!imageSrc&&texture?.toDataURL){try{imageSrc=texture.toDataURL("image/png");}catch{imageSrc="";}}if(!imageSrc)imageSrc=materialKey==="water"?"assets/ui/inventory/water_sample.png":["bark","leaves","grass"].includes(materialKey)||materialKey.startsWith("flora")?"assets/ui/inventory/plant_sample.png":"assets/ui/inventory/rock_sample.png";return {key:parsed.baseKey,label:material?.label||`${label} Block`,imageSrc};}
+  if(parsed.baseKey.endsWith("_seed")){const materialKey=parsed.baseKey.slice(0,-5);const material=BLOCK_MATERIALS.find((entry)=>entry.key===materialKey);return {key:parsed.baseKey,label:`${material?.label||"Plant"} Seed`,imageSrc:material?.asset||"assets/ui/inventory/plant_sample.png"};}
   return null;
 }
 
