@@ -8784,7 +8784,9 @@ async function rejoinCurrentMap(fallbackMapKey = DEFAULT_MAP_KEY, matchmakingCla
   const success = await joinGame(
     chosenName,
     classCode,
-    targetMapKey
+    targetMapKey,
+    pendingSpawnX,
+    pendingSpawnY
   );
 
   if (success) {
@@ -15106,7 +15108,7 @@ Flow:
 6. Show the chat UI after a successful join.
 7. Return true on success, false on failure.
 */
-async function joinGame(chosenName, classCode, mapKey = DEFAULT_MAP_KEY) {
+async function joinGame(chosenName, classCode, mapKey = DEFAULT_MAP_KEY, transitionSpawnX = null, transitionSpawnY = null) {
   if (joinGameInProgress) {
     console.warn("Ignored a second join request while a connection is already being created.");
     return false;
@@ -15132,6 +15134,11 @@ async function joinGame(chosenName, classCode, mapKey = DEFAULT_MAP_KEY) {
       token: session.access_token,
       mapKey: mapKey || DEFAULT_MAP_KEY
     };
+
+    if(Number.isFinite(transitionSpawnX)&&Number.isFinite(transitionSpawnY)){
+      joinOptions.transitionSpawnX=transitionSpawnX;
+      joinOptions.transitionSpawnY=transitionSpawnY;
+    }
 
     if (classCode) {
       joinOptions.classCode = classCode;

@@ -8589,7 +8589,7 @@ if (stillDistance > TILE_SIZE * 6) {
   */
   async onJoin(
     client: Client,
-    options: { name?: string; classCode?: string },
+    options: { name?: string; classCode?: string; transitionSpawnX?: number; transitionSpawnY?: number },
     auth: {
       userId: string;
       email: string;
@@ -8735,6 +8735,10 @@ if (stillDistance > TILE_SIZE * 6) {
     const spawnMarkerWorld = spawnMarkerTile
       ? this.tileToWorldPosition(spawnMarkerTile.tileX, spawnMarkerTile.tileY)
       : null;
+    const bounds=this.getRoomWorldBounds();
+    const transitionSpawnX=Number(options.transitionSpawnX);
+    const transitionSpawnY=Number(options.transitionSpawnY);
+    const hasTransitionSpawn=Number.isFinite(transitionSpawnX)&&Number.isFinite(transitionSpawnY);
 
     const player = new Player();
 player.id = client.sessionId;
@@ -8742,8 +8746,8 @@ player.userId = auth.userId;
 player.classId = auth.classId;
 player.isAdmin = auth.isAdmin;
 player.name = savedName;
-player.x = spawnMarkerWorld?.x ?? spawn.x;
-player.y = spawnMarkerWorld?.y ?? spawn.y;
+player.x = hasTransitionSpawn?Math.max(bounds.minX+TILE_SIZE/2,Math.min(bounds.maxX-TILE_SIZE/2,transitionSpawnX)):spawnMarkerWorld?.x ?? spawn.x;
+player.y = hasTransitionSpawn?Math.max(bounds.minY+TILE_SIZE/2,Math.min(bounds.maxY-TILE_SIZE/2,transitionSpawnY)):spawnMarkerWorld?.y ?? spawn.y;
 player.stamina = 100;
 player.maxStamina = 100;
 player.health = 100;
