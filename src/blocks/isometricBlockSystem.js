@@ -263,7 +263,16 @@ export function createIsometricBlockSystem({ scene, atlasKey, getMapKey, getGrid
 
   const storageKey = () => `e3:block-world:v4:${getMapKey() || "default"}`;
   const getSnapshot=()=>[...blocks.values()].map(({fallFromZ,...block})=>({...block}));
-  const save = () => localStorage.setItem(storageKey(), JSON.stringify(getSnapshot()));
+  const save = () => {
+    const key=storageKey(),payload=JSON.stringify(getSnapshot());
+    try{localStorage.setItem(key,payload);return true;}catch(error){
+      if(error?.name!=="QuotaExceededError"){console.warn("Voxel map cache could not be written.",error);return false;}
+      try{
+        Object.keys(localStorage).filter((candidate)=>candidate.startsWith("e3:block-world:v4:")&&candidate!==key).forEach((candidate)=>localStorage.removeItem(candidate));
+        localStorage.setItem(key,payload);return true;
+      }catch(retryError){console.warn("Voxel map exceeds the optional browser cache; continuing with database storage.",retryError);return false;}
+    }
+  };
   const settleBlocks = () => {
     const columns = new Map();
     [...blocks.values()].sort((a,b)=>a.z-b.z).forEach((block) => {
