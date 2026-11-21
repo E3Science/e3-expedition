@@ -4743,7 +4743,7 @@ function create() {
     getSelectedTool: getSelectedToolKey,
     getInventoryMaterial: () => {const baseKey=String(selectedInventoryKey||"").split(":")[0];if(!baseKey.endsWith("_block"))return null;const materialKey=baseKey.slice(0,-6);return BLOCK_MATERIALS.some((entry)=>entry.key===materialKey)?materialKey:null;},
     onPlaceInventoryBlock: (materialKey) => {const itemKey=`${materialKey}_block:common`;const current=Number(latestInventoryCounts[itemKey])||0;if(current<1)return false;const expectedCount=current-1;latestInventoryCounts={...latestInventoryCounts,[itemKey]:expectedCount};setStandaloneInventoryCount(itemKey,expectedCount);updateInventoryUI(latestInventoryCounts);if(joined&&!standaloneWorld){pendingVoxelPlacementCounts.set(itemKey,expectedCount);sendRoomMessage("place_voxel_material",{baseItemKey:`${materialKey}_block`});}return true;},
-    syncWorldBlocks: (blocks) => worldPortalLayer?.setBlocks?.(blocks),
+    syncWorldBlocks: (blocks) => worldPortalLayer?.setBlocks?.(blocks.filter((block)=>block.materialKey!=="spawn_point"||blockSystem?.isActive?.())),
     syncWorldVehicles: (vehicles) => worldPortalLayer?.setVehicles?.(vehicles),
     syncCoreTimers: (timers) => worldPortalLayer?.setCoreTimers?.(timers),
     onCollectSample: (baseKey) => {const itemKey=`${baseKey}:common`;const expectedCount=(Number(latestInventoryCounts[itemKey])||0)+1;latestInventoryCounts={...latestInventoryCounts,[itemKey]:expectedCount};setStandaloneInventoryCount(itemKey,expectedCount);updateInventoryUI(latestInventoryCounts);if(joined&&!standaloneWorld)pendingVoxelInventoryCounts.set(itemKey,expectedCount);showFloatingLootText(itemKey);if(joined&&!standaloneWorld)sendRoomMessage("collect_voxel_material",{baseItemKey:baseKey});},
@@ -15319,6 +15319,7 @@ lastEditorStatusMessage = "";
 
         const applied = applyRoomLayout(sceneRef, expandedLayout);
         if(Array.isArray(data.voxelBlocks))blockSystem?.loadSnapshot?.(data.voxelBlocks);
+        else if(CUBE_PLANET_MAP_KEYS.has(data.mapKey||currentMapKey))blockSystem?.regenerate?.();
 
         if (applied) {
           appendSystemChatLine(
