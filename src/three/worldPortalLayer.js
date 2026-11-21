@@ -111,7 +111,6 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
   const vehicleEntries = new Map();
   let mountedVehicleIds = new Set();
   const debrisEntries=[];
-  let ditheringEnabled = localStorage.getItem("e3:player-mob-dithering") !== "false";
   let improvedTransparencyEnabled = localStorage.getItem("e3:improved-transparency") !== "false";
 
   function releaseEntries() {
@@ -244,7 +243,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       entry.root.scale.set(scale, scale, 0.5);
       entry.shadow.sprite.position.set(entry.x,-entry.surfaceY-4,entry.root.position.z-0.01);
       entry.nameplate.sprite.position.set(entry.x,-entry.y+76,1901);
-      let clipped=false;if(ditheringEnabled){blockEntries.forEach((block)=>{if(block.preview)return;const bounds=block.ditherBounds;const overlaps=bounds?Math.abs(entry.x-block.sprite.position.x)<bounds.halfWidth&&entry.surfaceY>block.targetY-bounds.top&&entry.surfaceY<block.targetY+bounds.bottom:Math.abs(entry.x-block.sprite.position.x)<28&&Math.abs(entry.surfaceY-block.targetY)<38;if(overlaps&&block.sprite.position.z>entry.root.position.z){block.material.opacity=Math.min(block.baseOpacity,.46);block.material.alphaHash=true;clipped=true;}});}
+      const clipped=false;
 
       const directionRotations = {
         down: 0,
@@ -365,7 +364,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
     mobEntries.forEach((entry) => {
       const scale = entry.kind === "apex_predator" ? 9.5 : entry.kind === "carnivore" ? 8.2 : 7.5;
       entry.root.position.set(entry.x, -entry.y + 1.15 * scale, ISOMETRIC_DEPTH_BASE + (entry.sortY || entry.y) * ISOMETRIC_DEPTH_STEP + entry.elevation * 0.1 + 0.04);
-      let clipped=false;if(ditheringEnabled){blockEntries.forEach((block)=>{if(block.preview)return;const bounds=block.ditherBounds;const overlaps=bounds?Math.abs(entry.x-block.sprite.position.x)<bounds.halfWidth&&entry.y>block.targetY-bounds.top&&entry.y<block.targetY+bounds.bottom:Math.abs(entry.x-block.sprite.position.x)<28&&Math.abs(entry.y-block.targetY)<38;if(overlaps&&block.sprite.position.z>entry.root.position.z){block.material.opacity=Math.min(block.baseOpacity,.46);block.material.alphaHash=true;clipped=true;}});}
+      const clipped=false;
       entry.root.scale.setScalar(scale * (entry.selected ? 1.08 : 1));
       entry.model.root.rotation.y = entry.facing === "left" ? Math.PI : 0;
       entry.model.root.rotation.z = entry.incapacitated ? -Math.PI / 2 : 0;
@@ -557,7 +556,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
     setMobs,
     setResources,
     setInteractionState,
-    setDitheringEnabled(value){ditheringEnabled=!!value;},
+    setDitheringEnabled(){},
     setImprovedTransparencyEnabled(value){improvedTransparencyEnabled=!!value;blockEntries.forEach((block)=>{block.material.alphaHash=block.isTransparent&&improvedTransparencyEnabled;});},
     spawnDebris,
     update,
