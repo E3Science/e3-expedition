@@ -687,7 +687,10 @@ function getInventoryItemLabel(baseItemKey: string, quality: ItemQuality) {
     wood_sample: "Wood",
     fish_sample: "Fish Sample",
     water_block: "Water Block",
-    habitat_component: "Habitat Component"
+    habitat_component: "Habitat Component",
+    cultivator_nutrients: "Cultivator Nutrients",
+    pesticide: "Pesticide",
+    fungicide: "Fungicide"
   };
 
   const speciesKey = baseItemKey.startsWith("animal_specimen_")
@@ -7388,7 +7391,7 @@ if (stillDistance > TILE_SIZE * 6) {
     this.onMessage("collect_voxel_material", async (client, message: { baseItemKey?: string; quality?: string }) => {
       const player=this.state.players.get(client.sessionId);if(!player)return;
       const baseItemKey=String(message?.baseItemKey||"");
-      const allowed=new Set(["dirt_sample","rock_sample","iron_ore","crystal_ore","wood_sample","plant_sample","water_sample","fish_sample","habitat_component","cultivator_nutrients","bedrock_block","dirt_block","stone_block","iron_block","crystal_block","grass_block","bark_block","leaves_block","water_block","water_flask_block","sand_block","panel_block","computer_block","crate_block","cave_block","alien_block","portal_block","biome_cyan_block","biome_violet_block","biome_coral_block","biome_indigo_block","tree_sprout_block","habitat_kit_block"]);
+      const allowed=new Set(["dirt_sample","rock_sample","iron_ore","crystal_ore","wood_sample","plant_sample","water_sample","fish_sample","habitat_component","cultivator_nutrients","pesticide","fungicide","bedrock_block","dirt_block","stone_block","iron_block","crystal_block","grass_block","bark_block","leaves_block","water_block","water_flask_block","sand_block","panel_block","computer_block","crate_block","cave_block","alien_block","portal_block","biome_cyan_block","biome_violet_block","biome_coral_block","biome_indigo_block","tree_sprout_block","habitat_kit_block"]);
       ["supply_crate","power_generator","atmosphere_processor","water_recycler","communications_rack","oxygen_rack","liquid_tank","work_light","tool_cart","hose_bundle","maintenance_robot","glass","laboratory","command_console","habitat_wall","sedimentary","ice","magma","fossil_plant","fossil_creature","seismograph","core_sampler","kayak_kit","boat_kit","solar_panel","satellite","water_pump","pipe_straight_up","pipe_straight_down","pipe_elbow","pipe_junction","pipe_cross","conveyor_up","conveyor_down","processor_io","hydroponic_cultivator","decor_frame_130","decor_frame_131"].forEach((key)=>allowed.add(`${key}_block`));
       if(!allowed.has(baseItemKey)&&!/^flora_[a-z0-9_]+_(block|seed|plant)$/.test(baseItemKey)){client.send("interaction_result",{success:false,message:"Unknown voxel material."});return;}
       const quality:ItemQuality=["common","uncommon","rare","epic","legendary"].includes(String(message?.quality||""))?String(message.quality) as ItemQuality:"common";
