@@ -504,6 +504,7 @@ let selectedInventoryKey = null;
 let selectedInventorySlotId = null;
 const pendingVoxelInventoryCounts = new Map();
 const pendingVoxelPlacementCounts = new Map();
+const standaloneInventorySaveTimers = new Map();
 const HOTBAR_SLOT_COUNT = 9;
 
 const TOOL_DEFS = {
@@ -631,6 +632,21 @@ function setStandaloneInventoryCount(itemKey, quantity) {
   const count = Math.max(0, Math.floor(Number(quantity) || 0));
   if (count > 0) inventory.set(itemKey, count);
   else inventory.delete(itemKey);
+  if (authUser?.id && resolvedClassId) {
+    window.clearTimeout(standaloneInventorySaveTimers.get(itemKey));
+    standaloneInventorySaveTimers.set(itemKey, window.setTimeout(async () => {
+      standaloneInventorySaveTimers.delete(itemKey);
+      const { error } = await supabase.rpc("e3_set_inventory_item_quantity", {
+        requested_class_id: resolvedClassId,
+        requested_item_id: itemKey,
+        requested_quantity: count
+      });
+      if (error) {
+        console.error(`Could not save inventory item ${itemKey}.`, error);
+        showStatusMessage("Inventory could not be saved. It will retry after the next change.", false);
+      }
+    }, 350));
+  }
 }
 
 function releaseSelectedAnimalSpecimen() {
@@ -4788,11 +4804,12 @@ function create() {
     getSelectedTool: getSelectedToolKey,
     getInventoryMaterial: () => {if(getSelectedToolKey()==="core_sampler")return "core_sampler";const baseKey=String(selectedInventoryKey||"").split(":")[0],suffix=baseKey.endsWith("_block")?"_block":baseKey.endsWith("_plant")?"_plant":null;if(!suffix)return null;const materialKey=baseKey.slice(0,-suffix.length);return BLOCK_MATERIALS.some((entry)=>entry.key===materialKey)?materialKey:null;},
     getSelectedInventoryInfo: () => {const itemKey=String(selectedInventoryKey||"");return itemKey&&Number(latestInventoryCounts[itemKey])>0?{key:itemKey,label:getInventoryItemDefByKey(itemKey)?.label||itemKey,count:Number(latestInventoryCounts[itemKey])}:null;},
+    getInventoryOptions: (kind) => Object.entries(latestInventoryCounts).filter(([key,count])=>{const base=key.split(":")[0];return Number(count)>0&&(kind==="seed"?base.endsWith("_seed"):kind==="processor"?["cave_block","sedimentary_block"].includes(base):kind==="compost"?base==="grass_block"||base.endsWith("_plant"):false);}).map(([key,count])=>({key,count:Number(count),label:getInventoryItemDefByKey(key)?.label||key})),
     onPlaceInventoryBlock: (materialKey) => {if(materialKey==="core_sampler"&&getSelectedToolKey()==="core_sampler")return true;const selected=String(selectedInventoryKey||""),selectedBase=selected.split(":")[0],itemKey=selectedBase===`${materialKey}_plant`?selected:`${materialKey}_block:common`;const current=Number(latestInventoryCounts[itemKey])||0;if(current<1)return false;const expectedCount=current-1;latestInventoryCounts={...latestInventoryCounts,[itemKey]:expectedCount};setStandaloneInventoryCount(itemKey,expectedCount);updateInventoryUI(latestInventoryCounts);if(joined&&!standaloneWorld){pendingVoxelPlacementCounts.set(itemKey,expectedCount);if(selectedBase.endsWith("_plant"))sendRoomMessage("delete_inventory_item",{itemId:itemKey});else sendRoomMessage("place_voxel_material",{baseItemKey:`${materialKey}_block`});}return true;},
-    onProcessInventory: () => {const itemKey=String(selectedInventoryKey||""),base=itemKey.split(":")[0],recipe=base==="cave_block"?{key:"pesticide:common",label:"Igneous rock into Pesticide"}:base==="sedimentary_block"?{key:"fungicide:common",label:"Sedimentary rock into Fungicide"}:null;if(!recipe||Number(latestInventoryCounts[itemKey])<1)return null;const inputCount=Number(latestInventoryCounts[itemKey])-1,outputCount=(Number(latestInventoryCounts[recipe.key])||0)+1;latestInventoryCounts={...latestInventoryCounts,[itemKey]:inputCount,[recipe.key]:outputCount};setStandaloneInventoryCount(itemKey,inputCount);setStandaloneInventoryCount(recipe.key,outputCount);updateInventoryUI(latestInventoryCounts);showFloatingLootText(recipe.key);if(joined&&!standaloneWorld){sendRoomMessage("delete_inventory_item",{itemId:itemKey});pendingVoxelInventoryCounts.set(recipe.key,outputCount);sendRoomMessage("collect_voxel_material",{baseItemKey:recipe.key.split(":")[0],quality:"common"});}return recipe.label;},
+    onProcessInventory: (requestedItemKey) => {const itemKey=String(requestedItemKey||selectedInventoryKey||""),base=itemKey.split(":")[0],recipe=base==="cave_block"?{key:"pesticide:common",label:"Igneous rock into Pesticide"}:base==="sedimentary_block"?{key:"fungicide:common",label:"Sedimentary rock into Fungicide"}:null;if(!recipe||Number(latestInventoryCounts[itemKey])<1)return null;const inputCount=Number(latestInventoryCounts[itemKey])-1,outputCount=(Number(latestInventoryCounts[recipe.key])||0)+1;latestInventoryCounts={...latestInventoryCounts,[itemKey]:inputCount,[recipe.key]:outputCount};setStandaloneInventoryCount(itemKey,inputCount);setStandaloneInventoryCount(recipe.key,outputCount);updateInventoryUI(latestInventoryCounts);showFloatingLootText(recipe.key);if(joined&&!standaloneWorld){sendRoomMessage("delete_inventory_item",{itemId:itemKey});pendingVoxelInventoryCounts.set(recipe.key,outputCount);sendRoomMessage("collect_voxel_material",{baseItemKey:recipe.key.split(":")[0],quality:"common"});}return recipe.label;},
     onCultivatorSupply: (kind) => {const consume=(keys)=>{if(keys.some((key)=>Number(latestInventoryCounts[key])<1))return false;const next={...latestInventoryCounts};keys.forEach((key)=>{next[key]=Number(next[key])-1;setStandaloneInventoryCount(key,next[key]);if(joined&&!standaloneWorld)sendRoomMessage("delete_inventory_item",{itemId:key});});latestInventoryCounts=next;updateInventoryUI(latestInventoryCounts);return true;};if(kind==="soil")return consume(["dirt_block:common"]);if(kind==="nutrients")return consume(["cultivator_nutrients:common"]);if(kind==="water")return consume(["water_flask_block:common"]);if(kind==="pesticide")return consume(["pesticide:common"]);if(kind==="fungicide")return consume(["fungicide:common"]);return false;},
-    onPlantSeed: () => {const preferred=String(selectedInventoryKey||""),base=preferred.split(":")[0];const itemKey=(base.endsWith("_plant")||base.endsWith("_seed"))&&Number(latestInventoryCounts[preferred])>0?preferred:null;if(!itemKey)return null;const next=Math.max(0,Number(latestInventoryCounts[itemKey])-1);latestInventoryCounts={...latestInventoryCounts,[itemKey]:next};setStandaloneInventoryCount(itemKey,next);updateInventoryUI(latestInventoryCounts);if(joined&&!standaloneWorld)sendRoomMessage("delete_inventory_item",{itemId:itemKey});return itemKey;},
-    onCompost: () => {const itemKey=String(selectedInventoryKey||""),base=itemKey.split(":")[0],compostable=base==="grass_block"||base.endsWith("_plant");if(!compostable||Number(latestInventoryCounts[itemKey])<1)return null;const next=Number(latestInventoryCounts[itemKey])-1;latestInventoryCounts={...latestInventoryCounts,[itemKey]:next};setStandaloneInventoryCount(itemKey,next);updateInventoryUI(latestInventoryCounts);if(joined&&!standaloneWorld)sendRoomMessage("delete_inventory_item",{itemId:itemKey});return {label:getInventoryItemDefByKey(itemKey)?.label||base,units:base==="grass_block"?1:2};},
+    onPlantSeed: (requestedItemKey) => {const preferred=String(requestedItemKey||selectedInventoryKey||""),base=preferred.split(":")[0];const itemKey=base.endsWith("_seed")&&Number(latestInventoryCounts[preferred])>0?preferred:null;if(!itemKey)return null;const next=Math.max(0,Number(latestInventoryCounts[itemKey])-1);latestInventoryCounts={...latestInventoryCounts,[itemKey]:next};setStandaloneInventoryCount(itemKey,next);updateInventoryUI(latestInventoryCounts);if(joined&&!standaloneWorld)sendRoomMessage("delete_inventory_item",{itemId:itemKey});return itemKey;},
+    onCompost: (requestedItemKey) => {const itemKey=String(requestedItemKey||selectedInventoryKey||""),base=itemKey.split(":")[0],compostable=base==="grass_block"||base.endsWith("_plant");if(!compostable||Number(latestInventoryCounts[itemKey])<1)return null;const next=Number(latestInventoryCounts[itemKey])-1;latestInventoryCounts={...latestInventoryCounts,[itemKey]:next};setStandaloneInventoryCount(itemKey,next);updateInventoryUI(latestInventoryCounts);if(joined&&!standaloneWorld)sendRoomMessage("delete_inventory_item",{itemId:itemKey});return {label:getInventoryItemDefByKey(itemKey)?.label||base,units:base==="grass_block"?1:2};},
     onViewSeismicData: openSeismicDataDialog,
     syncWorldBlocks: (blocks) => worldPortalLayer?.setBlocks?.(blocks),
     syncWorldVehicles: (vehicles) => worldPortalLayer?.setVehicles?.(vehicles),
