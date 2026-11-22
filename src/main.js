@@ -2117,6 +2117,38 @@ let pendingSpawnX = null;
 let pendingSpawnY = null;
 let saveLayoutKey;
 let isSavingLayout = false;
+const voxelMapAutosaveTimers = new Map();
+const pendingVoxelMapSnapshots = new Map();
+const savedVoxelMapSignatures = new Map();
+
+function scheduleVoxelMapAutosave(mapKey, snapshot) {
+  if ((authUser?.email || "").toLowerCase() !== "mnelsen@susd.net") return;
+  const key = String(mapKey || DEFAULT_MAP_KEY);
+  const blocks = Array.isArray(snapshot) ? snapshot : [];
+  const signature = JSON.stringify(blocks);
+  if (savedVoxelMapSignatures.get(key) === signature) return;
+  pendingVoxelMapSnapshots.set(key, { blocks, signature });
+  window.clearTimeout(voxelMapAutosaveTimers.get(key));
+  voxelMapAutosaveTimers.set(key, window.setTimeout(async () => {
+    voxelMapAutosaveTimers.delete(key);
+    const pending = pendingVoxelMapSnapshots.get(key);
+    if (!pending) return;
+    try {
+      const { error } = await supabase.from("room_layouts")
+        .update({ voxel_blocks: pending.blocks })
+        .eq("layout_key", key);
+      if (error) throw error;
+      if (pendingVoxelMapSnapshots.get(key)?.signature === pending.signature) {
+        pendingVoxelMapSnapshots.delete(key);
+        savedVoxelMapSignatures.set(key, pending.signature);
+      }
+    } catch (error) {
+      console.error(`Could not autosave voxel map ${key}.`, error);
+      window.clearTimeout(voxelMapAutosaveTimers.get(key));
+      voxelMapAutosaveTimers.set(key, window.setTimeout(() => scheduleVoxelMapAutosave(key, pending.blocks), 5000));
+    }
+  }, 1200));
+}
 
 /*
 METADATA EDITOR KEY REFERENCES
@@ -4769,6 +4801,7 @@ function create() {
     onStatus: (message) => showStatusMessage(message,false),
     onEnterHabitat: () => {},
     onPlanetEdge: (edge) => transitionAcrossPlanetEdge(edge),
+    onMapChanged: (snapshot) => scheduleVoxelMapAutosave(currentMapKey || DEFAULT_MAP_KEY, snapshot),
     enabled: () => joined && isIsometricMode() && !isGameplayModalActive()
   });
   ensureCubeMinimap();
