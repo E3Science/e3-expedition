@@ -82,9 +82,15 @@ async function loadDashboardInventory() {
   catch(error){console.warn("Could not load player inventory.",error);return;}
   const counts = {};
   (data || []).forEach((entry) => { counts[entry.item_id] = Number(entry.quantity) || 0; });
+  const pending=readPendingInventoryWrites();Object.entries(pending).forEach(([itemKey,entry])=>{counts[itemKey]=Math.max(0,Number(entry?.quantity)||0);void persistInventoryCount(itemKey,counts[itemKey]);});
   restoreProgressionFromInventory(counts);
   updateInventoryUI(counts);
 }
+
+function inventoryWriteCacheKey(){return authUser?.id&&resolvedClassId?`e3:pending-inventory:${authUser.id}:${resolvedClassId}`:"";}
+function readPendingInventoryWrites(){const key=inventoryWriteCacheKey();if(!key)return{};try{return JSON.parse(localStorage.getItem(key)||"{}")||{};}catch{return{};}}
+function writePendingInventoryCount(itemKey,quantity){const key=inventoryWriteCacheKey();if(!key)return;const pending=readPendingInventoryWrites();pending[itemKey]={quantity,updatedAt:Date.now()};localStorage.setItem(key,JSON.stringify(pending));}
+async function persistInventoryCount(itemKey,quantity){if(!authUser?.id||!resolvedClassId)return;const{error}=await supabase.rpc("e3_set_inventory_item_quantity",{requested_class_id:resolvedClassId,requested_item_id:itemKey,requested_quantity:quantity});if(error){console.error(`Could not save inventory item ${itemKey}.`,error);return;}const key=inventoryWriteCacheKey(),pending=readPendingInventoryWrites();if(Number(pending[itemKey]?.quantity)===Number(quantity)){delete pending[itemKey];if(Object.keys(pending).length)localStorage.setItem(key,JSON.stringify(pending));else localStorage.removeItem(key);}}
 
 function getProgressLevelFromPoints(points) {
   let level = 1;
@@ -641,19 +647,8 @@ function setStandaloneInventoryCount(itemKey, quantity) {
   if (count > 0) inventory.set(itemKey, count);
   else inventory.delete(itemKey);
   if (authUser?.id && resolvedClassId) {
-    window.clearTimeout(standaloneInventorySaveTimers.get(itemKey));
-    standaloneInventorySaveTimers.set(itemKey, window.setTimeout(async () => {
-      standaloneInventorySaveTimers.delete(itemKey);
-      const { error } = await supabase.rpc("e3_set_inventory_item_quantity", {
-        requested_class_id: resolvedClassId,
-        requested_item_id: itemKey,
-        requested_quantity: count
-      });
-      if (error) {
-        console.error(`Could not save inventory item ${itemKey}.`, error);
-        showStatusMessage("Inventory could not be saved. It will retry after the next change.", false);
-      }
-    }, 350));
+    writePendingInventoryCount(itemKey,count);
+    void persistInventoryCount(itemKey,count);
   }
 }
 
@@ -5259,8 +5254,14 @@ function update() {
   const editorMode =
     isAdminUser() &&
     (tileEditorEnabled || metadataEditorEnabled || objectEditorEnabled);
-  const selectedTravelMode=["buggy","jetski"].includes(getSelectedToolKey())?getSelectedToolKey():null;
+  let selectedTravelMode=["buggy","jetski"].includes(getSelectedToolKey())?getSelectedToolKey():null;
   const localPlayer=room?.state?.players?.get?.(myId);const localInWater=!!localPlayer&&!!blockSystem?.isWaterAt?.(localPlayer.x,localPlayer.y);
+  if(localInWater&&selectedTravelMode==="buggy"){
+    selectedHotbarIndex=HOTBAR_SLOT_COUNT-1;
+    refreshHotbarSelectionState();
+    selectedTravelMode=null;
+    showStatusMessage("The buggy was unequipped before entering the water.",false);
+  }
   const inputMessage = {
     ...input,
     editorMode,
@@ -8790,7 +8791,7 @@ let cubeMinimapRoot=null,cubeMinimapView=0;
 
 const CUBE_ARROW_VECTORS={up:[0,-1],right_up:[1,-1],right:[1,0],right_down:[1,1],down:[0,1],left_down:[-1,1],left:[-1,0],left_up:[-1,-1]};
 function updateCubePlayerMarker(direction=players?.[myId]?.lastDirection||"down"){if(!cubeMinimapRoot)return;const [vx,vy]=CUBE_ARROW_VECTORS[direction]||[0,1],rotation=Math.atan2(vx,-vy)*180/Math.PI;cubeMinimapRoot.querySelectorAll(".cube-player-marker").forEach((marker)=>{marker.style.transform=`translate(-50%,-50%) rotate(${rotation}deg)`;});}
-function renderCubeMinimap(){if(!cubeMinimapRoot||typeof CUBE_PLANET_EDGES==="undefined")return;const activeMap=currentMapKey==="cube_north"?DEFAULT_MAP_KEY:(currentMapKey||DEFAULT_MAP_KEY),edges=CUBE_PLANET_EDGES[activeMap]||CUBE_PLANET_EDGES.default_room,edgeNames=["west","north","east","south"],slots=["north","east","south","west"];cubeMinimapRoot.querySelector('[data-cube-face="center"]').dataset.mapKey=activeMap;cubeMinimapRoot.querySelectorAll("[data-cube-face]").forEach((button)=>{const slot=button.dataset.cubeFace,mapKey=slot==="center"?activeMap:edges[edgeNames[(slots.indexOf(slot)+cubeMinimapView)%4]]?.map,active=slot==="center";button.dataset.mapKey=mapKey;button.className=`planet-${String(mapKey).replace("cube_","")}${active?" active":""}`;button.innerHTML=`<span class="cube-planet-land" aria-hidden="true"></span><span class="cube-face-label">${CUBE_FACE_LABELS[mapKey]||mapKey}</span>${active?'<i class="cube-player-marker" aria-label="Current location"></i>':""}`;});updateCubePlayerMarker();}
+function renderCubeMinimap(){if(!cubeMinimapRoot||typeof CUBE_PLANET_EDGES==="undefined")return;const activeMap=currentMapKey==="cube_north"?DEFAULT_MAP_KEY:(currentMapKey||DEFAULT_MAP_KEY),edges=CUBE_PLANET_EDGES[activeMap]||CUBE_PLANET_EDGES.default_room,edgeNames=["north","east","south","west"],slots=["north","east","south","west"];cubeMinimapRoot.querySelector('[data-cube-face="center"]').dataset.mapKey=activeMap;cubeMinimapRoot.querySelectorAll("[data-cube-face]").forEach((button)=>{const slot=button.dataset.cubeFace,mapKey=slot==="center"?activeMap:edges[edgeNames[(slots.indexOf(slot)+cubeMinimapView)%4]]?.map,active=slot==="center";button.dataset.mapKey=mapKey;button.className=`planet-${String(mapKey).replace("cube_","")}${active?" active":""}`;button.innerHTML=`<span class="cube-planet-land" aria-hidden="true"></span><span class="cube-face-label">${CUBE_FACE_LABELS[mapKey]||mapKey}</span>${active?'<i class="cube-player-marker" aria-label="Current location"></i>':""}`;});updateCubePlayerMarker();}
 function ensureCubeMinimap(){if(cubeMinimapRoot)return;const root=document.createElement("aside");root.className="cube-minimap";root.innerHTML=`<button type="button" class="cube-minimap-arrow" data-cube-left aria-label="Rotate map left">‹</button><div class="cube-minimap-body" aria-label="Cube planet minimap"><button type="button" data-cube-face="north"></button><button type="button" data-cube-face="west"></button><button type="button" data-cube-face="center"></button><button type="button" data-cube-face="east"></button><button type="button" data-cube-face="south"></button></div><button type="button" class="cube-minimap-arrow" data-cube-right aria-label="Rotate map right">›</button>`;document.body.appendChild(root);cubeMinimapRoot=root;root.querySelector("[data-cube-left]").addEventListener("click",()=>{cubeMinimapView=(cubeMinimapView+3)%4;renderCubeMinimap();});root.querySelector("[data-cube-right]").addEventListener("click",()=>{cubeMinimapView=(cubeMinimapView+1)%4;renderCubeMinimap();});root.querySelectorAll("[data-cube-face]").forEach((button)=>button.addEventListener("click",()=>teleportToCubeFace(button.dataset.mapKey)));renderCubeMinimap();}
 
 async function teleportToCubeFace(mapKey){if(!CUBE_PLANET_MAP_KEYS.has(mapKey)||isMapTransitionInProgress)return;const previous=currentMapKey||DEFAULT_MAP_KEY;pendingSpawnX=ROOM_OFFSET_X+getCurrentRoomLogicalWidth()/2;pendingSpawnY=ROOM_OFFSET_Y+getCurrentRoomLogicalHeight()/2;pendingTeleportToSpawn=false;await runMapTransitionFade(async()=>{setCurrentMapKey(mapKey);await rejoinCurrentMap(previous);});renderCubeMinimap();}
