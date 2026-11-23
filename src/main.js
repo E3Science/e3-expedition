@@ -917,6 +917,7 @@ async function openStudentDashboard(initialView = "overview") {
       return result;
     },
     onCompletePlateMotion: preview ? previewReadOnly : async () => dashboardRpc("e3_complete_plate_motion_run", { requested_class_id: resolvedClassId }),
+    onLoadDailyLoginStatus: preview||standaloneDeveloper ? async()=>null : async()=>{const{data,error}=await supabase.from("player_login_streaks").select("last_claimed_on,streak_day").eq("user_id",authUser.id).eq("class_id",resolvedClassId).maybeSingle();if(error)throw error;return{lastClaimedOn:data?.last_claimed_on||null,streakDay:Number(data?.streak_day)||1};},
     onClaimDailyLogin: preview||standaloneDeveloper ? async()=>null : () => dashboardRpc("e3_claim_daily_login", { requested_class_id: resolvedClassId }),
     onLoadGameOverview: () => preview?.overview || loadDashboardGameOverview(),
     onLoadQuestionSets: async () => {
