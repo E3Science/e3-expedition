@@ -518,7 +518,7 @@ const TOOL_DEFS = {
   jetski: { label: "Astronaut Jetski", abbreviation: "JS", imageSrc: "assets/blocks/expedition-kit/jetski.png", action: "ride" },
   core_sampler: { label: "Drill", abbreviation: "DR", imageSrc: "assets/blocks/core-sampler-v2.png", action: "place" }
 };
-const DEFAULT_TOOL_HOTBAR = ["axe", "shovel", "pickaxe", "hoe", "spacegun", "fishing_pole", "buggy", "jetski", "core_sampler"];
+const DEFAULT_TOOL_HOTBAR = ["axe", "shovel", "pickaxe", "hoe", "spacegun", "fishing_pole", "buggy", "jetski"];
 
 const ITEM_QUALITY_DEFS = {
   common: {
@@ -849,8 +849,9 @@ async function openStudentDashboard(initialView = "overview") {
     try { latestMissionPosition = Number(await dashboardRpc("e3_mission_position", { requested_class_id: resolvedClassId })) || 0; }
     catch (error) { console.warn("Could not load saved mission position.", error); }
   }
-  if (!preview&&!standaloneDeveloper) await Promise.all([loadDashboardInventory(), loadDashboardQuests()]);
-  if(standaloneDeveloper){latestInventoryCounts={};latestQuestSnapshot={maxQuests:5,quests:[]};latestMissionPosition=0;}
+  if (!preview && resolvedClassId) await loadDashboardInventory();
+  if (!preview && !standaloneDeveloper) await loadDashboardQuests();
+  if(standaloneDeveloper){latestQuestSnapshot={maxQuests:5,quests:[]};latestMissionPosition=0;}
   if (!createStudentDashboardFactory) {
     createStudentDashboardFactory = (await import("./ui/studentDashboard")).createStudentDashboard;
   }
