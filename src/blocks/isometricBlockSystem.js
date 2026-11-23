@@ -134,15 +134,13 @@ function createBlockTexture(scene, atlasKey, material) {
   textureCtx.imageSmoothingEnabled = false;
   textureCtx.drawImage(source, sourceX, sourceY, cell, cell, 0, 0, 32, 32);
 
-  if(material.kind==="plant"||material.kind==="furniture"||material.kind==="seismograph"||material.kind==="cultivator"){
+  if(material.kind==="plant"||material.kind==="furniture"||material.kind==="seismograph"||material.kind==="cultivator"||material.kind==="mobileLab"||material.kind==="rockProcessor"||material.kind==="pipe"||material.kind==="conveyor"){
     const asset=scene.textures.get(`e3_block_asset_${material.key}`)?.getSourceImage?.();
     if(material.kind==="cultivator"){const crate=scene.textures.get("e3_block_asset_supply_crate")?.getSourceImage?.();if(crate)drawContainedAsset(ctx,crate);}
     else if(asset){if(material.kind==="plant")ctx.drawImage(asset,0,0,BLOCK_SIZE,BLOCK_SIZE);else drawContainedAsset(ctx,asset);}
     scene.textures.addCanvas(key,canvas);return key;
   }
   if(material.kind==="invisible"){scene.textures.addCanvas(key,canvas);return key;}
-  if(material.kind==="pipe"){paintPipeBlock(ctx,material);scene.textures.addCanvas(key,canvas);return key;}
-  if(material.kind==="conveyor"){paintConveyorBlock(ctx,material);scene.textures.addCanvas(key,canvas);return key;}
   if(material.kind==="spawnPoint"){ctx.strokeStyle="#ff9e2f";ctx.lineWidth=4;ctx.beginPath();ctx.ellipse(32,45,22,11,0,0,Math.PI*2);ctx.stroke();ctx.fillStyle="rgba(255,158,47,.28)";ctx.fill();ctx.fillStyle="#fff4d7";ctx.beginPath();ctx.moveTo(32,7);ctx.lineTo(44,27);ctx.lineTo(36,27);ctx.lineTo(36,45);ctx.lineTo(28,45);ctx.lineTo(28,27);ctx.lineTo(20,27);ctx.closePath();ctx.fill();scene.textures.addCanvas(key,canvas);return key;}
   if(material.kind==="coreSampler"){
     ctx.fillStyle="#263c47";ctx.fillRect(18,30,30,25);ctx.fillStyle="#d6e4e6";ctx.fillRect(25,8,14,36);ctx.fillStyle="#5d7780";ctx.fillRect(28,4,8,40);ctx.fillStyle="#f39a35";ctx.fillRect(20,38,26,5);ctx.strokeStyle="#90e5e8";ctx.lineWidth=2;ctx.strokeRect(18,30,30,25);scene.textures.addCanvas(key,canvas);return key;
