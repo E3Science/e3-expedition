@@ -289,30 +289,29 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
   }
 
   function setBlocks(blocks = []) {
-    const oldTextures=new Set();
-    blockEntries.forEach((entry) => {
-      oldTextures.add(entry.material.map);
-      entry.material.dispose();
-      entry.sprite.removeFromParent();
-    });
-    oldTextures.forEach((texture)=>texture.dispose());
-    blockEntries.clear();
-    blockRoot.clear();
     setVehicles(blocks);
+    const nextIds=new Set(blocks.filter((block)=>block.vehicleType!=="kayak"&&block.canvas).map((block)=>block.id));
+    const oldTextures=new Set([...blockEntries.values()].map((entry)=>entry.material.map));
+    blockEntries.forEach((entry,id)=>{if(nextIds.has(id))return;entry.material.dispose();entry.sprite.removeFromParent();blockEntries.delete(id);});
     const textureByCanvas=new Map();
+    blockEntries.forEach((entry)=>textureByCanvas.set(entry.canvas,entry.material.map));
     blocks.forEach((block) => {
       if(block.vehicleType==="kayak")return;
       if (!block.canvas) return;
+      const width=Number(block.width)||64,height=Number(block.height)||64,baseOpacity=Number.isFinite(block.opacity)?block.opacity:(block.transparent ? .68 : 1),startY=Number.isFinite(block.startY)?block.startY:block.y,z=ISOMETRIC_DEPTH_BASE+block.sortY*ISOMETRIC_DEPTH_STEP+(block.z||1)*.1;
+      const existing=blockEntries.get(block.id);
+      if(existing&&existing.canvas===block.canvas){existing.sprite.position.x=block.x;existing.sprite.position.z=z;existing.sprite.scale.set(block.flipX?-width:width,height,1);existing.material.opacity=baseOpacity;existing.material.depthWrite=!block.transparent;existing.material.alphaHash=!!block.transparent&&improvedTransparencyEnabled;existing.baseOpacity=baseOpacity;existing.isTransparent=!!block.transparent;existing.preview=!!block.preview;existing.ditherBounds=block.ditherBounds||null;existing.animated=!!block.animated;existing.waterBob=!!block.waterBob;if(existing.targetY!==block.y){existing.startY=-existing.sprite.position.y+height/2;existing.targetY=block.y;existing.fallStartedAt=performance.now();existing.duration=Math.min(850,300+Math.abs(block.y-existing.startY)*7);}return;}
+      if(existing){existing.material.dispose();existing.sprite.removeFromParent();blockEntries.delete(block.id);}
       let texture=textureByCanvas.get(block.canvas);if(!texture){texture = new THREE.CanvasTexture(block.canvas);texture.colorSpace = THREE.SRGBColorSpace;texture.magFilter = THREE.NearestFilter;texture.minFilter = THREE.NearestFilter;textureByCanvas.set(block.canvas,texture);}
-      const baseOpacity=Number.isFinite(block.opacity)?block.opacity:(block.transparent ? .68 : 1);const material = new THREE.SpriteMaterial({ map: texture, transparent:true,opacity:baseOpacity,depthWrite:!block.transparent,alphaTest:block.transparent?0:.02 });
+      const material = new THREE.SpriteMaterial({ map: texture, transparent:true,opacity:baseOpacity,depthWrite:!block.transparent,alphaTest:block.transparent?0:.02 });
       if(block.animated){texture.wrapS=THREE.RepeatWrapping;texture.wrapT=THREE.RepeatWrapping;}
       const sprite = new THREE.Sprite(material);
-      const startY=Number.isFinite(block.startY)?block.startY:block.y;
-      const width=Number(block.width)||64;const height=Number(block.height)||64;sprite.position.set(block.x, -startY + height/2, ISOMETRIC_DEPTH_BASE + block.sortY * ISOMETRIC_DEPTH_STEP + (block.z || 1) * 0.1);
+      sprite.position.set(block.x,-startY+height/2,z);
       sprite.scale.set(block.flipX?-width:width, height, 1);
       blockRoot.add(sprite);
-      material.alphaHash=!!block.transparent&&improvedTransparencyEnabled;blockEntries.set(block.id, { sprite, material, baseOpacity, isTransparent:!!block.transparent, preview:!!block.preview, ditherBounds:block.ditherBounds||null, animated:!!block.animated, waterBob:!!block.waterBob, phase:block.materialKey==="portal"?Math.PI:0, startY, targetY:block.y, fallStartedAt:performance.now(), duration:Math.min(850,300+Math.abs(block.y-startY)*7) });
+      material.alphaHash=!!block.transparent&&improvedTransparencyEnabled;blockEntries.set(block.id,{sprite,material,canvas:block.canvas,baseOpacity,isTransparent:!!block.transparent,preview:!!block.preview,ditherBounds:block.ditherBounds||null,animated:!!block.animated,waterBob:!!block.waterBob,phase:block.materialKey==="portal"?Math.PI:0,startY,targetY:block.y,fallStartedAt:performance.now(),duration:Math.min(850,300+Math.abs(block.y-startY)*7)});
     });
+    const activeTextures=new Set([...blockEntries.values()].map((entry)=>entry.material.map));oldTextures.forEach((texture)=>{if(!activeTextures.has(texture))texture.dispose();});
   }
 
   function setCoreTimers(timers = []) {
