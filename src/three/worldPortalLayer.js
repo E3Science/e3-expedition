@@ -246,7 +246,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       entry.root.scale.set(scale, scale, 0.5);
       entry.shadow.sprite.position.set(entry.x,-entry.surfaceY-4,entry.root.position.z-0.01);
       entry.nameplate.sprite.position.set(entry.x,-entry.y+76,1901);
-      const clipped=false;
+      const clipped=[...blockEntries.values()].some((block)=>!block.isTransparent&&!block.preview&&Math.abs(block.sprite.position.x-entry.x)<30&&entry.y<=block.targetY+4&&entry.y>=block.targetY-72&&block.sprite.position.z>entry.root.position.z);
 
       const directionRotations = {
         down: 0,
@@ -294,22 +294,22 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
     const oldTextures=new Set([...blockEntries.values()].map((entry)=>entry.material.map));
     blockEntries.forEach((entry,id)=>{if(nextIds.has(id))return;entry.material.dispose();entry.sprite.removeFromParent();blockEntries.delete(id);});
     const textureByCanvas=new Map();
-    blockEntries.forEach((entry)=>textureByCanvas.set(entry.canvas,entry.material.map));
+    blockEntries.forEach((entry)=>{const variants=textureByCanvas.get(entry.canvas)||{};variants[entry.flipX?"flipped":"normal"]=entry.material.map;textureByCanvas.set(entry.canvas,variants);});
     blocks.forEach((block) => {
       if(block.vehicleType==="kayak")return;
       if (!block.canvas) return;
       const width=Number(block.width)||64,height=Number(block.height)||64,baseOpacity=Number.isFinite(block.opacity)?block.opacity:(block.transparent ? .68 : 1),startY=Number.isFinite(block.startY)?block.startY:block.y,z=ISOMETRIC_DEPTH_BASE+block.sortY*ISOMETRIC_DEPTH_STEP+(block.z||1)*.1;
       const existing=blockEntries.get(block.id);
-      if(existing&&existing.canvas===block.canvas){existing.sprite.position.x=block.x;existing.sprite.position.z=z;existing.sprite.scale.set(block.flipX?-width:width,height,1);existing.material.opacity=baseOpacity;existing.material.depthWrite=!block.transparent;existing.material.alphaHash=!!block.transparent&&improvedTransparencyEnabled;existing.baseOpacity=baseOpacity;existing.isTransparent=!!block.transparent;existing.preview=!!block.preview;existing.ditherBounds=block.ditherBounds||null;existing.animated=!!block.animated;existing.waterBob=!!block.waterBob;if(existing.targetY!==block.y){existing.startY=-existing.sprite.position.y+height/2;existing.targetY=block.y;existing.fallStartedAt=performance.now();existing.duration=Math.min(850,300+Math.abs(block.y-existing.startY)*7);}return;}
+      if(existing&&existing.canvas===block.canvas&&existing.flipX===!!block.flipX){existing.sprite.position.x=block.x;existing.sprite.position.z=z;existing.sprite.scale.set(width,height,1);existing.material.opacity=baseOpacity;existing.material.depthWrite=!block.transparent;existing.material.alphaHash=!!block.transparent&&improvedTransparencyEnabled;existing.baseOpacity=baseOpacity;existing.isTransparent=!!block.transparent;existing.preview=!!block.preview;existing.ditherBounds=block.ditherBounds||null;existing.animated=!!block.animated;existing.waterBob=!!block.waterBob;if(existing.targetY!==block.y){existing.startY=-existing.sprite.position.y+height/2;existing.targetY=block.y;existing.fallStartedAt=performance.now();existing.duration=Math.min(850,300+Math.abs(block.y-existing.startY)*7);}return;}
       if(existing){existing.material.dispose();existing.sprite.removeFromParent();blockEntries.delete(block.id);}
-      let texture=textureByCanvas.get(block.canvas);if(!texture){texture = new THREE.CanvasTexture(block.canvas);texture.colorSpace = THREE.SRGBColorSpace;texture.magFilter = THREE.NearestFilter;texture.minFilter = THREE.NearestFilter;textureByCanvas.set(block.canvas,texture);}
+      const textureVariant=block.flipX?"flipped":"normal";let variants=textureByCanvas.get(block.canvas)||{},texture=variants[textureVariant];if(!texture){texture = new THREE.CanvasTexture(block.canvas);texture.colorSpace = THREE.SRGBColorSpace;texture.magFilter = THREE.NearestFilter;texture.minFilter = THREE.NearestFilter;if(block.flipX){texture.wrapS=THREE.RepeatWrapping;texture.repeat.x=-1;texture.offset.x=1;}variants[textureVariant]=texture;textureByCanvas.set(block.canvas,variants);}
       const material = new THREE.SpriteMaterial({ map: texture, transparent:true,opacity:baseOpacity,depthWrite:!block.transparent,alphaTest:block.transparent?0:.02 });
       if(block.animated){texture.wrapS=THREE.RepeatWrapping;texture.wrapT=THREE.RepeatWrapping;}
       const sprite = new THREE.Sprite(material);
       sprite.position.set(block.x,-startY+height/2,z);
-      sprite.scale.set(block.flipX?-width:width, height, 1);
+      sprite.scale.set(width, height, 1);
       blockRoot.add(sprite);
-      material.alphaHash=!!block.transparent&&improvedTransparencyEnabled;blockEntries.set(block.id,{sprite,material,canvas:block.canvas,baseOpacity,isTransparent:!!block.transparent,preview:!!block.preview,ditherBounds:block.ditherBounds||null,animated:!!block.animated,waterBob:!!block.waterBob,phase:block.materialKey==="portal"?Math.PI:0,startY,targetY:block.y,fallStartedAt:performance.now(),duration:Math.min(850,300+Math.abs(block.y-startY)*7)});
+      material.alphaHash=!!block.transparent&&improvedTransparencyEnabled;blockEntries.set(block.id,{sprite,material,canvas:block.canvas,flipX:!!block.flipX,baseOpacity,isTransparent:!!block.transparent,preview:!!block.preview,ditherBounds:block.ditherBounds||null,animated:!!block.animated,waterBob:!!block.waterBob,phase:block.materialKey==="portal"?Math.PI:0,startY,targetY:block.y,fallStartedAt:performance.now(),duration:Math.min(850,300+Math.abs(block.y-startY)*7)});
     });
     const activeTextures=new Set([...blockEntries.values()].map((entry)=>entry.material.map));oldTextures.forEach((texture)=>{if(!activeTextures.has(texture))texture.dispose();});
   }
@@ -356,7 +356,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       entry.x = mob.x ?? 0;
       entry.y = mob.y ?? 0;
       entry.facing = mob.facing || "right";
-      entry.facingDirection = mob.facingDirection || entry.facingDirection || entry.facing;
+      const nextFacingDirection=mob.facingDirection||entry.facingDirection||entry.facing;if(nextFacingDirection!==entry.facingDirection){if(entry.pendingFacingDirection===nextFacingDirection)entry.pendingFacingFrames=(entry.pendingFacingFrames||0)+1;else{entry.pendingFacingDirection=nextFacingDirection;entry.pendingFacingFrames=1;}if(entry.pendingFacingFrames>=3){entry.facingDirection=nextFacingDirection;entry.pendingFacingFrames=0;}}else entry.pendingFacingFrames=0;
       entry.purpose = mob.ecosystemState || mob.state || "explore";
       entry.sortY = mob.sortY ?? entry.y;
       entry.elevation = mob.elevation ?? 0;

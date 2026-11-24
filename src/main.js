@@ -82,7 +82,7 @@ async function loadDashboardInventory() {
   catch(error){console.warn("Could not load player inventory.",error);return;}
   const counts = {};
   (data || []).forEach((entry) => { counts[entry.item_id] = Number(entry.quantity) || 0; });
-  const durable=readDurableInventorySnapshot();if(!Object.keys(counts).length&&Object.keys(durable).length)Object.assign(counts,durable);
+  const durable=readDurableInventorySnapshot();Object.entries(durable).forEach(([itemKey,quantity])=>{counts[itemKey]=Math.max(Number(counts[itemKey])||0,Number(quantity)||0);});
   const pending=readPendingInventoryWrites();Object.entries(pending).forEach(([itemKey,entry])=>{counts[itemKey]=Math.max(0,Number(entry?.quantity)||0);void persistInventoryCount(itemKey,counts[itemKey]);});
   writeDurableInventorySnapshot(counts);
   restoreProgressionFromInventory(counts);
@@ -645,12 +645,11 @@ function isAnimalSpecimenItemKey(itemKey) {
 }
 
 function setStandaloneInventoryCount(itemKey, quantity) {
-  if (!standaloneWorld || !itemKey) return;
+  if (!itemKey) return;
   const inventory = room?.state?.players?.get?.(myId)?.inventory;
-  if (!inventory) return;
   const count = Math.max(0, Math.floor(Number(quantity) || 0));
-  if (count > 0) inventory.set(itemKey, count);
-  else inventory.delete(itemKey);
+  if (inventory?.set && count > 0) inventory.set(itemKey, count);
+  else if (inventory?.delete && count <= 0) inventory.delete(itemKey);
   writeDurableInventorySnapshot({...latestInventoryCounts,[itemKey]:count});
   if (authUser?.id && resolvedClassId) {
     writePendingInventoryCount(itemKey,count);
@@ -2082,6 +2081,7 @@ Includes:
 
 let runtimeMobSprites = {};
 let latestRuntimeMobSnapshot = {};
+let lastStandalonePopulationUpdateAt = 0;
 let runtimeMobStatusTexts = {};
 let showEsmLabels = false;
 let latestAlienArtifactSnapshot = null;
@@ -4454,15 +4454,17 @@ function createStandaloneAnimalsFromMap() {
     [
       [9,10,"herbivore","herbivore_a",1],
       [15,13,"herbivore","herbivore_b",1],
-      [22,17,"herbivore","herbivore_d",2],
-      [29,20,"carnivore","carnivore_c",2]
+      [22,17,"carnivore","carnivore_c",2],
+      [29,20,"apex_predator","apex_predator_a",2]
     ].forEach(([tileX,tileY,kind,speciesKey,tier],index)=>{
       const homeX=tileToWorldX(tileX)+TILE_SIZE/2;const homeY=tileToWorldY(tileY)+TILE_SIZE/2;
       const health=80+Number(tier||1)*20;mobs.push({id:`local-box-animal-${index}`,mapKey:currentMapKey,kind,tier,speciesKey,x:homeX,y:homeY,homeX,homeY,facing:index%2?"left":"right",state:"walk",phase:index*1.37,stamina:health,maxStamina:health,health,maxHealth:health,incapacitated:false,esm:20,maxEsm:20,ecosystemState:"local simulation"});
     });
   }
   const populations=new Map();mobs.forEach((mob)=>{const group=populations.get(mob.speciesKey)||[];group.push(mob);populations.set(mob.speciesKey,group);});
-  const representatives=[];populations.forEach((group,speciesKey)=>{const template=group[0],defaultPopulation=template.kind==="herbivore"?160:template.kind==="carnivore"?90:45,populationSize=Math.max(group.length,Number(template.populationSize)||defaultPopulation),visibleCount=Math.max(1,Math.ceil(populationSize/10));for(let index=0;index<visibleCount;index+=1){const source=group[index%group.length],ring=Math.floor(index/group.length)+1,angle=(index*2.399)+Number(source.phase||0),offset=ring*TILE_SIZE*.7;representatives.push({...source,id:`${source.id}-sample-${index}`,x:source.x+Math.cos(angle)*offset,y:source.y+Math.sin(angle)*offset,homeX:source.homeX+Math.cos(angle)*offset,homeY:source.homeY+Math.sin(angle)*offset,phase:Number(source.phase||0)+index*.61,populationSize,representedAnimals:Math.max(1,Math.ceil(populationSize/visibleCount)),speciesKey});}});
+  const categoryConfig={herbivore:{population:200,maxPopulation:250,maxGroups:5},carnivore:{population:100,maxPopulation:150,maxGroups:3},apex_predator:{population:30,maxPopulation:50,maxGroups:1}},representatives=[],usedCenters=[];
+  const gridWidth=Math.max(12,Math.floor(getCurrentRoomLogicalWidth()/TILE_SIZE)),gridHeight=Math.max(12,Math.floor(getCurrentRoomLogicalHeight()/TILE_SIZE)),candidateCenters=[];for(let row=0;row<4;row+=1)for(let column=0;column<5;column+=1){const tileX=Math.round(3+column*(gridWidth-7)/4),tileY=Math.round(3+row*(gridHeight-7)/3);if(blockSystem?.terrainHeight?.(tileX,tileY)===2)candidateCenters.push({x:tileToWorldX(tileX)+TILE_SIZE/2,y:tileToWorldY(tileY)+TILE_SIZE/2});}
+  Object.entries(categoryConfig).forEach(([kind,config],categoryIndex)=>{const species=[...populations.entries()].filter(([,group])=>group[0]?.kind===kind);if(!species.length)return;const visibleCount=Math.ceil(config.population/10),groupCount=Math.min(config.maxGroups,Math.max(species.length,Math.ceil(visibleCount/5))),baseGroupSize=Math.floor(visibleCount/groupCount),extra=visibleCount%groupCount,speciesGroupCounts=new Map();for(let groupIndex=0;groupIndex<groupCount;groupIndex+=1)speciesGroupCounts.set(species[groupIndex%species.length][0],(speciesGroupCounts.get(species[groupIndex%species.length][0])||0)+1);const speciesPopulations=new Map([...speciesGroupCounts].map(([key,count])=>[key,Math.round(config.population*count/groupCount)]));for(let groupIndex=0;groupIndex<groupCount;groupIndex+=1){const [speciesKey,sources]=species[groupIndex%species.length],template=sources[0],memberCount=baseGroupSize+(groupIndex<extra?1:0),center=candidateCenters.splice((categoryIndex*3+groupIndex)%Math.max(1,candidateCenters.length),1)[0]||{x:ROOM_OFFSET_X+TILE_SIZE*(3+groupIndex*4),y:ROOM_OFFSET_Y+TILE_SIZE*(3+categoryIndex*7)};usedCenters.push(center);for(let member=0;member<memberCount;member+=1){const angle=member*Math.PI*2/memberCount,radius=member?TILE_SIZE*.48:0;representatives.push({...template,id:`${template.id}-${kind}-group-${groupIndex}-member-${member}`,x:center.x+Math.cos(angle)*radius,y:center.y+Math.sin(angle)*radius,homeX:center.x,homeY:center.y,phase:categoryIndex+groupIndex*.83+member*.41,populationSize:speciesPopulations.get(speciesKey),populationCap:Math.round(config.maxPopulation*(speciesGroupCounts.get(speciesKey)||1)/groupCount),representedAnimals:10,speciesKey,groupId:`${kind}-${groupIndex}`});}}});
   applyRuntimeMobSnapshot({ mapKey: currentMapKey, mobs:representatives });
 }
 
@@ -4584,11 +4586,21 @@ function updateStandalonePlayer() {
 
 function updateStandaloneAnimals(elapsedSeconds) {
   if (!standaloneWorld) return;
-  Object.values(latestRuntimeMobSnapshot).forEach((mob) => {
+  const now=Date.now(),animals=Object.values(latestRuntimeMobSnapshot);
+  if(now-lastStandalonePopulationUpdateAt>=30000){
+    lastStandalonePopulationUpdateAt=now;
+    const worldBlocks=blockSystem?.getSnapshot?.()||[];
+    const plantFood=worldBlocks.filter((block)=>/(flora|plant|mushroom|moss)/i.test(String(block.material||""))).length;
+    const speciesGroups=new Map();animals.forEach((mob)=>{const group=speciesGroups.get(mob.speciesKey)||[];group.push(mob);speciesGroups.set(mob.speciesKey,group);});
+    const actualByKind={herbivore:0,carnivore:0,apex_predator:0};speciesGroups.forEach((group)=>{const sample=group[0];actualByKind[sample.kind]=(actualByKind[sample.kind]||0)+Number(sample.populationSize||group.length*10);});
+    const capacityByKind={herbivore:Math.min(250,Math.max(20,plantFood*5)),carnivore:Math.min(150,Math.max(8,Math.floor(actualByKind.herbivore*.55))),apex_predator:Math.min(50,Math.max(3,Math.floor(actualByKind.carnivore*.3)))};
+    speciesGroups.forEach((group)=>{const sample=group[0],current=Math.max(0,Number(sample.populationSize||group.length*10)),kindTotal=Math.max(1,actualByKind[sample.kind]||current),speciesCapacity=Math.max(group.length,Math.floor(capacityByKind[sample.kind]*(current/kindTotal))),pressure=current>speciesCapacity?-Math.max(1,Math.ceil((current-speciesCapacity)/20)):Math.random()<.65?1:0,next=Math.max(group.length,Math.min(Number(sample.populationCap)||speciesCapacity,current+pressure));group.forEach((mob)=>{mob.populationSize=next;mob.ecosystemState=pressure<0?"food scarce":pressure>0?"population growing":mob.ecosystemState;});});
+  }
+  animals.forEach((mob) => {
     if (!mob?.homeX && !mob?.homeY) return;
     if(mob.incapacitated){if(Date.now()-(Number(mob.incapacitatedAtEpochMs)||Date.now())<30000){mob.state="defeated";return;}mob.incapacitated=false;mob.incapacitatedAtEpochMs=0;mob.health=Math.max(1,Math.ceil(Number(mob.maxHealth||mob.maxStamina)*.5));mob.stamina=mob.health;mob.state="walk";}
-    const now=Date.now(),previous=Number(mob.lastMoveAt)||elapsedSeconds,dt=Math.min(.05,Math.max(0,elapsedSeconds-previous));mob.lastMoveAt=elapsedSeconds;
-    if(!mob.purpose||now>=Number(mob.purposeUntil||0)){const purposes=["explore","eat","hide","breed"],choice=purposes[Math.floor(Math.random()*purposes.length)];mob.purpose=choice;mob.ecosystemState=choice;const angleIndex=Math.floor(Math.random()*8),angle=angleIndex*Math.PI/4,range=TILE_SIZE*(choice==="explore"?2.5:1.4);mob.targetX=mob.homeX+Math.cos(angle)*range;mob.targetY=mob.homeY+Math.sin(angle)*range;mob.purposeUntil=now+(choice==="explore"?7000:4500);mob.pauseUntil=choice==="explore"?0:now+1200;}
+    const previous=Number(mob.lastMoveAt)||elapsedSeconds,dt=Math.min(.05,Math.max(0,elapsedSeconds-previous));mob.lastMoveAt=elapsedSeconds;
+    if(!mob.purpose||now>=Number(mob.purposeUntil||0)){const purposes=["explore","eat","hide","breed"],choice=purposes[Math.floor(Math.random()*purposes.length)];mob.purpose=choice;mob.ecosystemState=choice;const outsiders=animals.filter((other)=>other!==mob&&other.groupId!==mob.groupId),nearby=outsiders.sort((a,b)=>Math.hypot(mob.x-a.x,mob.y-a.y)-Math.hypot(mob.x-b.x,mob.y-b.y))[0];let angleIndex=Math.floor(Math.random()*8);if(nearby&&Math.hypot(mob.x-nearby.x,mob.y-nearby.y)<TILE_SIZE*4)angleIndex=Math.round(Math.atan2(mob.y-nearby.y,mob.x-nearby.x)/(Math.PI/4));const angle=angleIndex*Math.PI/4,range=TILE_SIZE*(choice==="explore"?2.5:1.4);mob.targetX=mob.homeX+Math.cos(angle)*range;mob.targetY=mob.homeY+Math.sin(angle)*range;mob.purposeUntil=now+(choice==="explore"?7000:4500);mob.pauseUntil=choice==="explore"?0:now+1200;}
     if(now<Number(mob.pauseUntil||0)){mob.state=mob.purpose;return;}
     const targetDx=Number(mob.targetX??mob.homeX)-mob.x,targetDy=Number(mob.targetY??mob.homeY)-mob.y,targetDistance=Math.hypot(targetDx,targetDy);if(targetDistance<8){mob.pauseUntil=now+(mob.purpose==="explore"?700:1800);mob.state=mob.purpose;return;}
     const directionIndex=Math.round(Math.atan2(targetDy,targetDx)/(Math.PI/4)),heading=directionIndex*Math.PI/4,step=24*dt,dx=Math.cos(heading)*step,dy=Math.sin(heading)*step,beforeX=mob.x,beforeY=mob.y;
