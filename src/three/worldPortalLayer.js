@@ -356,6 +356,8 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       entry.x = mob.x ?? 0;
       entry.y = mob.y ?? 0;
       entry.facing = mob.facing || "right";
+      entry.facingDirection = mob.facingDirection || entry.facingDirection || entry.facing;
+      entry.purpose = mob.ecosystemState || mob.state || "explore";
       entry.sortY = mob.sortY ?? entry.y;
       entry.elevation = mob.elevation ?? 0;
       entry.moving = mob.state === "walk";
@@ -370,7 +372,8 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       entry.root.position.set(entry.x, -entry.y + 1.15 * scale, ISOMETRIC_DEPTH_BASE + (entry.sortY || entry.y) * ISOMETRIC_DEPTH_STEP + entry.elevation * 0.1 + 0.04);
       const clipped=false;
       entry.root.scale.setScalar(scale * (entry.selected ? 1.08 : 1));
-      entry.model.root.rotation.y = entry.facing === "left" ? Math.PI : 0;
+      const directionAngles={right:0,right_down:Math.PI/4,down:Math.PI/2,left_down:Math.PI*3/4,left:Math.PI,left_up:Math.PI*5/4,up:Math.PI*3/2,right_up:Math.PI*7/4};
+      entry.model.root.rotation.y=directionAngles[entry.facingDirection]??(entry.facing === "left" ? Math.PI : 0);
       entry.model.root.rotation.z = entry.incapacitated ? -Math.PI / 2 : 0;
       entry.model.root.traverse((object) => {
         if(object.material){object.material.transparent=clipped;object.material.opacity=clipped ? .68 : 1;object.material.alphaHash=clipped;}
@@ -383,6 +386,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
         leg.rotation.x = index % 2 === 0 ? stride : -stride;
       });
       entry.model.root.position.y = entry.incapacitated ? -0.4 : Math.abs(Math.sin(elapsed * 10)) * (entry.moving ? 0.05 : 0.015);
+      const head=entry.model.root.children[1];if(head&&!entry.incapacitated)head.rotation.y=Math.sin(elapsed*.8+entry.x*.01)*.12;
     });
   }
 

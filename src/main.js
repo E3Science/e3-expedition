@@ -82,15 +82,20 @@ async function loadDashboardInventory() {
   catch(error){console.warn("Could not load player inventory.",error);return;}
   const counts = {};
   (data || []).forEach((entry) => { counts[entry.item_id] = Number(entry.quantity) || 0; });
+  const durable=readDurableInventorySnapshot();if(!Object.keys(counts).length&&Object.keys(durable).length)Object.assign(counts,durable);
   const pending=readPendingInventoryWrites();Object.entries(pending).forEach(([itemKey,entry])=>{counts[itemKey]=Math.max(0,Number(entry?.quantity)||0);void persistInventoryCount(itemKey,counts[itemKey]);});
+  writeDurableInventorySnapshot(counts);
   restoreProgressionFromInventory(counts);
   updateInventoryUI(counts);
 }
 
 function inventoryWriteCacheKey(){return authUser?.id&&resolvedClassId?`e3:pending-inventory:${authUser.id}:${resolvedClassId}`:"";}
+function durableInventoryCacheKey(){return authUser?.id?`e3:inventory-snapshot:${authUser.id}`:"";}
+function readDurableInventorySnapshot(){const key=durableInventoryCacheKey();if(!key)return{};try{return JSON.parse(localStorage.getItem(key)||"{}")||{};}catch{return{};}}
+function writeDurableInventorySnapshot(counts){const key=durableInventoryCacheKey();if(!key)return;try{localStorage.setItem(key,JSON.stringify(Object.fromEntries(Object.entries(counts||{}).filter(([,quantity])=>Number(quantity)>0))));}catch(error){console.warn("Could not cache the local inventory snapshot.",error);}}
 function readPendingInventoryWrites(){const key=inventoryWriteCacheKey();if(!key)return{};try{return JSON.parse(localStorage.getItem(key)||"{}")||{};}catch{return{};}}
 function writePendingInventoryCount(itemKey,quantity){const key=inventoryWriteCacheKey();if(!key)return;const pending=readPendingInventoryWrites();pending[itemKey]={quantity,updatedAt:Date.now()};localStorage.setItem(key,JSON.stringify(pending));}
-async function persistInventoryCount(itemKey,quantity){if(!authUser?.id||!resolvedClassId)return;const{error}=await supabase.rpc("e3_set_inventory_item_quantity",{requested_class_id:resolvedClassId,requested_item_id:itemKey,requested_quantity:quantity});if(error){console.error(`Could not save inventory item ${itemKey}.`,error);return;}const key=inventoryWriteCacheKey(),pending=readPendingInventoryWrites();if(Number(pending[itemKey]?.quantity)===Number(quantity)){delete pending[itemKey];if(Object.keys(pending).length)localStorage.setItem(key,JSON.stringify(pending));else localStorage.removeItem(key);}}
+async function persistInventoryCount(itemKey,quantity){if(!authUser?.id||!resolvedClassId)return;const{error}=await supabase.rpc("e3_set_inventory_item_quantity",{requested_class_id:resolvedClassId,requested_item_id:itemKey,requested_quantity:quantity});if(error){console.error(`Could not save inventory item ${itemKey}.`,error);return;}let confirmed=false;try{const snapshot=await dashboardRpc("e3_inventory_snapshot",{requested_class_id:resolvedClassId});confirmed=Number(snapshot?.items?.[itemKey]||0)===Number(quantity);}catch(error){console.warn("Inventory save could not be verified yet.",error);}if(!confirmed)return;const key=inventoryWriteCacheKey(),pending=readPendingInventoryWrites();if(Number(pending[itemKey]?.quantity)===Number(quantity)){delete pending[itemKey];if(Object.keys(pending).length)localStorage.setItem(key,JSON.stringify(pending));else localStorage.removeItem(key);}}
 
 function getProgressLevelFromPoints(points) {
   let level = 1;
@@ -646,6 +651,7 @@ function setStandaloneInventoryCount(itemKey, quantity) {
   const count = Math.max(0, Math.floor(Number(quantity) || 0));
   if (count > 0) inventory.set(itemKey, count);
   else inventory.delete(itemKey);
+  writeDurableInventorySnapshot({...latestInventoryCounts,[itemKey]:count});
   if (authUser?.id && resolvedClassId) {
     writePendingInventoryCount(itemKey,count);
     void persistInventoryCount(itemKey,count);
@@ -4106,8 +4112,10 @@ function syncWorld3DEntities() {
   const projectEntity = (entity) => {
     const displayPosition = logicalWorldToDisplay(entity.x ?? 0, entity.y ?? 0);
     const supportDisplay=entity.blockSupportTile?tileToDisplayPosition(entity.blockSupportTile.tileX,entity.blockSupportTile.tileY):displayPosition;
+    const vx=Number(entity.vx)||0,vy=Number(entity.vy)||0,directionIndex=Math.hypot(vx,vy)>.01?((Math.round(Math.atan2(vy,vx)/(Math.PI/4))%8)+8)%8:null;
     return {
       ...entity,
+      facingDirection:entity.facingDirection||(directionIndex===null?undefined:["right","right_down","down","left_down","left","left_up","up","right_up"][directionIndex]),
       x: displayPosition.x,
       y: displayPosition.y-(entity.blockFloor||0)-(entity.blockJump||0),
       sortY:supportDisplay.y,
@@ -4452,7 +4460,9 @@ function createStandaloneAnimalsFromMap() {
       const health=80+Number(tier||1)*20;mobs.push({id:`local-box-animal-${index}`,mapKey:currentMapKey,kind,tier,speciesKey,x:homeX,y:homeY,homeX,homeY,facing:index%2?"left":"right",state:"walk",phase:index*1.37,stamina:health,maxStamina:health,health,maxHealth:health,incapacitated:false,esm:20,maxEsm:20,ecosystemState:"local simulation"});
     });
   }
-  applyRuntimeMobSnapshot({ mapKey: currentMapKey, mobs });
+  const populations=new Map();mobs.forEach((mob)=>{const group=populations.get(mob.speciesKey)||[];group.push(mob);populations.set(mob.speciesKey,group);});
+  const representatives=[];populations.forEach((group)=>{const visibleCount=Math.min(4,Math.max(1,Math.ceil(group.length/10)));group.slice(0,visibleCount).forEach((mob)=>representatives.push({...mob,populationSize:group.length,representedAnimals:Math.max(1,Math.ceil(group.length/visibleCount))}));});
+  applyRuntimeMobSnapshot({ mapKey: currentMapKey, mobs:representatives });
 }
 
 async function loadStandaloneMap(mapKey) {
@@ -4576,14 +4586,14 @@ function updateStandaloneAnimals(elapsedSeconds) {
   Object.values(latestRuntimeMobSnapshot).forEach((mob) => {
     if (!mob?.homeX && !mob?.homeY) return;
     if(mob.incapacitated){if(Date.now()-(Number(mob.incapacitatedAtEpochMs)||Date.now())<30000){mob.state="defeated";return;}mob.incapacitated=false;mob.incapacitatedAtEpochMs=0;mob.health=Math.max(1,Math.ceil(Number(mob.maxHealth||mob.maxStamina)*.5));mob.stamina=mob.health;mob.state="walk";}
-    const previous=Number(mob.lastMoveAt)||elapsedSeconds;const dt=Math.min(.05,Math.max(0,elapsedSeconds-previous));mob.lastMoveAt=elapsedSeconds;
-    if(!Number.isFinite(mob.heading))mob.heading=Number(mob.phase)||0;
-    const homeDx=mob.homeX-mob.x;const homeDy=mob.homeY-mob.y;const homeDistance=Math.hypot(homeDx,homeDy);const roamRadius=TILE_SIZE*(1.8+Number(mob.tier||1)*.3);
-    if(homeDistance>roamRadius)mob.heading=Math.atan2(homeDy,homeDx);else mob.heading+=Math.sin(elapsedSeconds*.37+Number(mob.phase||0))*.012;
-    const step=24*dt;const dx=Math.cos(mob.heading)*step;const dy=Math.sin(mob.heading)*step;const beforeX=mob.x;const beforeY=mob.y;
+    const now=Date.now(),previous=Number(mob.lastMoveAt)||elapsedSeconds,dt=Math.min(.05,Math.max(0,elapsedSeconds-previous));mob.lastMoveAt=elapsedSeconds;
+    if(!mob.purpose||now>=Number(mob.purposeUntil||0)){const purposes=["explore","eat","hide","breed"],choice=purposes[Math.floor(Math.random()*purposes.length)];mob.purpose=choice;mob.ecosystemState=choice;const angleIndex=Math.floor(Math.random()*8),angle=angleIndex*Math.PI/4,range=TILE_SIZE*(choice==="explore"?2.5:1.4);mob.targetX=mob.homeX+Math.cos(angle)*range;mob.targetY=mob.homeY+Math.sin(angle)*range;mob.purposeUntil=now+(choice==="explore"?7000:4500);mob.pauseUntil=choice==="explore"?0:now+1200;}
+    if(now<Number(mob.pauseUntil||0)){mob.state=mob.purpose;return;}
+    const targetDx=Number(mob.targetX??mob.homeX)-mob.x,targetDy=Number(mob.targetY??mob.homeY)-mob.y,targetDistance=Math.hypot(targetDx,targetDy);if(targetDistance<8){mob.pauseUntil=now+(mob.purpose==="explore"?700:1800);mob.state=mob.purpose;return;}
+    const directionIndex=Math.round(Math.atan2(targetDy,targetDx)/(Math.PI/4)),heading=directionIndex*Math.PI/4,step=24*dt,dx=Math.cos(heading)*step,dy=Math.sin(heading)*step,beforeX=mob.x,beforeY=mob.y;
     if(blockSystem){const resolved=blockSystem.updateEntityPhysics(mob.id,beforeX,beforeY,dx,dy,5);mob.x=resolved.x;mob.y=resolved.y;mob.blockFloor=resolved.floor;mob.blockJump=resolved.jump;mob.blockSupportTile=resolved.supportTile;mob.blockElevation=resolved.elevation;}else{mob.x=beforeX+dx;mob.y=beforeY+dy;}
-    if(Math.hypot(mob.x-beforeX,mob.y-beforeY)<step*.25)mob.heading+=Math.PI*.55;
-    mob.facing = mob.x < beforeX ? "left" : "right";
+    if(Math.hypot(mob.x-beforeX,mob.y-beforeY)<step*.25){mob.purposeUntil=0;mob.pauseUntil=now+500;}
+    mob.facingDirection=["right","right_down","down","left_down","left","left_up","up","right_up"][((directionIndex%8)+8)%8];mob.facing = mob.x < beforeX ? "left" : "right";
     mob.state = "walk";
     const maxHealth=Number(mob.maxHealth||mob.maxStamina)||1;if(Number(mob.health)<maxHealth){mob.health=Math.min(maxHealth,Number(mob.health)+maxHealth*.01*dt);mob.stamina=mob.health;}
   });
