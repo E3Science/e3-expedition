@@ -58,8 +58,8 @@ export const BLOCK_MATERIALS = [
   ,{key:"solar_panel",label:"Solar panel",frame:10,solid:true,kind:"furniture",nonStackable:true,asset:"assets/blocks/expedition-kit/solar-panel.png"}
   ,{key:"satellite",label:"Satellite dish",frame:10,solid:true,kind:"furniture",nonStackable:true,asset:"assets/blocks/expedition-kit/satellite.png"}
   ,{key:"water_pump",label:"Water pump",frame:10,solid:true,kind:"furniture",nonStackable:true,asset:"assets/blocks/expedition-kit/water-pump.png"}
-  ,{key:"pipe_straight_up",label:"Water pipe",frame:10,solid:true,kind:"pipe",asset:"assets/blocks/expedition-kit/pipe-block.png"}
-  ,{key:"pipe_straight_down",label:"Water pipe · reverse",frame:10,solid:true,kind:"pipe",asset:"assets/blocks/expedition-kit/pipe-block.png"}
+  ,{key:"pipe_straight_up",label:"Water pipe",frame:10,solid:true,kind:"pipe",asset:"assets/blocks/expedition-kit/pipe-block-v2.png"}
+  ,{key:"pipe_straight_down",label:"Water pipe · reverse",frame:10,solid:true,kind:"pipe",asset:"assets/blocks/expedition-kit/pipe-block-v2.png"}
   ,{key:"pipe_elbow",label:"Pipe · elbow",frame:10,solid:true,kind:"pipe",asset:"assets/blocks/expedition-kit/pipe-elbow.png"}
   ,{key:"pipe_junction",label:"Pipe · junction",frame:10,solid:true,kind:"pipe",asset:"assets/blocks/expedition-kit/pipe-junction.png"}
   ,{key:"pipe_cross",label:"Pipe · cross",frame:10,solid:true,kind:"pipe",asset:"assets/blocks/expedition-kit/pipe-cross.png"}
@@ -140,7 +140,7 @@ function createBlockTexture(scene, atlasKey, material) {
     const asset=scene.textures.get(`e3_block_asset_${material.key}`)?.getSourceImage?.();
     if(material.kind==="cultivator"){const crate=scene.textures.get("e3_block_asset_supply_crate")?.getSourceImage?.();if(crate)drawContainedAsset(ctx,crate);}
     else if(material.kind==="rockProcessor"){const crate=scene.textures.get("e3_block_asset_supply_crate")?.getSourceImage?.();if(crate)drawContainedAsset(ctx,crate,0,{x:0,y:24,width:64,height:40});if(asset)drawContainedAsset(ctx,asset,1,{x:5,y:0,width:54,height:45});}
-    else if(asset){if(material.kind==="plant")ctx.drawImage(asset,0,0,BLOCK_SIZE,BLOCK_SIZE);else drawContainedAsset(ctx,asset);}
+    else if(asset){if(material.kind==="plant")ctx.drawImage(asset,0,0,BLOCK_SIZE,BLOCK_SIZE);else if(material.kind==="pipe")drawContainedAsset(ctx,asset,0,{x:-3,y:-3,width:70,height:70});else if(["water_pump","liquid_tank"].includes(material.key))drawContainedAsset(ctx,asset,1,{x:0,y:7,width:64,height:64});else drawContainedAsset(ctx,asset);}
     scene.textures.addCanvas(key,canvas);return key;
   }
   if(material.kind==="invisible"){scene.textures.addCanvas(key,canvas);return key;}

@@ -368,7 +368,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
 
   function updateMobs(elapsed) {
     mobEntries.forEach((entry) => {
-      const scale = entry.kind === "apex_predator" ? 9.5 : entry.kind === "carnivore" ? 8.2 : 7.5;
+      const scale = entry.kind === "apex_predator" ? 10.5 : entry.kind === "carnivore" ? 9.7 : 9.2;
       entry.root.position.set(entry.x, -entry.y + 1.15 * scale, ISOMETRIC_DEPTH_BASE + (entry.sortY || entry.y) * ISOMETRIC_DEPTH_STEP + entry.elevation * 0.1 + 0.04);
       const clipped=false;
       entry.root.scale.setScalar(scale * (entry.selected ? 1.08 : 1));
