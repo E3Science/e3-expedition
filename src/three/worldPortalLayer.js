@@ -246,7 +246,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       entry.root.scale.set(scale, scale, 0.5);
       entry.shadow.sprite.position.set(entry.x,-entry.surfaceY-4,entry.root.position.z-0.01);
       entry.nameplate.sprite.position.set(entry.x,-entry.y+76,1901);
-      const clipped=[...blockEntries.values()].some((block)=>!block.isTransparent&&!block.preview&&Math.abs(block.sprite.position.x-entry.x)<30&&entry.y<=block.targetY+4&&entry.y>=block.targetY-72&&block.sprite.position.z>entry.root.position.z);
+      const obscuringBlocks=[...blockEntries.values()].filter((block)=>!block.isTransparent&&!block.preview&&Math.abs(block.sprite.position.x-entry.x)<30&&entry.y<=block.targetY+4&&entry.y>=block.targetY-72&&block.sprite.position.z>entry.root.position.z);
 
       const directionRotations = {
         down: 0,
@@ -266,7 +266,8 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       entry.model.root.position.y=0;entry.model.root.scale.y=1;
       entry.travelModels?.setMode(entry.travelMode);
       entry.model.root.traverse((object)=>{if(object.name==="left_leg"||object.name==="right_leg")object.visible=!entry.travelMode;});
-      entry.model.root.traverse((object)=>{if(!object.material)return;object.material.transparent=clipped;object.material.opacity=clipped ? .68 : 1;object.material.alphaHash=clipped;});
+      entry.model.root.traverse((object)=>{if(!object.material)return;object.material.transparent=false;object.material.opacity=1;object.material.alphaHash=false;});
+      obscuringBlocks.forEach((block)=>{block.material.transparent=true;block.material.opacity=Math.min(block.baseOpacity,.38);block.material.alphaHash=true;});
       const angleDelta = Math.atan2(
         Math.sin(targetRotation - entry.model.root.rotation.y),
         Math.cos(targetRotation - entry.model.root.rotation.y)

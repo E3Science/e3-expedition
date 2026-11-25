@@ -876,6 +876,9 @@ type RuntimeMobEntity = {
   kind: MobKind;
   tier: number;
   speciesKey: string;
+  populationSize?: number;
+  representedAnimals?: number;
+  groupId?: string;
 
   x: number;
   y: number;
@@ -1190,6 +1193,7 @@ class ClassRoom extends Room {
   tradeSessions = new Map<string, RuntimeTradeSession>();
   playerTradeSessionIds = new Map<string, string>();
   lastMobSnapshotBroadcastAt = 0;
+  lastEcosystemPersistenceAt = 0;
   lastCollectableSnapshotBroadcastAt = 0;
     ecosystemTimeScale = 1;
       showEsmLabels = false;
@@ -1953,6 +1957,16 @@ speciesKey: getMobSpeciesKeyForFrame(anchor.anchorFrame),
       anchors: this.runtimeMobSpawnAnchors.length,
       mobs: this.runtimeMobEntities.length
     });
+  }
+
+  applySavedMobPopulationState(state:{species?:Record<string,number>}={}) {
+    const saved=state.species||{},templates=[...this.runtimeMobEntities],bounds=this.getRoomWorldBounds();
+    const hazards=new Set((this.currentVoxelBlocks||[]).filter((block)=>block.material==="water"||block.material==="magma").map((block)=>`${block.x}:${block.y}`));
+    const safeCenters:Array<{x:number;y:number}>=[];
+    for(let row=0;row<4;row+=1)for(let column=0;column<5;column+=1){const x=bounds.minX+(column+1)*(bounds.maxX-bounds.minX)/6,y=bounds.minY+(row+1)*(bounds.maxY-bounds.minY)/5,tileX=Math.floor((x-bounds.minX)/TILE_SIZE),tileY=Math.floor((y-bounds.minY)/TILE_SIZE);if(!hazards.has(`${tileX}:${tileY}`))safeCenters.push({x,y});}
+    const configs:[MobKind,number,number,number][]=[["herbivore",250,200,5],["carnivore",150,100,3],["apex_predator",50,30,1]],next:RuntimeMobEntity[]=[];
+    configs.forEach(([kind,cap,fallback,maxGroups],categoryIndex)=>{const kindTemplates=templates.filter((mob)=>mob.kind===kind);if(!kindTemplates.length)return;const speciesKeys=[...new Set(kindTemplates.map((mob)=>mob.speciesKey))],savedTotal=speciesKeys.reduce((sum,key)=>sum+Math.max(0,Number(saved[key])||0),0),population=Math.min(cap,savedTotal||fallback),visible=Math.max(1,Math.ceil(population/10));let remaining=visible,groupIndex=0;while(remaining>0&&groupIndex<maxGroups){const size=Math.min(remaining,3+Math.floor(Math.random()*3)),speciesKey=speciesKeys[groupIndex%speciesKeys.length],template=kindTemplates.find((mob)=>mob.speciesKey===speciesKey)||kindTemplates[0],center=safeCenters.splice((categoryIndex*4+groupIndex)%Math.max(1,safeCenters.length),1)[0]||{x:bounds.minX+(groupIndex+2)*TILE_SIZE*3,y:bounds.minY+(categoryIndex+2)*TILE_SIZE*4},speciesPopulation=Math.max(size,Number(saved[speciesKey])||Math.round(population/speciesKeys.length));for(let member=0;member<size;member+=1){const angle=member*Math.PI*2/size,radius=member?TILE_SIZE*.45:0;next.push({...template,id:`${template.id}-${kind}-group-${groupIndex}-${member}`,x:center.x+Math.cos(angle)*radius,y:center.y+Math.sin(angle)*radius,homeX:center.x,homeY:center.y,populationSize:speciesPopulation,representedAnimals:10,groupId:`${kind}-${groupIndex}`});}remaining-=size;groupIndex+=1;}});
+    if(next.length)this.runtimeMobEntities=next;
   }
 
     /*
@@ -3947,6 +3961,7 @@ updateCarnivoreMob(mob: RuntimeMobEntity, dt: number, now: number) {  if (mob.in
     const dt = (deltaTime * this.ecosystemTimeScale) / 1000;
     const realDt = deltaTime / 1000;
     const now = Date.now();
+    const roomBounds=this.getRoomWorldBounds(),animalHazards=new Set((this.currentVoxelBlocks||[]).filter((block)=>block.material==="water"||block.material==="magma").map((block)=>`${block.x}:${block.y}`));
 
     const currentMobs = [...this.runtimeMobEntities];
 
@@ -4002,13 +4017,14 @@ updateCarnivoreMob(mob: RuntimeMobEntity, dt: number, now: number) {  if (mob.in
       let nextX = mob.x + mob.vx * dt;
       let nextY = mob.y + mob.vy * dt;
 
-      const bounds = this.getRoomWorldBounds();
+      const bounds = roomBounds;
       nextX = Math.max(bounds.minX, Math.min(bounds.maxX - 1, nextX));
       nextY = Math.max(bounds.minY, Math.min(bounds.maxY - 1, nextY));
 
-      const canMoveX = !this.isCollisionTileAtWorldPosition(nextX, mob.y);
-      const canMoveY = !this.isCollisionTileAtWorldPosition(mob.x, nextY);
-      const canMoveXY = !this.isCollisionTileAtWorldPosition(nextX, nextY);
+      const isAnimalHazard=(x:number,y:number)=>{const tileX=Math.floor((x-bounds.minX)/TILE_SIZE),tileY=Math.floor((y-bounds.minY)/TILE_SIZE);return animalHazards.has(`${tileX}:${tileY}`);};
+      const canMoveX = !isAnimalHazard(nextX,mob.y)&&!this.isCollisionTileAtWorldPosition(nextX, mob.y);
+      const canMoveY = !isAnimalHazard(mob.x,nextY)&&!this.isCollisionTileAtWorldPosition(mob.x, nextY);
+      const canMoveXY = !isAnimalHazard(nextX,nextY)&&!this.isCollisionTileAtWorldPosition(nextX, nextY);
 
       if (canMoveXY) {
         mob.x = nextX;
@@ -4030,7 +4046,10 @@ updateCarnivoreMob(mob: RuntimeMobEntity, dt: number, now: number) {  if (mob.in
     });
 
     this.broadcastRuntimeMobSnapshot();
+    if(now-this.lastEcosystemPersistenceAt>=30000){this.lastEcosystemPersistenceAt=now;void this.persistMapEcosystemState();}
   }
+
+  async persistMapEcosystemState(){const species:Record<string,number>={};this.runtimeMobEntities.forEach((mob)=>{species[mob.speciesKey]=(species[mob.speciesKey]||0)+Math.max(1,Number(mob.representedAnimals)||10);});const{error}=await supabaseAdmin.from("room_layouts").update({ecosystem_state:{species,updatedAt:new Date().toISOString()}}).eq("layout_key",this.currentMapKey);if(error)console.error("Could not persist map ecosystem state:",error);}
 
   broadcastRuntimeMobSnapshot(force = false) {
     const now = Date.now();
@@ -4064,6 +4083,9 @@ updateCarnivoreMob(mob: RuntimeMobEntity, dt: number, now: number) {  if (mob.in
     ecosystemState: mob.state,
     targetId: mob.targetId,
     speciesKey: mob.speciesKey,
+    populationSize: mob.populationSize,
+    representedAnimals: mob.representedAnimals,
+    groupId: mob.groupId,
   }))
 };
 
@@ -8703,6 +8725,7 @@ if (stillDistance > TILE_SIZE * 6) {
       )
     );
     this.rebuildRuntimeMobEntitiesFromAnchors();
+    this.applySavedMobPopulationState(loadedLayout.ecosystemState);
 
     console.log("Loaded and expanded server layout:", {
       layoutKey: this.currentLayoutKey,
@@ -8792,6 +8815,9 @@ player.maxHealth = 100;
     ecosystemState: mob.state,
     targetId: mob.targetId,
     speciesKey: mob.speciesKey,
+    populationSize: mob.populationSize,
+    representedAnimals: mob.representedAnimals,
+    groupId: mob.groupId,
   }))
 });
 
@@ -8889,7 +8915,7 @@ player.maxHealth = 100;
   async loadRoomLayoutRow(layoutKey: string) {
     const { data, error } = await supabaseAdmin
       .from("room_layouts")
-      .select("layout_key, base_layer, detail_layer, overhead_layer, object_layer, voxel_blocks")
+      .select("layout_key, base_layer, detail_layer, overhead_layer, object_layer, voxel_blocks, ecosystem_state")
       .eq("layout_key", layoutKey)
       .single();
 
@@ -8927,7 +8953,8 @@ player.maxHealth = 100;
     return {
       layoutKey: data.layout_key as string,
       layout,
-      voxelBlocks: Array.isArray(data.voxel_blocks) ? data.voxel_blocks as VoxelBlockSnapshot[] : null
+      voxelBlocks: Array.isArray(data.voxel_blocks) ? data.voxel_blocks as VoxelBlockSnapshot[] : null,
+      ecosystemState: data.ecosystem_state && typeof data.ecosystem_state === "object" ? data.ecosystem_state as {species?:Record<string,number>} : {}
     };
   }
 
@@ -8960,7 +8987,8 @@ player.maxHealth = 100;
     return {
       layoutKey: mapKey,
       layout: fallbackLayout,
-      voxelBlocks: null
+      voxelBlocks: null,
+      ecosystemState: {}
     };
   }
     async loadTilesetFrameMetadata() {
@@ -9283,6 +9311,7 @@ player.maxHealth = 100;
   Removes the player from room state when they disconnect.
   */
   onLeave(client: Client) {
+    void this.persistMapEcosystemState();
     this.playerInputSpeedScales.delete(client.sessionId);
     this.playerInputEditorModes.delete(client.sessionId);
     this.cancelPlayerTradeActivity(client.sessionId, "Trade cancelled because a player disconnected.");

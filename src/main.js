@@ -2148,9 +2148,13 @@ let isSavingLayout = false;
 const voxelMapAutosaveTimers = new Map();
 const pendingVoxelMapSnapshots = new Map();
 const savedVoxelMapSignatures = new Map();
+let loadedMapEcosystemState = {};
+
+function getCurrentSpeciesPopulationState(){const species={};Object.values(latestRuntimeMobSnapshot||{}).forEach((mob)=>{const key=String(mob.speciesKey||"");if(key)species[key]=Math.max(Number(species[key])||0,Number(mob.populationSize)||Number(mob.representedAnimals)||1);});return {species,updatedAt:new Date().toISOString()};}
+async function persistCurrentEcosystemState(mapKey=currentMapKey||DEFAULT_MAP_KEY){if(!isAdminUser())return;const state=getCurrentSpeciesPopulationState();try{localStorage.setItem(`e3:map-ecosystem:${mapKey}`,JSON.stringify(state));const{error}=await supabase.from("room_layouts").update({ecosystem_state:state}).eq("layout_key",mapKey);if(error)throw error;}catch(error){console.error(`Could not save ecosystem state for ${mapKey}.`,error);}}
 
 function scheduleVoxelMapAutosave(mapKey, snapshot) {
-  if ((authUser?.email || "").toLowerCase() !== "mnelsen@susd.net") return;
+  if (!isAdminUser()) return;
   const key = String(mapKey || DEFAULT_MAP_KEY);
   const blocks = Array.isArray(snapshot) ? snapshot : [];
   const signature = JSON.stringify(blocks);
@@ -2176,6 +2180,15 @@ function scheduleVoxelMapAutosave(mapKey, snapshot) {
       voxelMapAutosaveTimers.set(key, window.setTimeout(() => scheduleVoxelMapAutosave(key, pending.blocks), 5000));
     }
   }, 1200));
+}
+
+async function flushVoxelMapAutosave(mapKey=currentMapKey||DEFAULT_MAP_KEY) {
+  const key=String(mapKey||DEFAULT_MAP_KEY),pending=pendingVoxelMapSnapshots.get(key);
+  if(!pending){await persistCurrentEcosystemState(key);return true;}
+  window.clearTimeout(voxelMapAutosaveTimers.get(key));voxelMapAutosaveTimers.delete(key);
+  const {error}=await supabase.from("room_layouts").update({voxel_blocks:pending.blocks}).eq("layout_key",key);
+  if(error){console.error(`Could not save voxel map ${key} before leaving it.`,error);scheduleVoxelMapAutosave(key,pending.blocks);return false;}
+  pendingVoxelMapSnapshots.delete(key);savedVoxelMapSignatures.set(key,pending.signature);await persistCurrentEcosystemState(key);return true;
 }
 
 /*
@@ -4424,6 +4437,11 @@ function getStandaloneMobSpecies(frameIndex) {
   return "unknown";
 }
 
+function isVoxelAnimalHazard(worldX,worldY){
+  const tile=logicalWorldToTilePosition(worldX,worldY);if(!tile)return true;
+  return (blockSystem?.getSnapshot?.()||[]).some((block)=>block.x===tile.tileX&&block.y===tile.tileY&&(block.material==="water"||block.material==="magma"));
+}
+
 function createStandaloneAnimalsFromMap() {
   const mobs = [];
   roomObjectLayerMap.forEach((row, tileY) => row?.forEach?.((frame, tileX) => {
@@ -4462,8 +4480,9 @@ function createStandaloneAnimalsFromMap() {
     });
   }
   const populations=new Map();mobs.forEach((mob)=>{const group=populations.get(mob.speciesKey)||[];group.push(mob);populations.set(mob.speciesKey,group);});
-  const categoryConfig={herbivore:{population:200,maxPopulation:250,maxGroups:5},carnivore:{population:100,maxPopulation:150,maxGroups:3},apex_predator:{population:30,maxPopulation:50,maxGroups:1}},representatives=[],usedCenters=[];
-  const gridWidth=Math.max(12,Math.floor(getCurrentRoomLogicalWidth()/TILE_SIZE)),gridHeight=Math.max(12,Math.floor(getCurrentRoomLogicalHeight()/TILE_SIZE)),candidateCenters=[];for(let row=0;row<4;row+=1)for(let column=0;column<5;column+=1){const tileX=Math.round(3+column*(gridWidth-7)/4),tileY=Math.round(3+row*(gridHeight-7)/3);if(blockSystem?.terrainHeight?.(tileX,tileY)===2)candidateCenters.push({x:tileToWorldX(tileX)+TILE_SIZE/2,y:tileToWorldY(tileY)+TILE_SIZE/2});}
+  const savedSpecies=loadedMapEcosystemState?.species||{},savedCategoryPopulation=(kind,fallback)=>{const total=Object.entries(savedSpecies).filter(([key])=>kind==="herbivore"?key.startsWith("herbivore_"):kind==="carnivore"?key.startsWith("carnivore_"):key.startsWith("apex_predator_")).reduce((sum,[,count])=>sum+Math.max(0,Number(count)||0),0);return total||fallback;};
+  const categoryConfig={herbivore:{population:savedCategoryPopulation("herbivore",200),maxPopulation:250,maxGroups:5},carnivore:{population:savedCategoryPopulation("carnivore",100),maxPopulation:150,maxGroups:3},apex_predator:{population:savedCategoryPopulation("apex_predator",30),maxPopulation:50,maxGroups:1}},representatives=[],usedCenters=[];
+  const gridWidth=Math.max(12,Math.floor(getCurrentRoomLogicalWidth()/TILE_SIZE)),gridHeight=Math.max(12,Math.floor(getCurrentRoomLogicalHeight()/TILE_SIZE)),candidateCenters=[];for(let row=0;row<4;row+=1)for(let column=0;column<5;column+=1){const tileX=Math.round(3+column*(gridWidth-7)/4),tileY=Math.round(3+row*(gridHeight-7)/3),x=tileToWorldX(tileX)+TILE_SIZE/2,y=tileToWorldY(tileY)+TILE_SIZE/2;if(blockSystem?.terrainHeight?.(tileX,tileY)===2&&!isVoxelAnimalHazard(x,y))candidateCenters.push({x,y});}
   Object.entries(categoryConfig).forEach(([kind,config],categoryIndex)=>{const species=[...populations.entries()].filter(([,group])=>group[0]?.kind===kind);if(!species.length)return;const visibleCount=Math.ceil(config.population/10),groupCount=Math.min(config.maxGroups,Math.max(species.length,Math.ceil(visibleCount/5))),baseGroupSize=Math.floor(visibleCount/groupCount),extra=visibleCount%groupCount,speciesGroupCounts=new Map();for(let groupIndex=0;groupIndex<groupCount;groupIndex+=1)speciesGroupCounts.set(species[groupIndex%species.length][0],(speciesGroupCounts.get(species[groupIndex%species.length][0])||0)+1);const speciesPopulations=new Map([...speciesGroupCounts].map(([key,count])=>[key,Math.round(config.population*count/groupCount)]));for(let groupIndex=0;groupIndex<groupCount;groupIndex+=1){const [speciesKey,sources]=species[groupIndex%species.length],template=sources[0],memberCount=baseGroupSize+(groupIndex<extra?1:0),center=candidateCenters.splice((categoryIndex*3+groupIndex)%Math.max(1,candidateCenters.length),1)[0]||{x:ROOM_OFFSET_X+TILE_SIZE*(3+groupIndex*4),y:ROOM_OFFSET_Y+TILE_SIZE*(3+categoryIndex*7)};usedCenters.push(center);for(let member=0;member<memberCount;member+=1){const angle=member*Math.PI*2/memberCount,radius=member?TILE_SIZE*.48:0;representatives.push({...template,id:`${template.id}-${kind}-group-${groupIndex}-member-${member}`,x:center.x+Math.cos(angle)*radius,y:center.y+Math.sin(angle)*radius,homeX:center.x,homeY:center.y,phase:categoryIndex+groupIndex*.83+member*.41,populationSize:speciesPopulations.get(speciesKey),populationCap:Math.round(config.maxPopulation*(speciesGroupCounts.get(speciesKey)||1)/groupCount),representedAnimals:10,speciesKey,groupId:`${kind}-${groupIndex}`});}}});
   applyRuntimeMobSnapshot({ mapKey: currentMapKey, mobs:representatives });
 }
@@ -4471,16 +4490,19 @@ function createStandaloneAnimalsFromMap() {
 async function loadStandaloneMap(mapKey) {
   const { data, error } = await supabase
     .from("room_layouts")
-    .select("layout_key,base_layer,detail_layer,overhead_layer,object_layer,voxel_blocks")
+    .select("layout_key,base_layer,detail_layer,overhead_layer,object_layer,voxel_blocks,ecosystem_state")
     .eq("layout_key", mapKey || DEFAULT_MAP_KEY)
     .maybeSingle();
   if (error) throw error;
   if (!data) {
     console.warn(`No saved map was found for ${mapKey}; keeping the bundled fallback map.`);
+    try{loadedMapEcosystemState=JSON.parse(localStorage.getItem(`e3:map-ecosystem:${mapKey}`)||"{}")||{};}catch{loadedMapEcosystemState={};}
     if(CUBE_PLANET_MAP_KEYS.has(mapKey))blockSystem?.regenerate?.();
     createStandaloneAnimalsFromMap();
     return false;
   }
+  loadedMapEcosystemState=data.ecosystem_state&&typeof data.ecosystem_state==="object"?data.ecosystem_state:{};
+  if(!Object.keys(loadedMapEcosystemState).length)try{loadedMapEcosystemState=JSON.parse(localStorage.getItem(`e3:map-ecosystem:${mapKey}`)||"{}")||{};}catch{loadedMapEcosystemState={};}
   const layout = {
     base: data.base_layer || [],
     detail: data.detail_layer || [],
@@ -4586,7 +4608,7 @@ function updateStandalonePlayer() {
 
 function updateStandaloneAnimals(elapsedSeconds) {
   if (!standaloneWorld) return;
-  const now=Date.now(),animals=Object.values(latestRuntimeMobSnapshot);
+  const now=Date.now(),animals=Object.values(latestRuntimeMobSnapshot),hazardTiles=new Set((blockSystem?.getSnapshot?.()||[]).filter((block)=>block.material==="water"||block.material==="magma").map((block)=>`${block.x}:${block.y}`));
   if(now-lastStandalonePopulationUpdateAt>=30000){
     lastStandalonePopulationUpdateAt=now;
     const worldBlocks=blockSystem?.getSnapshot?.()||[];
@@ -4595,6 +4617,7 @@ function updateStandaloneAnimals(elapsedSeconds) {
     const actualByKind={herbivore:0,carnivore:0,apex_predator:0};speciesGroups.forEach((group)=>{const sample=group[0];actualByKind[sample.kind]=(actualByKind[sample.kind]||0)+Number(sample.populationSize||group.length*10);});
     const capacityByKind={herbivore:Math.min(250,Math.max(20,plantFood*5)),carnivore:Math.min(150,Math.max(8,Math.floor(actualByKind.herbivore*.55))),apex_predator:Math.min(50,Math.max(3,Math.floor(actualByKind.carnivore*.3)))};
     speciesGroups.forEach((group)=>{const sample=group[0],current=Math.max(0,Number(sample.populationSize||group.length*10)),kindTotal=Math.max(1,actualByKind[sample.kind]||current),speciesCapacity=Math.max(group.length,Math.floor(capacityByKind[sample.kind]*(current/kindTotal))),pressure=current>speciesCapacity?-Math.max(1,Math.ceil((current-speciesCapacity)/20)):Math.random()<.65?1:0,next=Math.max(group.length,Math.min(Number(sample.populationCap)||speciesCapacity,current+pressure));group.forEach((mob)=>{mob.populationSize=next;mob.ecosystemState=pressure<0?"food scarce":pressure>0?"population growing":mob.ecosystemState;});});
+    void persistCurrentEcosystemState(currentMapKey||DEFAULT_MAP_KEY);
   }
   animals.forEach((mob) => {
     if (!mob?.homeX && !mob?.homeY) return;
@@ -4604,7 +4627,7 @@ function updateStandaloneAnimals(elapsedSeconds) {
     if(now<Number(mob.pauseUntil||0)){mob.state=mob.purpose;return;}
     const targetDx=Number(mob.targetX??mob.homeX)-mob.x,targetDy=Number(mob.targetY??mob.homeY)-mob.y,targetDistance=Math.hypot(targetDx,targetDy);if(targetDistance<8){mob.pauseUntil=now+(mob.purpose==="explore"?700:1800);mob.state=mob.purpose;return;}
     const directionIndex=Math.round(Math.atan2(targetDy,targetDx)/(Math.PI/4)),heading=directionIndex*Math.PI/4,step=24*dt,dx=Math.cos(heading)*step,dy=Math.sin(heading)*step,beforeX=mob.x,beforeY=mob.y;
-    if(blockSystem){const resolved=blockSystem.updateEntityPhysics(mob.id,beforeX,beforeY,dx,dy,5);mob.x=resolved.x;mob.y=resolved.y;mob.blockFloor=resolved.floor;mob.blockJump=resolved.jump;mob.blockSupportTile=resolved.supportTile;mob.blockElevation=resolved.elevation;}else{mob.x=beforeX+dx;mob.y=beforeY+dy;}
+    const nextTile=logicalWorldToTilePosition(beforeX+dx,beforeY+dy),hazard=nextTile&&hazardTiles.has(`${nextTile.tileX}:${nextTile.tileY}`);if(hazard){mob.purposeUntil=0;mob.pauseUntil=now+500;mob.vx=0;mob.vy=0;}else if(blockSystem){const resolved=blockSystem.updateEntityPhysics(mob.id,beforeX,beforeY,dx,dy,5);mob.x=resolved.x;mob.y=resolved.y;mob.blockFloor=resolved.floor;mob.blockJump=resolved.jump;mob.blockSupportTile=resolved.supportTile;mob.blockElevation=resolved.elevation;}else{mob.x=beforeX+dx;mob.y=beforeY+dy;}
     if(Math.hypot(mob.x-beforeX,mob.y-beforeY)<step*.25){mob.purposeUntil=0;mob.pauseUntil=now+500;}
     mob.facingDirection=["right","right_down","down","left_down","left","left_up","up","right_up"][((directionIndex%8)+8)%8];mob.facing = mob.x < beforeX ? "left" : "right";
     mob.state = "walk";
@@ -4875,10 +4898,7 @@ function create() {
 
   authStatusText = null;
 
-  interactionResultText = this.add.text(20, 545, "", {
-    color: "#7CFC00",
-    fontSize: "16px"
-  });
+  interactionResultText = null;
 
   tileEditorText = null;
   updateTileEditorText();
@@ -8817,21 +8837,22 @@ function updateCubePlayerMarker(direction=players?.[myId]?.lastDirection||"down"
 function renderCubeMinimap(){if(!cubeMinimapRoot||typeof CUBE_PLANET_EDGES==="undefined")return;const activeMap=currentMapKey==="cube_north"?DEFAULT_MAP_KEY:(currentMapKey||DEFAULT_MAP_KEY),edges=CUBE_PLANET_EDGES[activeMap]||CUBE_PLANET_EDGES.default_room,geographicEdge={north:"west",east:"north",south:"east",west:"south"};cubeMinimapRoot.querySelectorAll("[data-cube-face]").forEach((button)=>{const slot=button.dataset.cubeFace,mapKey=slot==="center"?activeMap:edges[geographicEdge[slot]]?.map,active=slot==="center";button.dataset.mapKey=mapKey;button.className=`planet-${String(mapKey).replace("cube_","")}${active?" active":""}`;button.innerHTML=`<span class="cube-planet-land" aria-hidden="true"></span><span class="cube-face-label">${CUBE_FACE_LABELS[mapKey]||mapKey}</span>${active?'<i class="cube-player-marker" aria-label="Current location"></i>':""}`;});updateCubePlayerMarker();}
 function ensureCubeMinimap(){if(cubeMinimapRoot)return;const root=document.createElement("aside");root.className="cube-minimap";root.innerHTML=`<div class="cube-minimap-body" aria-label="Cube planet minimap"><button type="button" data-cube-face="north"></button><button type="button" data-cube-face="west"></button><button type="button" data-cube-face="center"></button><button type="button" data-cube-face="east"></button><button type="button" data-cube-face="south"></button></div>`;document.body.appendChild(root);cubeMinimapRoot=root;root.querySelectorAll("[data-cube-face]").forEach((button)=>button.addEventListener("click",()=>teleportToCubeFace(button.dataset.mapKey)));renderCubeMinimap();}
 
-async function teleportToCubeFace(mapKey){if(!CUBE_PLANET_MAP_KEYS.has(mapKey)||isMapTransitionInProgress)return;const previous=currentMapKey||DEFAULT_MAP_KEY;pendingSpawnX=ROOM_OFFSET_X+getCurrentRoomLogicalWidth()/2;pendingSpawnY=ROOM_OFFSET_Y+getCurrentRoomLogicalHeight()/2;pendingTeleportToSpawn=false;await runMapTransitionFade(async()=>{setCurrentMapKey(mapKey);await rejoinCurrentMap(previous);});renderCubeMinimap();}
+async function teleportToCubeFace(mapKey){if(!CUBE_PLANET_MAP_KEYS.has(mapKey)||isMapTransitionInProgress)return;const previous=currentMapKey||DEFAULT_MAP_KEY;await flushVoxelMapAutosave(previous);pendingSpawnX=ROOM_OFFSET_X+getCurrentRoomLogicalWidth()/2;pendingSpawnY=ROOM_OFFSET_Y+getCurrentRoomLogicalHeight()/2;pendingTeleportToSpawn=false;await runMapTransitionFade(async()=>{setCurrentMapKey(mapKey);await rejoinCurrentMap(previous);});renderCubeMinimap();}
 const seam=(map,entry,reverse=false)=>({map,entry,reverse});
 const CUBE_PLANET_EDGES={
   default_room:{north:seam("cube_east","south"),south:seam("cube_west","north"),east:seam("cube_bottom","west"),west:seam("cube_top","east")},
-  cube_east:{north:seam("cube_south","south"),south:seam("default_room","north"),east:seam("cube_top","west"),west:seam("cube_bottom","east")},
-  cube_south:{north:seam("cube_west","south"),south:seam("cube_east","north"),east:seam("cube_top","west"),west:seam("cube_bottom","east")},
-  cube_west:{north:seam("default_room","south"),south:seam("cube_south","north"),east:seam("cube_top","west"),west:seam("cube_bottom","east")},
-  cube_top:{north:seam("cube_east","east"),south:seam("cube_west","east"),east:seam("default_room","west"),west:seam("cube_south","east")},
-  cube_bottom:{north:seam("cube_east","west"),south:seam("cube_west","west"),east:seam("cube_south","west"),west:seam("default_room","east")}
+  cube_east:{north:seam("cube_south","south"),south:seam("default_room","north"),east:seam("cube_bottom","west"),west:seam("cube_top","east")},
+  cube_south:{north:seam("cube_west","south"),south:seam("cube_east","north"),east:seam("cube_bottom","west"),west:seam("cube_top","east")},
+  cube_west:{north:seam("default_room","south"),south:seam("cube_south","north"),east:seam("cube_bottom","west"),west:seam("cube_top","east")},
+  cube_top:{north:seam("cube_east","south"),south:seam("cube_west","north"),east:seam("default_room","west"),west:seam("cube_south","east")},
+  cube_bottom:{north:seam("cube_east","south"),south:seam("cube_west","north"),east:seam("cube_south","west"),west:seam("default_room","east")}
 };
 
-function transitionAcrossPlanetEdge(edge){
+async function transitionAcrossPlanetEdge(edge){
   if(isMapTransitionInProgress)return;const source=currentMapKey||DEFAULT_MAP_KEY;const crossing=CUBE_PLANET_EDGES[source]?.[edge];if(!crossing)return;const destination=crossing.map;
   planetEdgeTransitionArmed=false;pendingTeleportToSpawn=false;const minX=ROOM_OFFSET_X+TILE_SIZE/2,minY=ROOM_OFFSET_Y+TILE_SIZE/2,maxX=ROOM_OFFSET_X+getCurrentRoomLogicalWidth()-TILE_SIZE/2,maxY=ROOM_OFFSET_Y+getCurrentRoomLogicalHeight()-TILE_SIZE/2;const inset=TILE_SIZE*.6;const player=room?.state?.players?.get?.(myId);const x=player?.x??(minX+maxX)/2,y=player?.y??(minY+maxY)/2;const sourceT=(edge==="north"||edge==="south")?(x-minX)/(maxX-minX):(y-minY)/(maxY-minY);const t=Math.max(0,Math.min(1,crossing.reverse?1-sourceT:sourceT)),mappedX=minX+t*(maxX-minX),mappedY=minY+t*(maxY-minY);pendingSpawnX=crossing.entry==="west"?minX+inset:crossing.entry==="east"?maxX-inset:mappedX;pendingSpawnY=crossing.entry==="north"?minY+inset:crossing.entry==="south"?maxY-inset:mappedY;
   standaloneInput={...standaloneInput,left:false,right:false,up:false,down:false};sendRoomMessage("input",{left:false,right:false,up:false,down:false,editorMode:false,speedScale:1});showStatusMessage("Loading the next planet face…",false);
+  await flushVoxelMapAutosave(source);
   runMapTransitionFade(async()=>{try{setCurrentMapKey(destination);await rejoinCurrentMap(source);}catch(error){console.error("Planet edge transition failed:",error);setCurrentMapKey(source);}}).then(()=>{planetEdgeTransitionArmed=true;renderCubeMinimap();});
 }
 
@@ -12243,6 +12264,7 @@ function createEcosystemGraphUI() {
   ecosystemGraphCtx = ecosystemGraphCanvas.getContext("2d");
 
   body.appendChild(ecosystemGraphCanvas);
+  const legend=document.createElement("small");legend.style.color="#bdd0d8";legend.textContent="Green: visible plants · Gold: herbivores · Red: carnivores · Purple: apex predators";body.appendChild(legend);
 }
 
 function createEcosystemCounterGraphUI() {
@@ -12274,6 +12296,7 @@ function createEcosystemCounterGraphUI() {
   ecosystemCounterGraphCtx = ecosystemCounterGraphCanvas.getContext("2d");
 
   body.appendChild(ecosystemCounterGraphCanvas);
+  const explanation=document.createElement("small");explanation.style.color="#bdd0d8";explanation.textContent="Plant Counter Total = plants + (herbivores × 3) + (carnivores × 9) + (apex × 25) + stored animal plant counters.";body.appendChild(explanation);
 }
 
 function createAnimalVitalsUI() {
