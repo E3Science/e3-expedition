@@ -246,7 +246,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       entry.root.scale.set(scale, scale, 0.5);
       entry.shadow.sprite.position.set(entry.x,-entry.surfaceY-4,entry.root.position.z-0.01);
       entry.nameplate.sprite.position.set(entry.x,-entry.y+76,1901);
-      const obscuringBlocks=[...blockEntries.values()].filter((block)=>!block.isTransparent&&!block.preview&&Math.abs(block.sprite.position.x-entry.x)<30&&entry.y<=block.targetY+4&&entry.y>=block.targetY-72&&block.sprite.position.z>entry.root.position.z);
+      const obscuringBlocks=[...blockEntries.values()].filter((block)=>!block.isTransparent&&!block.preview&&Number(block.sortY)>Number(entry.sortY)+6&&Math.abs(block.sprite.position.x-entry.x)<30&&entry.y<=block.targetY+4&&entry.y>=block.targetY-72&&block.sprite.position.z>entry.root.position.z);
 
       const directionRotations = {
         down: 0,
@@ -301,7 +301,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       if (!block.canvas) return;
       const width=Number(block.width)||64,height=Number(block.height)||64,baseOpacity=Number.isFinite(block.opacity)?block.opacity:(block.transparent ? .68 : 1),startY=Number.isFinite(block.startY)?block.startY:block.y,z=ISOMETRIC_DEPTH_BASE+block.sortY*ISOMETRIC_DEPTH_STEP+(block.z||1)*.1;
       const existing=blockEntries.get(block.id);
-      if(existing&&existing.canvas===block.canvas&&existing.flipX===!!block.flipX){existing.sprite.position.x=block.x;existing.sprite.position.z=z;existing.sprite.scale.set(width,height,1);existing.material.opacity=baseOpacity;existing.material.depthWrite=!block.transparent;existing.material.alphaHash=!!block.transparent&&improvedTransparencyEnabled;existing.baseOpacity=baseOpacity;existing.isTransparent=!!block.transparent;existing.preview=!!block.preview;existing.ditherBounds=block.ditherBounds||null;existing.animated=!!block.animated;existing.waterBob=!!block.waterBob;if(existing.targetY!==block.y){existing.startY=-existing.sprite.position.y+height/2;existing.targetY=block.y;existing.fallStartedAt=performance.now();existing.duration=Math.min(850,300+Math.abs(block.y-existing.startY)*7);}return;}
+      if(existing&&existing.canvas===block.canvas&&existing.flipX===!!block.flipX){existing.sprite.position.x=block.x;existing.sprite.position.z=z;existing.sprite.scale.set(width,height,1);existing.sortY=block.sortY;existing.material.opacity=baseOpacity;existing.material.depthWrite=!block.transparent;existing.material.alphaHash=!!block.transparent&&improvedTransparencyEnabled;existing.baseOpacity=baseOpacity;existing.isTransparent=!!block.transparent;existing.preview=!!block.preview;existing.ditherBounds=block.ditherBounds||null;existing.animated=!!block.animated;existing.waterBob=!!block.waterBob;if(existing.targetY!==block.y){existing.startY=-existing.sprite.position.y+height/2;existing.targetY=block.y;existing.fallStartedAt=performance.now();existing.duration=Math.min(850,300+Math.abs(block.y-existing.startY)*7);}return;}
       if(existing){existing.material.dispose();existing.sprite.removeFromParent();blockEntries.delete(block.id);}
       const textureVariant=block.flipX?"flipped":"normal";let variants=textureByCanvas.get(block.canvas)||{},texture=variants[textureVariant];if(!texture){texture = new THREE.CanvasTexture(block.canvas);texture.colorSpace = THREE.SRGBColorSpace;texture.magFilter = THREE.NearestFilter;texture.minFilter = THREE.NearestFilter;if(block.flipX){texture.wrapS=THREE.RepeatWrapping;texture.repeat.x=-1;texture.offset.x=1;}variants[textureVariant]=texture;textureByCanvas.set(block.canvas,variants);}
       const material = new THREE.SpriteMaterial({ map: texture, transparent:true,opacity:baseOpacity,depthWrite:!block.transparent,alphaTest:block.transparent?0:.02 });
@@ -310,7 +310,7 @@ export function createWorldPortalLayer({ container, phaserCanvas, getCamera, mod
       sprite.position.set(block.x,-startY+height/2,z);
       sprite.scale.set(width, height, 1);
       blockRoot.add(sprite);
-      material.alphaHash=!!block.transparent&&improvedTransparencyEnabled;blockEntries.set(block.id,{sprite,material,canvas:block.canvas,flipX:!!block.flipX,baseOpacity,isTransparent:!!block.transparent,preview:!!block.preview,ditherBounds:block.ditherBounds||null,animated:!!block.animated,waterBob:!!block.waterBob,phase:block.materialKey==="portal"?Math.PI:0,startY,targetY:block.y,fallStartedAt:performance.now(),duration:Math.min(850,300+Math.abs(block.y-startY)*7)});
+      material.alphaHash=!!block.transparent&&improvedTransparencyEnabled;blockEntries.set(block.id,{sprite,material,canvas:block.canvas,flipX:!!block.flipX,sortY:block.sortY,baseOpacity,isTransparent:!!block.transparent,preview:!!block.preview,ditherBounds:block.ditherBounds||null,animated:!!block.animated,waterBob:!!block.waterBob,phase:block.materialKey==="portal"?Math.PI:0,startY,targetY:block.y,fallStartedAt:performance.now(),duration:Math.min(850,300+Math.abs(block.y-startY)*7)});
     });
     const activeTextures=new Set([...blockEntries.values()].map((entry)=>entry.material.map));oldTextures.forEach((texture)=>{if(!activeTextures.has(texture))texture.dispose();});
   }

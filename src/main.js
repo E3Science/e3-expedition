@@ -11181,31 +11181,7 @@ function drawRoom(scene) {
   refreshPlayerDebugGraphics(scene);
   refreshCameraBounds(scene);
 
-  stationBar = scene.add.rectangle(
-    scene.cameras.main.width / 2,
-    scene.cameras.main.height - 18,
-    scene.cameras.main.width - 8,
-    36,
-    0x000000,
-    0.82
-  );
-  stationBar.setDepth(1000);
-  stationBar.setScrollFactor(0);
-
-  stationText = scene.add.text(
-    scene.cameras.main.width / 2,
-    scene.cameras.main.height - 28,
-    "",
-    {
-      color: "#ffffff",
-      fontSize: "16px",
-      stroke: "#000000",
-      strokeThickness: 3
-    }
-  );
-  stationText.setOrigin(0.5, 0);
-  stationText.setDepth(1001);
-  stationText.setScrollFactor(0);
+  stationBar?.destroy?.();stationText?.destroy?.();stationBar=null;stationText=null;
 }
 
 /*
